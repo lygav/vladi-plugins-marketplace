@@ -278,29 +278,37 @@ function launchTeam(
   }
 
   // OTel MCP config (if telemetry enabled)
-  const otelArgs: string[] = [];
+  // Write .mcp.json into the worktree so the headless session auto-discovers it.
+  // This is more reliable than --additional-mcp-config which depends on npx/tsx resolution.
   if (config.telemetry.enabled) {
-    const mcpConfig = {
-      mcpServers: {
-        otel: {
-          command: 'npx',
-          args: ['tsx', path.resolve(__dirname, 'mcp-otel-server.ts')],
-          env: {
-            OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318',
-            OTEL_SERVICE_NAME: `squad-${worktree.domain}`,
-            SQUAD_DOMAIN: worktree.domain,
+    const otelServerPath = path.resolve(__dirname, 'mcp-otel-server.ts');
+    if (!fs.existsSync(otelServerPath)) {
+      console.warn(`   ⚠️  OTel MCP server not found at ${otelServerPath}, skipping telemetry`);
+    } else {
+      const worktreeMcpConfig = {
+        mcpServers: {
+          'squad-otel': {
+            command: 'npx',
+            args: ['tsx', otelServerPath],
+            env: {
+              OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318',
+              OTEL_SERVICE_NAME: `squad-${worktree.domain}`,
+              SQUAD_DOMAIN: worktree.domain,
+            },
           },
         },
-      },
-    };
-    otelArgs.push('--additional-mcp-config', JSON.stringify(mcpConfig));
+      };
+      const mcpJsonPath = path.join(worktree.path, '.mcp.json');
+      fs.writeFileSync(mcpJsonPath, JSON.stringify(worktreeMcpConfig, null, 2));
+      console.log(`   🔭 OTel MCP config written to ${mcpJsonPath}`);
+    }
   }
 
   // Launch via copilot (or agency copilot)
   const launcher = process.env.SQUAD_LAUNCHER || 'copilot';
   const launcherArgs = launcher === 'agency'
-    ? ['copilot', '--agent', 'squad', '-p', prompt, '--yolo', '--no-ask-user', '--autopilot', ...mcpArgs, ...otelArgs]
-    : ['-p', prompt, '--yolo', '--no-ask-user', '--autopilot', ...mcpArgs, ...otelArgs];
+    ? ['copilot', '--agent', 'squad', '-p', prompt, '--yolo', '--no-ask-user', '--autopilot', ...mcpArgs]
+    : ['-p', prompt, '--yolo', '--no-ask-user', '--autopilot', ...mcpArgs];
 
   const proc = spawn(launcher, launcherArgs, {
     cwd: worktree.path,
