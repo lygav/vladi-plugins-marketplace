@@ -35,6 +35,42 @@ copilot plugin install squad-federation-core@vladi-plugins-marketplace
 | **Monitoring dashboard** | Real-time status of all teams — state, current step, progress, staleness. Watch mode with configurable interval. |
 | **Schema-first deliverables** | Deliverable archetype drives schema evolution from first run. Validation at aggregation time. Schema becomes institutional knowledge. |
 
+## How It Works
+
+```
+Install plugin → Describe your goal → Core setup wizard runs
+       │                                      │
+       │              ┌───────────────────────┘
+       │              ▼
+       │    Select work pattern (archetype)
+       │              │
+       │              ▼
+       │    Auto-install archetype plugin
+       │              │
+       │              ▼
+       │    Archetype setup wizard runs
+       │    (deliverable: filename, schema, steps)
+       │    (coding: PR branch, conventions, tests)
+       │              │
+       │              ▼
+       │    Configure MCP stack + telemetry
+       │              │
+       │              ▼
+       │    Cast meta-squad (leadership team)
+       │              │
+       │              ▼
+       │    Onboard first team → persistent worktree
+       │    Squad casts team, archetype seeds playbook
+       │    Marketplace skills suggested for the team
+       │              │
+       │              ▼
+       │    Launch team → headless session runs autonomously
+       │    Monitor progress → signals dashboard
+       └──────────────────────────────────────────────
+```
+
+Each layer owns its config. Core writes `federate.config.json` (4 fields). Archetypes write `.squad/archetype-config.json` in each team's worktree. Squad handles casting. You describe the goal — the system assembles itself.
+
 ## Quick Start
 
 Install the plugin, start a Copilot session, and say any of these:
