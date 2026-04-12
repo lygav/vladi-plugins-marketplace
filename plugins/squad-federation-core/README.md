@@ -73,41 +73,50 @@ Each layer owns its config. Core writes `federate.config.json` (4 fields). Arche
 
 ## Quick Start
 
-Install the plugin, start a Copilot session, and say any of these:
+### First time: Set up federation + first team
 
 ```bash
 copilot plugin install squad-federation-core@vladi-plugins-marketplace
 ```
 
 ```
-> federate this project
 > go multi-team
-> I need multiple teams
-> set up federation
+```
+
+The setup wizard walks you through:
+1. Describe your goal
+2. Pick work pattern for your first team (deliverable, coding, research, task)
+3. Auto-installs the right archetype plugin
+4. Configure MCP stack, telemetry, branch prefix
+5. Cast your meta-squad (leadership team)
+6. Onboard your first team — archetype setup wizard fine-tunes it
+
+### Later: Add more teams
+
+```
 > spin up a team for [something]
 ```
 
-Or invoke the federation agent directly:
-```
-> @federation set up a team organization for [your goal]
-```
+The onboard flow handles the rest:
+1. Pick archetype for this team (installs new archetype if needed)
+2. Create worktree + branch
+3. Archetype setup wizard configures team-specific settings
+4. Squad casts the team
+5. Marketplace skills suggested based on the team's purpose
 
-The `federation-setup` skill handles everything conversationally:
-1. Asks about your domain and work pattern
-2. Auto-installs the right archetype plugin
-3. Generates `federate.config.json`
-4. Casts your meta-squad
-5. Offers to onboard your first team
+Each team can have a different archetype — a coding team and a deliverable team managed by the same meta-squad.
 
-From there, use natural language to manage your federation:
-- *"Spin off a backend team for the payments service"*
+### Day-to-day
+
 - *"Launch the payments team"*
 - *"How are my teams doing?"*
+- *"Tell the frontend team to use Tailwind"*
 - *"Sync skills to all teams"*
+- *"What did the research team learn?"*
 
-> **`@federation`** — you can always invoke the federation agent explicitly for any multi-team operation. It works alongside Squad's coordinator without competing for input.
+> **`@federation`** — invoke the federation agent directly for any multi-team operation. Works alongside Squad's coordinator.
 
-> **Power users:** All operations are also available as scripts (`scripts/onboard.ts`, `scripts/launch.ts`, `scripts/monitor.ts`, etc.). See [ARCHITECTURE.md](ARCHITECTURE.md) §10 for CLI reference.
+> **Power users:** Scripts available at `scripts/onboard.ts`, `scripts/launch.ts`, `scripts/monitor.ts`, etc. See [ARCHITECTURE.md](ARCHITECTURE.md) §10.
 
 > **📖 Full walkthrough:** See [EXAMPLE.md](EXAMPLE.md) for a complete end-to-end example — from empty project to running federated teams.
 
