@@ -1,6 +1,6 @@
 ---
 name: "federation-setup"
-description: "The user wants to set up or configure a new federation from scratch, initialize federated squads, create a federate.config.json, or run the federation configuration wizard. Triggers on: set up federation, configure federation, federate init, initialize federation, setup wizard, create federation config, new federation."
+description: "The user wants to set up or configure a new federation. Triggers on: federate this project, set up federation, go multi-team, I need multiple teams, I need a team org, create a meta-squad, configure federation, federate init, initialize federation, setup wizard, new federation, team organization."
 version: "0.1.0"
 ---
 
