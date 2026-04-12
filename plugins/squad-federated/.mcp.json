@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "squad-otel": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/mcp-otel-server.ts"],
+      "env": {
+        "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318",
+        "OTEL_SERVICE_NAME": "squad-federated",
+        "SQUAD_DOMAIN": "default"
+      }
+    }
+  }
+}
