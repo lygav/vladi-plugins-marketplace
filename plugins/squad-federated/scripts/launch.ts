@@ -47,6 +47,26 @@ interface FederateConfig {
   playbookSkill: string;
 }
 
+function readDomainId(worktreePath: string, fallback: string): string {
+  // Try DOMAIN_CONTEXT.md first
+  const contextPath = path.join(worktreePath, 'DOMAIN_CONTEXT.md');
+  if (fs.existsSync(contextPath)) {
+    const content = fs.readFileSync(contextPath, 'utf-8');
+    const match = content.match(/^Domain ID:\s*(.+)$/m);
+    if (match && match[1].trim()) return match[1].trim();
+  }
+
+  // Fall back to .squad/team.md
+  const teamPath = path.join(worktreePath, '.squad', 'team.md');
+  if (fs.existsSync(teamPath)) {
+    const content = fs.readFileSync(teamPath, 'utf-8');
+    const match = content.match(/^Domain ID:\s*(.+)$/m);
+    if (match && match[1].trim()) return match[1].trim();
+  }
+
+  return fallback;
+}
+
 type RunType = 'first-run' | 'refresh' | 'reset';
 
 // ==================== Config Loading ====================
@@ -236,7 +256,8 @@ function launchTeam(
     resetTeam(worktree.path);
   }
 
-  initializeSignals(worktree.path, worktree.domain, '');
+  const domainId = readDomainId(worktree.path, worktree.domain);
+  initializeSignals(worktree.path, worktree.domain, domainId);
   console.log('   📡 Signals initialized');
 
   // Resolve prompt

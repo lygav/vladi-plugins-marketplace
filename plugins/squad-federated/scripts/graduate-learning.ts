@@ -17,7 +17,7 @@ import { LearningLog, LearningEntry } from './lib/learning-log.js';
 
 const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
 const DECISIONS_INBOX = path.join(REPO_ROOT, '.squad', 'decisions', 'inbox');
-const BRANCH_PREFIX = process.env.SQUAD_BRANCH_PREFIX || 'scan/';
+const BRANCH_PREFIX = process.env.FEDERATE_BRANCH_PREFIX || 'squad/';
 
 interface GraduationCandidate {
   entry: LearningEntry;
@@ -79,7 +79,7 @@ function findGraduationCandidates(branches: string[]): GraduationCandidate[] {
       // Must be generalizable, high confidence, and not already graduated
       if (entry.domain === 'generalizable' &&
           entry.confidence === 'high' &&
-          !entry.graduated_to_skill) {
+          !entry.graduated) {
 
         // Calculate score based on evidence and related skill
         let score = 0;
@@ -155,9 +155,9 @@ function generateGraduationDraft(
   draft += `**Target Skill:** ${skill}\n`;
   draft += `**Date:** ${new Date().toISOString().split('T')[0]}\n\n`;
 
-  draft += `## Summary\n\n${entry.summary}\n\n`;
+  draft += `## Summary\n\n${entry.title}\n\n`;
 
-  draft += `## Detail\n\n${entry.detail}\n\n`;
+  draft += `## Detail\n\n${entry.body}\n\n`;
 
   if (entry.evidence && entry.evidence.length > 0) {
     draft += `## Evidence\n\n`;
@@ -171,8 +171,8 @@ function generateGraduationDraft(
 
   draft += `## Proposed Addition to ${skill}\n\n`;
   draft += '```markdown\n';
-  draft += `### ${entry.summary}\n\n`;
-  draft += `${entry.detail}\n\n`;
+  draft += `### ${entry.title}\n\n`;
+  draft += `${entry.body}\n\n`;
 
   if (entry.evidence && entry.evidence.length > 0) {
     draft += `**Evidence:**\n`;
@@ -270,7 +270,7 @@ function printCandidates(candidates: GraduationCandidate[]): void {
     const candidate = candidates[i];
     const num = String(i + 1).padStart(2, ' ');
 
-    console.log(`${num}. [${candidate.domain}] ${candidate.entry.agent}: ${candidate.entry.summary}`);
+    console.log(`${num}. [${candidate.domain}] ${candidate.entry.agent}: ${candidate.entry.title}`);
     console.log(`    ID: ${candidate.entry.id}`);
     console.log(`    Confidence: ${candidate.entry.confidence} | Score: ${candidate.score}`);
 

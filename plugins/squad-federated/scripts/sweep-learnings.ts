@@ -18,7 +18,7 @@ import { execSync } from 'child_process';
 import { LearningLog, LearningEntry } from './lib/learning-log.js';
 
 const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
-const BRANCH_PREFIX = process.env.SQUAD_BRANCH_PREFIX || 'scan/';
+const BRANCH_PREFIX = process.env.FEDERATE_BRANCH_PREFIX || 'squad/';
 
 interface Pattern {
   topic: string;
@@ -67,7 +67,7 @@ function collectGeneralizableLearnings(branches: string[]): Map<string, Learning
     // Filter for generalizable, non-graduated entries
     const generalizable = entries.filter(e =>
       e.domain === 'generalizable' &&
-      !e.graduated_to_skill
+      !e.graduated
     );
 
     // Apply tag filter if specified
@@ -187,12 +187,12 @@ function groupBySimilarity(learningsByDomain: Map<string, LearningEntry[]>): Pat
     const similar: Array<{ domain: string; entry: LearningEntry }> = [allEntries[i]];
     processed.add(allEntries[i].entry.id);
 
-    const keywords = extractKeywords(allEntries[i].entry.summary);
+    const keywords = extractKeywords(allEntries[i].entry.title);
 
     for (let j = i + 1; j < allEntries.length; j++) {
       if (processed.has(allEntries[j].entry.id)) continue;
 
-      const otherKeywords = extractKeywords(allEntries[j].entry.summary);
+      const otherKeywords = extractKeywords(allEntries[j].entry.title);
       const overlap = keywords.filter(k => otherKeywords.includes(k)).length;
 
       if (overlap >= 2) {
@@ -267,7 +267,7 @@ function generateMarkdownReport(
 
       md += '**Evidence:**\n';
       for (const { domain, entry } of pattern.entries) {
-        md += `- [${domain}] ${entry.agent}: "${entry.summary}"\n`;
+        md += `- [${domain}] ${entry.agent}: "${entry.title}"\n`;
       }
       md += '\n';
     }
@@ -284,7 +284,7 @@ function generateMarkdownReport(
 
       md += '**Examples:**\n';
       for (const { domain, entry } of pattern.entries.slice(0, 3)) {
-        md += `- [${domain}] ${entry.agent}: "${entry.summary}"\n`;
+        md += `- [${domain}] ${entry.agent}: "${entry.title}"\n`;
       }
       md += '\n';
     }
@@ -301,7 +301,7 @@ function generateMarkdownReport(
 
       md += '**Evidence:**\n';
       for (const { domain, entry } of pattern.entries) {
-        md += `- [${domain}] ${entry.agent}: "${entry.summary}"\n`;
+        md += `- [${domain}] ${entry.agent}: "${entry.title}"\n`;
       }
       md += '\n';
     }
@@ -318,7 +318,7 @@ function generateMarkdownReport(
     const ungrouped = entries.filter(e => !groupedIds.has(e.id));
 
     for (const entry of ungrouped) {
-      md += `- [${domain}] ${entry.agent}: "${entry.summary}"\n`;
+      md += `- [${domain}] ${entry.agent}: "${entry.title}"\n`;
       md += `  - **Tags:** ${entry.tags.join(', ')}\n`;
       md += `  - **Confidence:** ${entry.confidence}\n`;
       if (entry.related_skill) {
@@ -368,7 +368,7 @@ function printConsoleReport(
 
       console.log('Evidence:');
       for (const { domain, entry } of pattern.entries.slice(0, 2)) {
-        console.log(`  - [${domain}] ${entry.agent}: "${entry.summary}"`);
+        console.log(`  - [${domain}] ${entry.agent}: "${entry.title}"`);
       }
       console.log('');
     }

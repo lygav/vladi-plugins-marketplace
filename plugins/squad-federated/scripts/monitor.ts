@@ -112,7 +112,7 @@ function gatherStatus(): DomainStatus[] {
   return worktrees.map(wt => {
     const status = readStatus(wt.path);
     const deliverablePath = path.join(wt.path, deliverableFile);
-    const logPath = path.join(wt.path, 'scan-output.log');
+    const logPath = path.join(wt.path, 'run-output.log');
 
     let lastUpdateMinutes: number | undefined;
     if (status && status.updated_at) {

@@ -18,7 +18,7 @@ import { execSync } from 'child_process';
 const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
 const MAIN_BRANCH = process.env.SQUAD_MAIN_BRANCH || 'main';
 const SKILLS_DIR = '.squad/skills';
-const BRANCH_PREFIX = process.env.SQUAD_BRANCH_PREFIX || 'scan/';
+const BRANCH_PREFIX = process.env.FEDERATE_BRANCH_PREFIX || 'squad/';
 
 interface SyncState {
   last_sync_from: string;
@@ -40,7 +40,7 @@ interface DomainBranch {
 const args = process.argv.slice(2);
 const flags = {
   skill: args.find(a => a.startsWith('--skill='))?.split('=')[1] || args.find((a, i) => args[i - 1] === '--skill') || null,
-  domain: args.find(a => a.startsWith('''--team='''))?.split('=')[1] || args.find((a, i) => args[i - 1] === '--team') || null,
+  domain: args.find(a => a.startsWith('--team='))?.split('=')[1] || args.find((a, i) => args[i - 1] === '--team') || null,
   dryRun: args.includes('--dry-run'),
 };
 
@@ -186,7 +186,7 @@ function discoverDomains(): DomainBranch[] {
     const syncState = readSyncState(branch);
 
     const needsSync = !syncState ||
-                      (mainSkillsCommit && syncState.last_sync_commit !== mainSkillsCommit);
+                      !!(mainSkillsCommit && syncState.last_sync_commit !== mainSkillsCommit);
 
     const conflicts: string[] = [];
 
@@ -257,12 +257,12 @@ function syncSkillsToWorktree(
 
     execSync('git add .squad/skills/ docs/schemas/', { stdio: 'pipe' });
 
-    const hasChanges = execSync('git diff --cached --quiet', {
+    const hasChanges = execSync('git diff --cached --name-only', {
       stdio: 'pipe',
-      encoding: 'utf-8'
-    }).trim() === '';
+      encoding: 'utf-8',
+    }).trim().length > 0;
 
-    if (!hasChanges) {
+    if (hasChanges) {
       execSync(`git commit -m "${commitMsg}\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"`, {
         stdio: 'pipe',
       });

@@ -7,7 +7,6 @@
     "onboard": "tsx onboard.ts",
     "launch": "tsx launch.ts",
     "monitor": "tsx monitor.ts",
-    "aggregate": "tsx aggregate.ts",
     "learn": "tsx learn.ts",
     "query": "tsx query-learnings.ts",
     "sync-skills": "tsx sync-skills.ts",

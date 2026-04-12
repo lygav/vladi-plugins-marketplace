@@ -26,6 +26,10 @@ export interface LearningEntry {
   confidence: 'low' | 'medium' | 'high';
   source?: string;
   supersedes?: string;
+  related_skill?: string;
+  evidence?: string[];
+  graduated?: boolean;
+  graduated_to?: string;
 }
 
 // ==================== LearningLog Class ====================
@@ -112,7 +116,8 @@ export class LearningLog {
     const result = new Map<string, LearningEntry[]>();
 
     try {
-      const branches = execSync('git branch --list "scan/*"', {
+      const branchPrefix = process.env.FEDERATE_BRANCH_PREFIX || 'squad/';
+      const branches = execSync(`git branch --list "${branchPrefix}*"`, {
         cwd: root, encoding: 'utf-8',
       }).trim().split('\n').map(b => b.trim().replace('* ', ''));
 
@@ -120,7 +125,7 @@ export class LearningLog {
         if (branch) {
           const entries = LearningLog.readFromBranch(branch, root);
           if (entries.length > 0) {
-            result.set(branch.replace('scan/', ''), entries);
+            result.set(branch.replace(branchPrefix, ''), entries);
           }
         }
       }
@@ -129,6 +134,36 @@ export class LearningLog {
     }
 
     return result;
+  }
+
+  markGraduated(id: string, graduatedTo: string): void {
+    if (!fs.existsSync(this.logPath)) {
+      throw new Error(`Learning log not found: ${this.logPath}`);
+    }
+
+    const lines = fs.readFileSync(this.logPath, 'utf-8').trim().split('\n').filter(Boolean);
+    let found = false;
+
+    const updated = lines.map(line => {
+      try {
+        const entry = JSON.parse(line);
+        if (entry.id === id) {
+          found = true;
+          entry.graduated = true;
+          entry.graduated_to = graduatedTo;
+          return JSON.stringify(entry);
+        }
+        return line;
+      } catch {
+        return line;
+      }
+    });
+
+    if (!found) {
+      throw new Error(`Learning entry not found: ${id}`);
+    }
+
+    fs.writeFileSync(this.logPath, updated.join('\n') + '\n');
   }
 
   count(): number {
