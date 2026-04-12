@@ -1,4 +1,4 @@
-# Copilot Plugins — Vladi Lyga
+# Vladi's Plugin Marketplace
 
 Personal Copilot CLI plugin marketplace with reusable plugins for AI-assisted development workflows.
 
@@ -6,13 +6,13 @@ Personal Copilot CLI plugin marketplace with reusable plugins for AI-assisted de
 
 ```bash
 # Register this marketplace
-copilot plugin marketplace add lygav/copilot-plugins
+copilot plugin marketplace add lygav/vladi-plugins-marketplace
 
 # Browse available plugins
-copilot plugin marketplace browse copilot-plugins
+copilot plugin marketplace browse vladi-plugins-marketplace
 
 # Install a plugin
-copilot plugin install squad-federated@copilot-plugins
+copilot plugin install squad-federated@vladi-plugins-marketplace
 ```
 
 ## Available Plugins

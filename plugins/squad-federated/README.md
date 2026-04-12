@@ -29,11 +29,11 @@ Each domain squad:
 
 ```bash
 # From marketplace
-copilot plugin marketplace add lygav/copilot-plugins
-copilot plugin install squad-federated@copilot-plugins
+copilot plugin marketplace add lygav/vladi-plugins-marketplace
+copilot plugin install squad-federated@vladi-plugins-marketplace
 
 # Or directly from GitHub
-copilot plugin install lygav/copilot-plugins:plugins/squad-federated
+copilot plugin install lygav/vladi-plugins-marketplace:plugins/squad-federated
 
 # Or from local path
 copilot plugin install ./path/to/squad-federated

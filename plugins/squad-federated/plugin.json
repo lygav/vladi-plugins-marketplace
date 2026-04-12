@@ -5,7 +5,7 @@
   "author": {
     "name": "Vladi Lyga"
   },
-  "repository": "https://github.com/lygav/copilot-plugins",
+  "repository": "https://github.com/lygav/vladi-plugins-marketplace",
   "license": "MIT",
   "keywords": ["squad", "federation", "multi-team", "orchestration", "domain-experts", "otel", "knowledge-management"],
   "category": "workflow",
