@@ -1,86 +1,44 @@
 # squad-federation-core
 
-**Core plumbing for federated Squad teams** — launches squads, manages worktrees, runs the knowledge lifecycle, and provides the signal protocol. Archetype-unaware by design.
+Manage multiple permanent AI teams from a single leadership squad. Each team gets its own git worktree, agents, and accumulated knowledge. The meta-squad coordinates, monitors, and flows knowledge across teams.
 
-> **Built on [Squad](https://github.com/bradygaster/squad).** This plugin extends Squad with federation capabilities. Squad must be installed in your project (`squad init`) before using federation. The `squad.agent.md` coordinator, casting system, and agent framework are provided by Squad — this plugin adds the multi-team orchestration layer on top.
+> **Built on [Squad](https://github.com/bradygaster/squad).** This plugin extends Squad with multi-team orchestration. Squad provides the agent framework and casting — this plugin adds the federation layer.
 
-## Prerequisites
+## Before You Start
 
-- **[Squad](https://github.com/bradygaster/squad)** — installed in your project (`squad init` or `squad init --sdk`)
-- **Git 2.20+** — worktree support
-- **Node.js 20+** — scripts runtime
-- **Docker** *(optional)* — for Aspire OTel dashboard
+1. **Install [Squad](https://github.com/bradygaster/squad)** and initialize it in your project:
+   ```bash
+   npm install -g @bradygaster/squad-cli
+   cd your-project
+   git init  # if not already a git repo
+   squad init
+   ```
 
-## Installation
+2. **Verify prerequisites:**
+   - Git 2.20+ (worktree support)
+   - Node.js 20+
+   - Docker *(optional — for the OTel monitoring dashboard)*
 
-```bash
-copilot plugin install squad-federation-core@vladi-plugins-marketplace
-```
-
-## Features
-
-| Feature | Description |
-|---------|-------------|
-| **Conversational setup** | Describe your goal in natural language — *"federate this project"*, *"go multi-team"*, *"I need multiple teams"*. The setup skill configures everything. |
-| **`@federation` agent** | Dedicated agent for explicit federation control. Invoke `@federation` anytime to bypass Squad's coordinator and go straight to multi-team operations. |
-| **Persistent team worktrees** | Each team gets a permanent git worktree with its own branch, agents, and accumulated knowledge. |
-| **Archetype system** | Install goal-specific behavior (deliverable, coding, research) as plugins. Teams learn new capabilities on install — like Neo downloading skills. |
-| **Signal protocol** | File-based IPC between meta-squad and teams. Status tracking, directives, reports, alerts — all via `.squad/signals/`. |
-| **Knowledge lifecycle** | Learnings flow three ways: seed (main→team), sync (periodic), graduate (team→main). Cross-team pattern detection included. |
-| **Headless launch** | Spin up teams in detached Copilot sessions with configurable MCP stacks. Prompt resolution from archetype templates. |
-| **OTel observability** | Copilot CLI has no built-in telemetry. This plugin bridges the gap with a custom MCP server that gives agents span, metric, event, and log tools — making headless sessions observable. Aspire dashboard included. |
-| **Marketplace skill discovery** | During onboarding, browses installed marketplaces for skills matching the team's domain. Suggests and installs on approval. |
-| **Non-homogeneous federation** | Meta-squad can manage coding teams, research teams, and deliverable teams simultaneously — each with its own archetype. |
-| **Ceremony templates** | Built-in coordination rituals: task-retro, knowledge-check, pre-task-triage. Trigger automatically based on state. |
-| **Monitoring dashboard** | Real-time status of all teams — state, current step, progress, staleness. Watch mode with configurable interval. |
-| **Schema-first deliverables** | Deliverable archetype drives schema evolution from first run. Validation at aggregation time. Schema becomes institutional knowledge. |
-
-## How It Works
-
-```
-Install plugin → Describe your goal → Core setup wizard runs
-       │                                      │
-       │              ┌───────────────────────┘
-       │              ▼
-       │    Select work pattern (archetype)
-       │              │
-       │              ▼
-       │    Auto-install archetype plugin
-       │              │
-       │              ▼
-       │    Archetype setup wizard runs
-       │    (deliverable: filename, schema, steps)
-       │    (coding: PR branch, conventions, tests)
-       │              │
-       │              ▼
-       │    Configure MCP stack + telemetry
-       │              │
-       │              ▼
-       │    Cast meta-squad (leadership team)
-       │              │
-       │              ▼
-       │    Onboard first team → persistent worktree
-       │    Squad casts team, archetype seeds playbook
-       │    Marketplace skills suggested for the team
-       │              │
-       │              ▼
-       │    Launch team → headless session runs autonomously
-       │    Monitor progress → signals dashboard
-       └──────────────────────────────────────────────
-```
-
-Each layer owns its config. Core writes `federate.config.json` (4 fields). Archetypes write `.squad/archetype-config.json` in each team's worktree. Squad handles casting. You describe the goal — the system assembles itself.
+3. **Install the federation plugin:**
+   ```bash
+   copilot plugin install squad-federation-core@vladi-plugins-marketplace
+   ```
+   If the marketplace isn't registered yet:
+   ```bash
+   copilot plugin marketplace add lygav/vladi-plugins-marketplace
+   ```
 
 ## Quick Start
 
 ### First time: Set up federation + first team
 
-```bash
-copilot plugin install squad-federation-core@vladi-plugins-marketplace
-```
+Start a Copilot session and say any of these:
 
 ```
 > go multi-team
+> federate this project
+> I need multiple teams
+> @federation set up a team organization
 ```
 
 The setup wizard walks you through:
@@ -95,134 +53,125 @@ The setup wizard walks you through:
 
 ```
 > spin up a team for [something]
+> @federation onboard a new team
 ```
 
-The onboard flow handles the rest:
-1. Pick archetype for this team (installs new archetype if needed)
-2. Create worktree + branch
-3. Archetype setup wizard configures team-specific settings
-4. Squad casts the team
-5. Marketplace skills suggested based on the team's purpose
-
-Each team can have a different archetype — a coding team and a deliverable team managed by the same meta-squad.
+Each new team picks its own archetype. A coding team and a deliverable team can coexist under the same meta-squad.
 
 ### Day-to-day
 
-- *"Launch the payments team"*
-- *"How are my teams doing?"*
-- *"Tell the frontend team to use Tailwind"*
-- *"Sync skills to all teams"*
-- *"What did the research team learn?"*
+```
+> launch the payments team
+> how are my teams doing?
+> tell the frontend team to use Tailwind
+> sync skills to all teams
+> what did the research team learn?
+> @federation aggregate results
+```
 
-> **`@federation`** — invoke the federation agent directly for any multi-team operation. Works alongside Squad's coordinator.
+> **`@federation`** — dedicated agent for multi-team operations. Use it anytime, especially if the regular Squad coordinator handles your request as single-team work instead.
 
-> **Power users:** Scripts available at `scripts/onboard.ts`, `scripts/launch.ts`, `scripts/monitor.ts`, etc. See [ARCHITECTURE.md](ARCHITECTURE.md) §10.
+> **📖 Full walkthrough:** See [EXAMPLE.md](EXAMPLE.md) — from empty project to running federated teams.
 
-> **📖 Full walkthrough:** See [EXAMPLE.md](EXAMPLE.md) for a complete end-to-end example — from empty project to running federated teams.
+## How It Works
+
+```
+Describe your goal → Core setup wizard
+        │
+        ▼
+Select work pattern (archetype) → Auto-install archetype plugin
+        │
+        ▼
+Archetype setup wizard (deliverable: filename, schema | coding: PR branch, tests)
+        │
+        ▼
+Configure MCP stack + monitoring dashboard
+        │
+        ▼
+Cast meta-squad (leadership team)
+        │
+        ▼
+Onboard first team → persistent worktree, Squad casts agents
+        │
+        ▼
+Launch → headless session runs autonomously
+Monitor → real-time signals dashboard
+```
+
+Each layer owns its config:
+- **Core** writes `federate.config.json` (4 fields: description, branchPrefix, mcpStack, telemetry)
+- **Archetypes** write `.squad/archetype-config.json` in each team's worktree
+- **Squad** handles all casting
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **Conversational setup** | Describe your goal — *"federate this project"*, *"go multi-team"*. The wizard configures everything. |
+| **`@federation` agent** | Dedicated agent for explicit multi-team control. Bypasses Squad's coordinator when needed. |
+| **Persistent worktrees** | Each team gets a permanent git worktree with its own branch, agents, and accumulated knowledge. |
+| **Archetype system** | Goal-specific behavior as installable plugins. Teams gain capabilities on install — like Neo downloading skills. |
+| **Signal protocol** | File-based IPC between meta-squad and teams. Status, directives, reports, alerts via `.squad/signals/`. |
+| **Knowledge lifecycle** | Three flows: seed (main→team), sync (periodic), graduate (team→main). Cross-team pattern detection. |
+| **Headless launch** | Teams run in detached Copilot sessions. Prompt resolved from archetype templates. |
+| **OTel monitoring** | Copilot CLI has no built-in telemetry. This plugin bridges the gap — custom MCP server gives agents trace/metric/event/log tools. Aspire dashboard included. |
+| **Marketplace discovery** | During onboarding, suggests relevant skills from installed marketplaces based on team purpose. |
+| **Non-homogeneous teams** | Meta-squad manages coding, research, and deliverable teams simultaneously. |
+| **Ceremonies** | Built-in coordination rituals: retro, knowledge-check, pre-task-triage. |
+| **Schema-first deliverables** | Deliverable archetype drives schema evolution from first run. Validation at aggregation. |
 
 ## Three-Layer Architecture
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  YOUR PROJECT (top layer)                        │
-│  Domain skills · schemas · hooks · UI            │
+│  YOUR PROJECT                                    │
+│  Domain playbook skill · schemas · import hooks  │
 ├──────────────────────────────────────────────────┤
-│  ARCHETYPE PLUGIN (middle layer)                 │
-│  Goal-specific behavior, agents, scripts         │
+│  ARCHETYPE PLUGIN (auto-installed)               │
+│  Team playbook · meta-squad skills · templates   │
 │  e.g. squad-archetype-deliverable                │
 ├──────────────────────────────────────────────────┤
 │  squad-federation-core (this plugin)             │
-│  Pure plumbing — launch, onboard, signals, know- │
-│  ledge lifecycle, observability, templates        │
+│  Worktrees · signals · knowledge · OTel · launch │
 └──────────────────────────────────────────────────┘
 ```
 
-### Core plugin (this) — pure plumbing
+**Core** has zero knowledge of what teams produce. **Archetypes** define the work pattern. **Your project** provides domain expertise.
 
-The core plugin has **zero knowledge of what a squad produces**. It provides:
-
-- Federation orchestration: onboard, launch, monitor
-- Knowledge lifecycle: seed, sync, sweep, graduate
-- Signal protocol: `status.json`, inbox/outbox IPC
-- Prompt templates & ceremony templates
-- OTel observability (MCP server + Aspire dashboard)
-
-There is **no `aggregate.ts`** and **no aggregator agent** in core — those are archetype-specific (the deliverable archetype provides them).
-
-### Archetype plugins (middle layer) — goal-specific behavior
-
-Archetypes define *how* a squad works and *what* it produces. They are **auto-installed by the `federation-setup` skill** — you don't install them manually.
-
-| Plugin | Archetype | Adds |
-|--------|-----------|------|
-| `squad-archetype-deliverable` | deliverable | Aggregator agent, `aggregate.ts`, JSON output |
-| `squad-archetype-coding` | coding | PR workflow, review agents |
-
-### Your project (top layer) — domain expertise
-
-- Playbook skill (your domain-specific workflow)
-- Deliverable schema & import hooks
-- Seed skills (domain expertise)
-- UI, reporting, or custom tooling
-
-> For a deep dive into how the layers compose at runtime, see **[ARCHITECTURE.md](./ARCHITECTURE.md)**.
+> Deep dive: **[ARCHITECTURE.md](ARCHITECTURE.md)** (schemas, protocols, flows)
 
 ## Components
 
-### Skills
+### Skills (auto-activated by context)
 
-| Skill | Triggers On |
-|-------|-------------|
-| `federation-orchestration` | "federate", "domain squad", "meta-squad" |
-| `inter-squad-signals` | "signal", "status", "inbox", "directive" |
-| `knowledge-lifecycle` | "knowledge", "learning", "seed", "sync", "graduate" |
-| `otel-observability` | "observability", "telemetry", "otel", "traces" |
-| `federation-setup` | "set up federation", "configure federation" |
+| Skill | When it activates |
+|-------|-------------------|
+| `federation-setup` | No config exists + user mentions federation |
+| `federation-orchestration` | Config exists + user asks about managing teams |
+| `inter-squad-signals` | Working with signals, status, directives |
+| `knowledge-lifecycle` | Learning, syncing, graduating knowledge |
+| `otel-observability` | Telemetry, traces, dashboard |
 
 ### Agents
 
 | Agent | Purpose |
 |-------|---------|
-| `onboard` | Autonomous domain onboarding |
-| `sweeper` | Cross-domain pattern detection |
+| `@federation` | Explicit entry point for all multi-team operations |
+| `onboard` | Autonomous team creation |
+| `sweeper` | Cross-team pattern detection |
 
-### Scripts
+### Core Config (`federate.config.json`)
 
-| Script | Purpose |
-|--------|---------|
-| `onboard.ts` | Create team branch, worktree, squad |
-| `launch.ts` | Headless Copilot session (`--team`, prompt resolution) |
-| `monitor.ts` | Status dashboard for all teams |
-| `sync-skills.ts` | Propagate skills main → team worktrees |
-| `sweep-learnings.ts` | Cross-domain pattern detection |
-| `graduate-learning.ts` | Promote team learning → main |
-| `learn.ts` / `query-learnings.ts` | Learning log CLI |
-| `dashboard.ts` | Aspire OTel dashboard |
-| `mcp-otel-server.ts` | OTel MCP server (auto-started) |
+| Field | Default | Description |
+|-------|---------|-------------|
+| `description` | — | What this federation is for |
+| `branchPrefix` | `"squad/"` | Git branch prefix for team worktrees |
+| `mcpStack` | `[]` | MCP servers available to team sessions |
+| `telemetry.enabled` | `true` | OTel monitoring dashboard |
 
-### MCP Server
+That's it — 4 fields. Everything else is archetype or team-level config.
 
-The OTel MCP server auto-starts via `.mcp.json` and exposes:
-
-- `otel_span` — trace spans
-- `otel_metric` — counters and gauges
-- `otel_event` — milestone events
-- `otel_log` — structured logging
-
-## Configuration
-
-See `templates/federate.config.example.ts` for the full `FederateConfig` interface.
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `domain` | string | — | Human-readable domain description |
-| `archetype` | string | `"deliverable"` | Squad archetype (selects middle-layer plugin) |
-| `mcpStack` | string[] | `[]` | MCP servers for team sessions |
-| `playbookSkill` | string | `"domain-playbook"` | Playbook skill name |
-| `steps` | string[] | varies | Playbook step names |
-| `branchPrefix` | string | `"squad/"` | Git branch prefix |
-| `telemetry.enabled` | boolean | `true` | OTel observability |
-| `completionHook` | string? | — | Script run when a squad completes |
+> **Scripts reference:** See [ARCHITECTURE.md](ARCHITECTURE.md) §10 for all CLI commands.
 
 ## License
 
