@@ -166,6 +166,7 @@ Each layer owns its config:
 |-------|---------|-------------|
 | `description` | — | What this federation is for |
 | `branchPrefix` | `"squad/"` | Git branch prefix for team worktrees |
+| `worktreeDir` | `"parallel"` | Where worktrees live: `"parallel"` (sibling dirs), `"inside"` (`.worktrees/`), or custom path |
 | `mcpStack` | `[]` | MCP servers available to team sessions |
 | `telemetry.enabled` | `true` | OTel monitoring dashboard |
 

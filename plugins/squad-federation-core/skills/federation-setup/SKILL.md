@@ -218,6 +218,19 @@ No endpoint, port, or service name in config. The runtime uses sensible defaults
 
 Most users keep the default. Only change if there's a naming conflict or organizational convention.
 
+### Step 5.6: Worktree location
+
+**Ask:** "Where should team worktrees live?"
+
+**Choices:**
+- **Parallel** *(default)* — next to your project: `../your-project-team-name/`
+- **Inside** — inside your project: `.worktrees/team-name/`
+- **Custom path** — you specify a directory
+
+**Default:** `parallel`
+
+**Parallel** keeps worktrees visible as sibling folders — easy to find and open separately. **Inside** keeps everything contained in the project but adds clutter. Suggest parallel unless the user has a reason to contain them.
+
 ### Step 6: Generate config
 
 Assemble `federate.config.json` at the repository root with **only** core fields:
@@ -226,6 +239,7 @@ Assemble `federate.config.json` at the repository root with **only** core fields
 {
   "description": "...",
   "branchPrefix": "squad/",
+  "worktreeDir": "parallel",
   "mcpStack": [],
   "telemetry": {
     "enabled": true
@@ -236,6 +250,7 @@ Assemble `federate.config.json` at the repository root with **only** core fields
 **Rules for this config:**
 - `description` — from Step 1, verbatim
 - `branchPrefix` — from Step 5.5, default `"squad/"`
+- `worktreeDir` — from Step 5.6, default `"parallel"`
 - `mcpStack` — from Step 4, or empty array
 - `telemetry.enabled` — from Step 5
 

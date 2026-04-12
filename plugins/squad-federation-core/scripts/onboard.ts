@@ -31,11 +31,13 @@ const __dirname = path.dirname(__filename);
 
 interface FederateConfig {
   branchPrefix: string;
+  worktreeDir: 'parallel' | 'inside' | string;
   telemetry: { enabled: boolean };
 }
 
 const DEFAULT_CONFIG: FederateConfig = {
   branchPrefix: 'squad/',
+  worktreeDir: 'parallel',
   telemetry: { enabled: true },
 };
 
@@ -120,11 +122,21 @@ function createBranch(name: string, baseBranch: string, prefix: string): string 
   return branchName;
 }
 
-function createWorktree(branchName: string, repoRoot: string, prefix: string): string {
+function createWorktree(branchName: string, repoRoot: string, prefix: string, worktreeDir: string): string {
   const name = branchName.replace(prefix, '');
-  const repoParent = path.dirname(repoRoot);
   const repoName = path.basename(repoRoot).replace(/_/g, '-');
-  const worktreePath = path.join(repoParent, `${repoName}-${name}`);
+
+  let worktreePath: string;
+  if (worktreeDir === 'parallel') {
+    // Sibling to project: ../project-name-team-name/
+    worktreePath = path.join(path.dirname(repoRoot), `${repoName}-${name}`);
+  } else if (worktreeDir === 'inside') {
+    // Inside project: .worktrees/team-name/
+    worktreePath = path.join(repoRoot, '.worktrees', name);
+  } else {
+    // Custom path: resolve relative to repo root
+    worktreePath = path.resolve(repoRoot, worktreeDir, name);
+  }
 
   if (fs.existsSync(worktreePath)) {
     console.error(`❌ Worktree path already exists: ${worktreePath}`);
@@ -237,7 +249,7 @@ async function main(): Promise<void> {
   const branch = createBranch(args.name, args.baseBranch, config.branchPrefix);
 
   // Step 2: Create worktree
-  const worktreePath = createWorktree(branch, REPO_ROOT, config.branchPrefix);
+  const worktreePath = createWorktree(branch, REPO_ROOT, config.branchPrefix, config.worktreeDir);
 
   // Step 3: Seed templates
   seedTemplates(worktreePath, PLUGIN_ROOT);
