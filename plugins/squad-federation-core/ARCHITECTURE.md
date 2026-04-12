@@ -670,6 +670,31 @@ Archetypes define **what a squad does** — the work pattern, deliverable
 structure, playbook, and cleanup behavior. Core defines **how squads
 operate** — git mechanics, signals, telemetry, knowledge flow.
 
+### On-Demand Skill Acquisition
+
+Archetype plugins teach the federation new capabilities on install — like
+Neo downloading helicopter piloting in The Matrix. When the meta-squad
+installs `squad-archetype-deliverable`, it instantly gains:
+
+- **Team-facing skills**: the deliverable playbook (discovery → distillation, schema evolution)
+- **Meta-squad-facing skills**: aggregation workflow (collect, validate, import)
+- **Agents**: aggregator agent for autonomous collection
+- **Templates**: prompt templates, cleanup hooks, merge tools
+
+No configuration or wiring needed — Copilot auto-discovers skills from
+installed plugins. The meta-squad can immediately say *"aggregate results
+from all teams"* and the aggregation skill activates.
+
+Archetypes provide skills for **both actors**:
+
+| Actor | Gets | Example |
+|-------|------|---------|
+| **Team** | Playbook, prompt templates, cleanup hook | "How to produce a deliverable" |
+| **Meta-squad** | Aggregation, validation, review guidance | "How to collect and validate team output" |
+
+Multiple archetypes can coexist — a meta-squad managing coding teams AND
+deliverable teams has skills from both archetypes available simultaneously.
+
 ### .squad/archetype.json Schema
 
 Installed into each worktree by the archetype plugin's setup skill:
