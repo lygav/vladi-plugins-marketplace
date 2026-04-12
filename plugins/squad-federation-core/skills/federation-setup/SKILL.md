@@ -262,17 +262,24 @@ EOF
 
 ### Step 7: Cast the meta-squad
 
-**Say:** "Now let's cast your leadership team. This is the meta-squad — it coordinates all your teams."
+Check if the meta-squad actually has members:
 
-Delegate to Squad's casting system. The simplest path:
+```bash
+grep -c "| .* | .* | .* | Active |" .squad/team.md
+```
 
-> "Describe what you need your leadership team to handle, and Squad's casting will assemble the right agents. Or just run `squad init` to set up a default meta-squad."
+**If members exist (count > 0):** Skip casting.
+> "Your meta-squad has [N] members. Moving on."
 
-Don't prescribe roles. Don't suggest specific team compositions. Let the casting system do its job based on the user's description from Step 1.
+**If team.md exists but Members table is empty (count = 0):** The scaffold exists but no team was cast. This is NOT "already set up" — it's incomplete. Proceed with casting:
 
-If Squad is already initialized (detected in prerequisites), skip this step and note:
+> "Squad is initialized but your leadership team hasn't been cast yet. Let's do that now — for a federation, your meta-squad typically needs a Lead (architecture + coordination) and optionally a few specialists. Describe what you need, or I'll propose a small leadership team based on your goal."
 
-> "Your meta-squad is already set up. Moving on."
+Use the user's description from Step 1 to inform the casting proposal. The meta-squad MUST have at least one active member before proceeding — without members, Squad stays in Init Mode and federation commands won't work.
+
+**If team.md doesn't exist:** Run `squad init` first, then cast.
+
+Don't prescribe specific roles. Let Squad's casting handle composition. But ensure casting COMPLETES — verify at least one member appears in the Members table before moving to Step 8.
 
 ### Step 8: Onboard first team
 
