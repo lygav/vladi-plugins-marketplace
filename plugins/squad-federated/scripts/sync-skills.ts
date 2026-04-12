@@ -7,7 +7,7 @@
  * Usage:
  *   npx tsx scripts/sync-skills.ts                         # Sync all skills to all domains
  *   npx tsx scripts/sync-skills.ts --skill my-skill        # Sync specific skill
- *   npx tsx scripts/sync-skills.ts --domain my-domain      # Sync to specific domain
+ *   npx tsx scripts/sync-skills.ts --team my-team      # Sync to specific domain
  *   npx tsx scripts/sync-skills.ts --dry-run               # Show what would change
  */
 
@@ -40,7 +40,7 @@ interface DomainBranch {
 const args = process.argv.slice(2);
 const flags = {
   skill: args.find(a => a.startsWith('--skill='))?.split('=')[1] || args.find((a, i) => args[i - 1] === '--skill') || null,
-  domain: args.find(a => a.startsWith('--domain='))?.split('=')[1] || args.find((a, i) => args[i - 1] === '--domain') || null,
+  domain: args.find(a => a.startsWith('''--team='''))?.split('=')[1] || args.find((a, i) => args[i - 1] === '--team') || null,
   dryRun: args.includes('--dry-run'),
 };
 
@@ -403,7 +403,7 @@ function main(): void {
     process.exit(1);
   }
 
-  // Filter by --domain flag if provided
+  // Filter by --team flag if provided
   if (flags.domain) {
     domains = domains.filter(d => d.name === flags.domain);
 

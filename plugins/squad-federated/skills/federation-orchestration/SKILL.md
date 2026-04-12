@@ -84,10 +84,10 @@ Use `--base-branch` to specify a different starting point (defaults to current b
 Launches headless Copilot sessions in domain worktrees.
 
 ```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/launch.ts --domain payments
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/launch.ts --team payments
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/launch.ts --all
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/launch.ts --domain payments --step distillation
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/launch.ts --domain payments --reset
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/launch.ts --team payments --step distillation
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/launch.ts --team payments --reset
 ```
 
 Modes:
@@ -120,7 +120,7 @@ Gathers completed deliverables from all domains into a central location.
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/aggregate.ts
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/aggregate.ts --list
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/aggregate.ts --dry-run
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/aggregate.ts --domains "payments,auth-service"
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/aggregate.ts --teams "payments,auth-service"
 ```
 
 What it does:

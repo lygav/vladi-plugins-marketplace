@@ -14,7 +14,7 @@
  *   npx tsx scripts/aggregate.ts                          # Aggregate all domains
  *   npx tsx scripts/aggregate.ts --list                   # Show what's available
  *   npx tsx scripts/aggregate.ts --dry-run                # Collect but don't import
- *   npx tsx scripts/aggregate.ts --domains "my-product,analytics-engine"
+ *   npx tsx scripts/aggregate.ts --teams "my-product,analytics-engine"
  */
 
 import * as fs from 'fs';
@@ -105,7 +105,7 @@ const args = process.argv.slice(2);
 const flags = {
   list: args.includes('--list'),
   dryRun: args.includes('--dry-run'),
-  domains: args.find(a => a.startsWith('--domains='))?.split('=')[1]?.split(',') || null,
+  domains: args.find(a => a.startsWith('--teams='))?.split('=')[1]?.split(',') || null,
 };
 
 // ==================== Discovery ====================
@@ -437,7 +437,7 @@ function main(): void {
     process.exit(1);
   }
 
-  // Filter by --domains flag if provided
+  // Filter by --teams flag if provided
   if (flags.domains) {
     domains = domains.filter(d => flags.domains!.includes(d.name));
 

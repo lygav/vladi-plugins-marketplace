@@ -30,7 +30,7 @@ Your job is to set up a new domain worktree, compose the right team, and seed in
 ### 4. Execute onboarding
 - Run `npx tsx scripts/onboard.ts` with the approved configuration, passing:
   - `--domain-id <id>`
-  - `--domain-name <name>`
+  - `--name <name>`
   - `--team <team-json>`
 - Monitor the script output for errors.
 

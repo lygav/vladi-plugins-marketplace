@@ -79,7 +79,7 @@ npx tsx scripts/onboard.ts \
 3. **Launch a scan**:
 
 ```bash
-npx tsx scripts/launch.ts --domain my-product
+npx tsx scripts/launch.ts --team my-product
 ```
 
 4. **Monitor progress**:

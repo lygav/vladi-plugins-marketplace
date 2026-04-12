@@ -34,7 +34,7 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/sync-skills.ts
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/sync-skills.ts --skill domain-playbook
 
 # Sync to a specific domain only
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/sync-skills.ts --domain payments
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/sync-skills.ts --team payments
 
 # Preview what would change
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/sync-skills.ts --dry-run

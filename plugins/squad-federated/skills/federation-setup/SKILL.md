@@ -318,7 +318,7 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/launch.ts --all
 Or launch one domain at a time to verify the setup works:
 
 ```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/launch.ts --domain {first-domain}
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/launch.ts --team {first-domain}
 ```
 
 ### 5. Monitor Progress

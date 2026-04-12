@@ -111,7 +111,7 @@ function createBranch(name: string, baseBranch: string, prefix: string): string 
   try {
     exec(`git rev-parse --verify ${branchName}`, { silent: true });
     console.error(`⚠️  Branch '${branchName}' already exists.`);
-    console.error(`   To re-launch: npx tsx scripts/launch.ts --domain ${name}`);
+    console.error(`   To re-launch: npx tsx scripts/launch.ts --team ${name}`);
     process.exit(1);
   } catch { /* doesn't exist — good */ }
 
@@ -270,7 +270,7 @@ Team casting deferred to Squad init on first session."`, { cwd: worktreePath });
   console.log(`\n✅ Domain onboarded: ${domainTitle}`);
   console.log(`   Worktree: ${worktreePath}`);
   console.log(`   Branch: ${branch}`);
-  console.log(`\nNext: npx tsx scripts/launch.ts --domain ${args.name}`);
+  console.log(`\nNext: npx tsx scripts/launch.ts --team ${args.name}`);
   console.log(`The squad will be cast by Squad on the first session.`);
 }
 
