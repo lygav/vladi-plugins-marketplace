@@ -21,7 +21,8 @@ copilot plugin install squad-federation-core@vladi-plugins-marketplace
 
 | Feature | Description |
 |---------|-------------|
-| **Conversational setup** | Describe your goal in natural language. The setup skill configures everything — meta-squad, archetypes, config. |
+| **Conversational setup** | Describe your goal in natural language — *"federate this project"*, *"go multi-team"*, *"I need multiple teams"*. The setup skill configures everything. |
+| **`@federation` agent** | Dedicated agent for explicit federation control. Invoke `@federation` anytime to bypass Squad's coordinator and go straight to multi-team operations. |
 | **Persistent team worktrees** | Each team gets a permanent git worktree with its own branch, agents, and accumulated knowledge. |
 | **Archetype system** | Install goal-specific behavior (deliverable, coding, research) as plugins. Teams learn new capabilities on install — like Neo downloading skills. |
 | **Signal protocol** | File-based IPC between meta-squad and teams. Status tracking, directives, reports, alerts — all via `.squad/signals/`. |
@@ -36,14 +37,23 @@ copilot plugin install squad-federation-core@vladi-plugins-marketplace
 
 ## Quick Start
 
-Install the plugin, start a Copilot session, and describe your goal:
+Install the plugin, start a Copilot session, and say any of these:
 
-```
+```bash
 copilot plugin install squad-federation-core@vladi-plugins-marketplace
 ```
 
 ```
-> I want to set up a team organization for [your goal]
+> federate this project
+> go multi-team
+> I need multiple teams
+> set up federation
+> spin up a team for [something]
+```
+
+Or invoke the federation agent directly:
+```
+> @federation set up a team organization for [your goal]
 ```
 
 The `federation-setup` skill handles everything conversationally:
@@ -58,6 +68,8 @@ From there, use natural language to manage your federation:
 - *"Launch the payments team"*
 - *"How are my teams doing?"*
 - *"Sync skills to all teams"*
+
+> **`@federation`** — you can always invoke the federation agent explicitly for any multi-team operation. It works alongside Squad's coordinator without competing for input.
 
 > **Power users:** All operations are also available as scripts (`scripts/onboard.ts`, `scripts/launch.ts`, `scripts/monitor.ts`, etc.). See [ARCHITECTURE.md](ARCHITECTURE.md) §10 for CLI reference.
 
