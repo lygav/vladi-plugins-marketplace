@@ -187,13 +187,21 @@ This is important: the archetype owns its own setup concerns. Core federation do
 
 ### Step 5: Telemetry
 
-**Ask:** "Enable observability? This gives you a dashboard with traces, metrics, and logs from all your teams."
+**Context:** Copilot CLI has no built-in telemetry — headless team sessions are black boxes by default. This plugin includes a special OTel integration that bridges this gap: a custom MCP server that gives agents trace, metric, event, and log tools, feeding into a central dashboard where you can watch all teams in real time.
+
+**Ask:** "Your teams will run in headless sessions. Want me to set up a central monitoring dashboard? You'll see real-time traces, metrics, and logs from every team — it's the only way to observe what's happening inside headless sessions."
 
 **Default logic:**
 - Docker available → default **yes**
-- Docker not available → default **no**, note that they can enable it later when Docker is available
+- Docker not available → default **no**, explain: "Docker is needed for the Aspire dashboard. You can enable this later with `npx tsx scripts/dashboard.ts start`."
 
-Don't ask about endpoints, ports, or service names. Those are runtime concerns with sensible defaults.
+**If yes and Docker is available**, start the dashboard immediately:
+
+```bash
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/dashboard.ts start
+```
+
+Confirm it's running: "✅ Monitoring dashboard live at http://localhost:18888. All teams will report telemetry here automatically."
 
 **Store as:**
 
@@ -205,7 +213,7 @@ Don't ask about endpoints, ports, or service names. Those are runtime concerns w
 }
 ```
 
-That's it. No endpoint, no port, no service name in core config. The runtime picks those up from environment or uses defaults.
+No endpoint, port, or service name in config. The runtime uses sensible defaults. The OTel MCP server auto-starts with each team session via the plugin's `.mcp.json`.
 
 ### Step 6: Generate config
 
