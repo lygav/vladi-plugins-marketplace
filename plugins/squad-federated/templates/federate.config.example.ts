@@ -7,13 +7,26 @@
 
 // TypeScript interface (for reference — actual config is JSON)
 export interface FederateConfig {
-  /** Human-readable domain description (e.g., "security audit", "service inventory") */
+  /** Human-readable domain description (e.g., "security audit", "feature development") */
   domain: string;
 
-  /** Output filename produced by each domain squad (e.g., "audit-report.json") */
-  deliverable: string;
+  /**
+   * Squad archetype — determines the work pattern and completion criteria.
+   *
+   * - "deliverable": squads produce a file artifact (scatter-gather). Aggregation collects outputs.
+   * - "coding": squads produce PRs. Completion = PR opened/merged.
+   * - "research": squads produce design docs / PRDs / ADRs. Completion = doc approved.
+   * - "task": squads execute work items. Completion = status update + optional follow-up.
+   *
+   * Default: "deliverable" (backward compatible with scatter-gather pattern).
+   * Meta-squads can manage mixed archetypes (non-homogeneous federation).
+   */
+  archetype: 'deliverable' | 'coding' | 'research' | 'task';
 
-  /** Path to JSON schema for deliverable validation (optional) */
+  /** Output filename produced by deliverable squads (e.g., "audit-report.json"). Ignored for other archetypes. */
+  deliverable?: string;
+
+  /** Path to JSON schema for deliverable validation (optional, deliverable archetype only) */
   deliverableSchema?: string;
 
   /** Casting universe for domain squads (default: "Transformers") */
@@ -28,8 +41,11 @@ export interface FederateConfig {
   /** Path to custom pre-discovery triage script (runs before casting) */
   triageHook?: string;
 
-  /** Path to custom import script (runs during aggregate) */
+  /** Path to custom import script (runs during aggregate, deliverable archetype only) */
   importHook?: string;
+
+  /** Path to custom completion hook (runs when a squad reports complete) */
+  completionHook?: string;
 
   /** Name of the domain playbook skill */
   playbookSkill: string;
@@ -40,7 +56,7 @@ export interface FederateConfig {
   /** Playbook step names (for --step targeting) */
   steps: string[];
 
-  /** Git branch prefix for domain worktrees (default: "scan/") */
+  /** Git branch prefix for domain worktrees (default: "squad/") */
   branchPrefix: string;
 
   /** OTel observability settings */
@@ -54,23 +70,56 @@ export interface FederateConfig {
   worktreeStrategy: 'persistent' | 'on-demand';
 }
 
-// Example configuration (save as federate.config.json):
-const exampleConfig = {
+// Example: Deliverable squad (scatter-gather)
+const deliverableExample = {
   domain: "service inventory",
-  deliverable: "deliverable.json",
-  deliverableSchema: "docs/schemas/deliverable.schema.json",
+  archetype: "deliverable",
+  deliverable: "inventory.json",
+  deliverableSchema: "docs/schemas/inventory.schema.json",
   universe: "Transformers",
   castingStrategy: "reuse",
   mcpStack: [],
-  playbookSkill: "domain-playbook",
+  playbookSkill: "inventory-playbook",
   seedSkills: [],
-  steps: ["discovery", "analysis", "deep-dives", "validation", "documentation", "distillation"],
-  branchPrefix: "scan/",
-  telemetry: {
-    enabled: true,
-    aspire: true,
-  },
+  steps: ["discovery", "analysis", "deep-dives", "validation", "distillation"],
+  branchPrefix: "squad/",
+  telemetry: { enabled: true, aspire: true },
   worktreeStrategy: "persistent",
 };
 
-console.log(JSON.stringify(exampleConfig, null, 2));
+// Example: Coding squad (feature work)
+const codingExample = {
+  domain: "feature development",
+  archetype: "coding",
+  universe: "Marvel",
+  castingStrategy: "unique",
+  mcpStack: [],
+  playbookSkill: "feature-playbook",
+  seedSkills: ["code-review", "testing-patterns"],
+  steps: ["design", "implement", "test", "pr"],
+  branchPrefix: "squad/",
+  telemetry: { enabled: true, aspire: false },
+  worktreeStrategy: "persistent",
+};
+
+// Example: Research squad (design/PRD work)
+const researchExample = {
+  domain: "architecture research",
+  archetype: "research",
+  universe: "Star Wars",
+  castingStrategy: "reuse",
+  mcpStack: [],
+  playbookSkill: "research-playbook",
+  seedSkills: [],
+  steps: ["explore", "analyze", "draft", "review"],
+  branchPrefix: "squad/",
+  telemetry: { enabled: false, aspire: false },
+  worktreeStrategy: "on-demand",
+};
+
+console.log("=== Deliverable Squad ===");
+console.log(JSON.stringify(deliverableExample, null, 2));
+console.log("\n=== Coding Squad ===");
+console.log(JSON.stringify(codingExample, null, 2));
+console.log("\n=== Research Squad ===");
+console.log(JSON.stringify(researchExample, null, 2));

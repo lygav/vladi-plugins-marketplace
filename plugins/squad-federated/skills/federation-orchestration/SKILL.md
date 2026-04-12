@@ -25,6 +25,32 @@ main (meta-squad)
 
 Each domain worktree contains its own `.squad/` directory with agent charters, histories, skills, signals, and learnings. The meta-squad never directly modifies domain worktrees — all cross-boundary communication flows through the signal protocol (see the `inter-squad-signals` skill).
 
+## Squad Archetypes
+
+Domain squads are NOT all the same. The `archetype` field in `federate.config.json` determines the work pattern:
+
+| Archetype | Output | Completion | Aggregate? | Example |
+|-----------|--------|------------|------------|---------|
+| `deliverable` | File artifact | File produced | ✅ Yes | Service inventory, audit report |
+| `coding` | Pull request(s) | PR opened/merged | ❌ Status only | Feature implementation, bug fixes |
+| `research` | Design doc/PRD/ADR | Doc written | ❌ Status only | Architecture research, feasibility study |
+| `task` | Status update | Work done | ❌ Status only | Migration tasks, cleanup, one-off work |
+
+**Non-homogeneous federations** are supported — a meta-squad can manage squads of different archetypes simultaneously. Squad A might produce a deliverable while Squad B writes code and Squad C researches a design.
+
+**What's universal** (all archetypes share):
+- Signal protocol (status.json, inbox/outbox)
+- Learning log (knowledge accumulation)
+- Ceremonies (retro, knowledge-check, triage)
+- Knowledge lifecycle (seed/sync/graduate)
+- OTel observability
+
+**What varies by archetype:**
+- Completion criteria (file vs PR vs doc vs status)
+- Whether `aggregate.ts` is relevant (deliverable only)
+- Prompt templates in `launch.ts`
+- File structure in the worktree
+
 ## Core Scripts
 
 All scripts live at `${CLAUDE_PLUGIN_ROOT}/scripts/` and are invoked via `npx tsx`.
@@ -127,18 +153,30 @@ Examples: `scan/payments`, `scan/auth-service`, `scan/data-pipeline`.
 
 The `scan/` prefix is the default and is configurable. All federation scripts use this prefix to discover domain branches. Keep domain names lowercase, hyphenated, and descriptive.
 
-## Scan Lifecycle
+## Task Lifecycle
 
-A domain scan progresses through configurable playbook steps. The default pipeline:
+A domain squad progresses through configurable playbook steps. Steps vary by archetype:
 
-1. **discovery** — inventory the domain's resources, repositories, and dependencies
+**Deliverable archetype** (default):
+1. **discovery** — inventory the domain's resources and dependencies
 2. **analysis** — examine configurations, patterns, and potential issues
 3. **deep-dives** — investigate findings that need detailed examination
-4. **validation** — cross-check findings, verify accuracy, confirm with data
-5. **documentation** — write up findings in structured deliverable format
-6. **distillation** — compress findings into the final deliverable JSON
+4. **validation** — cross-check findings, verify accuracy
+5. **distillation** — compress findings into the final deliverable
 
-Each step is a prompt template. The domain squad's Copilot session receives the prompt for the current step, executes it, updates status, and advances.
+**Coding archetype:**
+1. **design** — understand requirements, plan implementation
+2. **implement** — write code
+3. **test** — write and run tests
+4. **pr** — open pull request
+
+**Research archetype:**
+1. **explore** — survey the problem space
+2. **analyze** — deep analysis of options
+3. **draft** — write the document
+4. **review** — refine and get feedback
+
+Steps are fully configurable via `federate.config.json`. The domain squad's Copilot session receives a prompt for the current step, executes it, updates status, and advances.
 
 ## When to Use Each Script
 

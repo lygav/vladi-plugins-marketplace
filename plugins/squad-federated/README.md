@@ -4,7 +4,18 @@
 
 ## What It Does
 
-Transforms a single Squad team into a federation of permanent domain expert squads, each with its own git worktree, team composition, and accumulated knowledge. A central meta-squad orchestrates onboarding, aggregation, and knowledge flow.
+Transforms a single Squad team into a federation of permanent domain expert squads, each with its own git worktree, team composition, and accumulated knowledge. A central meta-squad orchestrates onboarding, coordination, and knowledge flow.
+
+**Supports multiple squad archetypes** — not just scatter-gather:
+
+| Archetype | Output | Example |
+|-----------|--------|---------|
+| `deliverable` | File artifact (JSON) | Service inventory, audit report |
+| `coding` | Pull requests | Feature implementation, bug fixes |
+| `research` | Design docs / PRDs | Architecture research, feasibility study |
+| `task` | Status + follow-up | Migration tasks, cleanup, one-off work |
+
+A meta-squad can manage **non-homogeneous** squads — mixing archetypes in the same federation.
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -137,16 +148,16 @@ See `templates/federate.config.example.ts` for the full `FederateConfig` interfa
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `domain` | string | — | Human-readable domain description |
-| `deliverable` | string | `"deliverable.json"` | Output filename per domain |
+| `archetype` | string | `"deliverable"` | Squad type: `deliverable`, `coding`, `research`, `task` |
+| `deliverable` | string? | `"deliverable.json"` | Output filename (deliverable archetype only) |
 | `deliverableSchema` | string? | — | JSON schema path for validation |
 | `mcpStack` | string[] | `[]` | MCP servers for domain sessions |
 | `playbookSkill` | string | `"domain-playbook"` | Playbook skill name |
-| `steps` | string[] | 6 defaults | Playbook step names |
-| `branchPrefix` | string | `"scan/"` | Git branch prefix |
+| `steps` | string[] | varies by archetype | Playbook step names |
+| `branchPrefix` | string | `"squad/"` | Git branch prefix |
 | `telemetry.enabled` | boolean | `true` | OTel observability |
-| `telemetry.aspire` | boolean | `true` | Auto-start Aspire dashboard |
-| `importHook` | string? | — | Custom import script path |
-| `triageHook` | string? | — | Custom triage script path |
+| `importHook` | string? | — | Custom import script (deliverable only) |
+| `completionHook` | string? | — | Script run when a squad completes |
 
 ## Architecture
 

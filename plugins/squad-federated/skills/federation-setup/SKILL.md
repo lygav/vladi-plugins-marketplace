@@ -74,7 +74,25 @@ Store the answer as `description` in the config.
 - "Our payment processing platform with multiple microservices"
 - "The data analytics pipeline from ingestion to reporting"
 
-### Step 2: Deliverable Name
+### Step 1.5: Squad Archetype
+
+Ask: "What type of work will your squads do?"
+
+Present choices:
+- **Deliverable** — squads produce a file artifact (JSON output). Meta-squad aggregates results. *(inventory, audit report, compliance check)*
+- **Coding** — squads implement features or fixes. Output is pull requests. *(feature dev, bug fixes, refactoring)*
+- **Research** — squads investigate and produce documents. Output is design docs, PRDs, ADRs. *(architecture research, feasibility study)*
+- **Task** — squads execute work items. Output is status updates with optional follow-ups. *(migration, cleanup, one-off ops)*
+
+Note: "You can also mix archetypes — a meta-squad can manage squads of different types."
+
+Store as `archetype`. This adjusts subsequent defaults:
+- Deliverable: ask for filename + schema in Step 2
+- Coding: skip deliverable, default steps = design/implement/test/pr
+- Research: skip deliverable, default steps = explore/analyze/draft/review
+- Task: skip deliverable, default steps = plan/execute/verify
+
+### Step 2: Deliverable Name (deliverable archetype only)
 
 Ask what the output file should be called.
 
