@@ -47,7 +47,7 @@ const DEFAULT_CONFIG: FederateConfig = {
   mcpStack: [],
   playbookSkill: 'domain-playbook',
   steps: ['discovery', 'analysis', 'deep-dives', 'validation', 'documentation', 'distillation'],
-  branchPrefix: 'scan/',
+  branchPrefix: 'squad/',
   telemetry: { enabled: true },
 };
 
@@ -106,15 +106,15 @@ function checkSchemaFreshness(worktreePath: string, repoRoot: string, config: Fe
   return false;
 }
 
-type ScanType = 'first-scan' | 'refresh' | 'reset';
+type RunType = 'first-run' | 'refresh' | 'reset';
 
-function detectScanType(worktreePath: string, isReset: boolean, deliverable: string): ScanType {
-  if (!fs.existsSync(path.join(worktreePath, deliverable))) return 'first-scan';
+function detectRunType(worktreePath: string, isReset: boolean, deliverable: string): RunType {
+  if (!fs.existsSync(path.join(worktreePath, deliverable))) return 'first-run';
   return isReset ? 'reset' : 'refresh';
 }
 
 function clearScanArtifacts(worktreePath: string, domain: string, config: FederateConfig): void {
-  console.log('🔄 Reset mode: clearing scan artifacts...');
+  console.log('🔄 Reset mode: clearing artifacts...');
 
   // Clear deliverable and summary
   for (const f of [config.deliverable, 'SCAN_SUMMARY.md']) {
@@ -134,7 +134,7 @@ function clearScanArtifacts(worktreePath: string, domain: string, config: Federa
 
   // Commit cleanup
   try {
-    execSync('git add -A && git commit -m "reset: clear scan artifacts for fresh run" --allow-empty', {
+    execSync('git add -A && git commit -m "reset: clear artifacts for fresh run" --allow-empty', {
       cwd: worktreePath, stdio: 'pipe',
     });
   } catch { /* ignore */ }
@@ -144,7 +144,7 @@ function clearScanArtifacts(worktreePath: string, domain: string, config: Federa
 
 // ==================== Prompt Building ====================
 
-function buildPrompt(domain: string, domainId: string, scanType: ScanType, config: FederateConfig): string {
+function buildPrompt(domain: string, domainId: string, runType: RunType, config: FederateConfig): string {
   const signalBlock = `
 SIGNAL PROTOCOL:
 - Write progress to .squad/signals/status.json after each major step
@@ -155,7 +155,7 @@ SIGNAL PROTOCOL:
 IMPORTANT: You are running in HEADLESS mode. Do NOT ask the user questions.
 Make reasonable assumptions and proceed autonomously.`;
 
-  if (scanType === 'first-scan') {
+  if (runType === 'first-run') {
     return `Team, this is your FIRST RUN. Welcome to ${domain}.
 
 Your domain: ${domain}
@@ -173,7 +173,7 @@ This is your domain now. Everything you learn stays with you forever.
 ${signalBlock}`;
   }
 
-  if (scanType === 'refresh') {
+  if (runType === 'refresh') {
     return `Team, this is a RESCAN of your domain. You have prior knowledge.
 
 Your domain: ${domain}
@@ -241,15 +241,15 @@ function launchDomain(worktree: DomainWorktree, isReset = false, targetStep: str
   const domainId = readDomainId(worktree.path);
   checkSchemaFreshness(worktree.path, REPO_ROOT, config);
 
-  const scanType = detectScanType(worktree.path, isReset, config.deliverable);
+  const runType = detectScanType(worktree.path, isReset, config.deliverable);
 
   // Status header
-  const emoji = scanType === 'first-scan' ? '🆕' : scanType === 'reset' ? '🔄' : '🚀';
-  const mode = targetStep ? `STEP: ${targetStep}` : scanType;
+  const emoji = runType === 'first-run' ? '🆕' : runType === 'reset' ? '🔄' : '🚀';
+  const mode = targetStep ? `STEP: ${targetStep}` : runType;
   console.log(`\n${emoji} Launching ${mode} for ${worktree.domain}`);
   console.log(`   Worktree: ${worktree.path}`);
 
-  if (isReset && scanType === 'reset') {
+  if (isReset && runType === 'reset') {
     clearScanArtifacts(worktree.path, worktree.domain, config);
   }
 
@@ -259,10 +259,10 @@ function launchDomain(worktree: DomainWorktree, isReset = false, targetStep: str
   // Build prompt
   const prompt = targetStep
     ? buildStepPrompt(worktree.domain, domainId, targetStep, config)
-    : buildPrompt(worktree.domain, domainId, scanType, config);
+    : buildPrompt(worktree.domain, domainId, runType, config);
 
   // Prepare log file
-  const logFile = path.join(worktree.path, 'scan-output.log');
+  const logFile = path.join(worktree.path, 'run-output.log');
   const logStream = fs.openSync(logFile, 'w');
 
   // Build MCP args from config

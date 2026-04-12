@@ -174,10 +174,11 @@ export function discoverDomains(repoRoot?: string): DomainWorktree[] {
         currentPath = line.replace('worktree ', '');
       } else if (line.startsWith('branch ')) {
         currentBranch = line.replace('branch refs/heads/', '');
-        // Domain branches follow the pattern: scan/{domain-name}
-        // This prefix is configurable — override via FederateConfig
-        if (currentBranch.startsWith('scan/')) {
-          const domain = currentBranch.replace('scan/', '');
+        // Domain branches follow the pattern: {prefix}{domain-name}
+        // Default prefix is "squad/" — configurable via FederateConfig
+        const prefix = process.env.FEDERATE_BRANCH_PREFIX || 'squad/';
+        if (currentBranch.startsWith(prefix)) {
+          const domain = currentBranch.replace(prefix, '');
           worktrees.push({ domain, branch: currentBranch, path: currentPath });
         }
       }
