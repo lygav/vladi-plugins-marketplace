@@ -10,44 +10,30 @@ copilot plugin install squad-federation-core@vladi-plugins-marketplace
 
 ## Quick Start
 
-1. **Set up the federation** (installs core + archetype plugins automatically):
+Install the plugin, start a Copilot session, and describe your goal:
 
 ```
-> set up federation
+copilot plugin install squad-federation-core@vladi-plugins-marketplace
 ```
 
-The `federation-setup` skill walks you through config, onboards domains, and auto-installs the archetype plugin your project needs.
-
-2. **Onboard a team**:
-
-```bash
-npx tsx scripts/onboard.ts \
-  --name "payments" \
-  --team-size 3 \
-  --roles "lead,analyst,sre" \
-  --agents "Alpha,Beta,Gamma"
+```
+> I want to set up a team organization for [your goal]
 ```
 
-3. **Launch**:
+The `federation-setup` skill handles everything conversationally:
+1. Asks about your domain and work pattern
+2. Auto-installs the right archetype plugin
+3. Generates `federate.config.json`
+4. Casts your meta-squad
+5. Offers to onboard your first team
 
-```bash
-npx tsx scripts/launch.ts --team payments
-```
+From there, use natural language to manage your federation:
+- *"Spin off a backend team for the payments service"*
+- *"Launch the payments team"*
+- *"How are my teams doing?"*
+- *"Sync skills to all teams"*
 
-`launch.ts` resolves the prompt for the session in this order:
-
-| Priority | Source |
-|----------|--------|
-| 1 | `--prompt "inline text"` flag |
-| 2 | `--prompt-file path/to/file.md` flag |
-| 3 | `.squad/launch-prompt.md` in the team worktree |
-| 4 | Generic fallback prompt from templates |
-
-4. **Monitor**:
-
-```bash
-npx tsx scripts/monitor.ts --watch
-```
+> **Power users:** All operations are also available as scripts (`scripts/onboard.ts`, `scripts/launch.ts`, `scripts/monitor.ts`, etc.). See [ARCHITECTURE.md](ARCHITECTURE.md) §10 for CLI reference.
 
 ## Three-Layer Architecture
 
