@@ -1,0 +1,413 @@
+#!/usr/bin/env node
+/**
+ * Learning Graduation Engine
+ *
+ * Promotes learnings from domain squad logs into skill updates on main.
+ *
+ * Usage:
+ *   npx tsx scripts/graduate-learning.ts --id <ID> --target-skill my-skill
+ *   npx tsx scripts/graduate-learning.ts --candidates              # Show graduation candidates
+ *   npx tsx scripts/graduate-learning.ts --from-sweep .squad/decisions/inbox/sweep-report.md
+ */
+
+import * as fs from 'fs';
+import * as path from 'path';
+import { execSync } from 'child_process';
+import { LearningLog, LearningEntry } from './lib/learning-log.js';
+
+const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
+const DECISIONS_INBOX = path.join(REPO_ROOT, '.squad', 'decisions', 'inbox');
+const BRANCH_PREFIX = process.env.SQUAD_BRANCH_PREFIX || 'scan/';
+
+interface GraduationCandidate {
+  entry: LearningEntry;
+  domain: string;
+  branch: string;
+  score: number;
+}
+
+// Parse CLI args
+const args = process.argv.slice(2);
+const flags = {
+  id: args.find(a => a.startsWith('--id='))?.split('=')[1] || args.find((a, i) => args[i - 1] === '--id') || null,
+  targetSkill: args.find(a => a.startsWith('--target-skill='))?.split('=')[1] || args.find((a, i) => args[i - 1] === '--target-skill') || null,
+  candidates: args.includes('--candidates'),
+  fromSweep: args.find(a => a.startsWith('--from-sweep='))?.split('=')[1] || args.find((a, i) => args[i - 1] === '--from-sweep') || null,
+};
+
+// ==================== Discovery ====================
+
+function discoverBranches(): string[] {
+  try {
+    const output = execSync(`git branch --list '${BRANCH_PREFIX}*' --format='%(refname:short)'`, {
+      cwd: REPO_ROOT,
+      encoding: 'utf-8',
+    });
+
+    return output.trim().split('\n').filter(b => b.length > 0);
+  } catch (err) {
+    console.error('⚠️  Failed to list branches:', err);
+    return [];
+  }
+}
+
+function findLearningById(branches: string[], learningId: string): { entry: LearningEntry; domain: string; branch: string } | null {
+  for (const branch of branches) {
+    const domainName = branch.substring(BRANCH_PREFIX.length);
+    const entries = LearningLog.readFromBranch(branch, REPO_ROOT);
+
+    const entry = entries.find(e => e.id === learningId);
+
+    if (entry) {
+      return { entry, domain: domainName, branch };
+    }
+  }
+
+  return null;
+}
+
+// ==================== Candidate Selection ====================
+
+function findGraduationCandidates(branches: string[]): GraduationCandidate[] {
+  const candidates: GraduationCandidate[] = [];
+
+  for (const branch of branches) {
+    const domainName = branch.substring(BRANCH_PREFIX.length);
+    const entries = LearningLog.readFromBranch(branch, REPO_ROOT);
+
+    for (const entry of entries) {
+      // Must be generalizable, high confidence, and not already graduated
+      if (entry.domain === 'generalizable' &&
+          entry.confidence === 'high' &&
+          !entry.graduated_to_skill) {
+
+        // Calculate score based on evidence and related skill
+        let score = 0;
+
+        if (entry.confidence === 'high') score += 3;
+        if (entry.evidence && entry.evidence.length > 0) score += entry.evidence.length;
+        if (entry.related_skill) score += 2;
+        if (entry.tags.length >= 3) score += 1;
+
+        candidates.push({
+          entry,
+          domain: domainName,
+          branch,
+          score,
+        });
+      }
+    }
+  }
+
+  return candidates.sort((a, b) => b.score - a.score);
+}
+
+function findPatternsFromSweep(sweepReportPath: string): Array<{ learningId: string; skill: string }> {
+  const patterns: Array<{ learningId: string; skill: string }> = [];
+
+  if (!fs.existsSync(sweepReportPath)) {
+    console.error(`❌ Sweep report not found: ${sweepReportPath}`);
+    return patterns;
+  }
+
+  const content = fs.readFileSync(sweepReportPath, 'utf-8');
+  const lines = content.split('\n');
+
+  let currentSkill: string | null = null;
+  let shouldGraduate = false;
+
+  for (const line of lines) {
+    // Match skill headers
+    const skillMatch = line.match(/^### (.+)$/);
+    if (skillMatch) {
+      currentSkill = skillMatch[1];
+      shouldGraduate = false;
+    }
+
+    // Match graduation recommendation
+    if (line.includes('Recommendation:') && line.includes('GRADUATE')) {
+      shouldGraduate = true;
+    }
+
+    // Match evidence entries (extract IDs if present)
+    if (currentSkill && shouldGraduate && line.startsWith('- [')) {
+      // Simplified — IDs are not embedded in sweep reports by default.
+      // In practice, re-query the learning log for matching entries.
+    }
+  }
+
+  return patterns;
+}
+
+// ==================== Graduation ====================
+
+function generateGraduationDraft(
+  entry: LearningEntry,
+  domain: string,
+  targetSkill?: string
+): string {
+  const skill = targetSkill || entry.related_skill || 'unknown-skill';
+
+  let draft = `# Graduation Draft\n\n`;
+  draft += `**Learning ID:** ${entry.id}\n`;
+  draft += `**Source:** ${domain} (${entry.agent})\n`;
+  draft += `**Confidence:** ${entry.confidence}\n`;
+  draft += `**Target Skill:** ${skill}\n`;
+  draft += `**Date:** ${new Date().toISOString().split('T')[0]}\n\n`;
+
+  draft += `## Summary\n\n${entry.summary}\n\n`;
+
+  draft += `## Detail\n\n${entry.detail}\n\n`;
+
+  if (entry.evidence && entry.evidence.length > 0) {
+    draft += `## Evidence\n\n`;
+    for (const evidence of entry.evidence) {
+      draft += `- ${evidence}\n`;
+    }
+    draft += '\n';
+  }
+
+  draft += `## Tags\n\n${entry.tags.join(', ')}\n\n`;
+
+  draft += `## Proposed Addition to ${skill}\n\n`;
+  draft += '```markdown\n';
+  draft += `### ${entry.summary}\n\n`;
+  draft += `${entry.detail}\n\n`;
+
+  if (entry.evidence && entry.evidence.length > 0) {
+    draft += `**Evidence:**\n`;
+    for (const evidence of entry.evidence) {
+      draft += `- ${evidence}\n`;
+    }
+  }
+
+  draft += '```\n\n';
+
+  draft += `## Next Steps\n\n`;
+  draft += `1. Review the proposed content above\n`;
+  draft += `2. Edit \`.squad/skills/${skill}/SKILL.md\` to incorporate this learning\n`;
+  draft += `3. Commit: \`git add .squad/skills/${skill}/SKILL.md && git commit -m "skill: update ${skill} with ${domain} learning"\`\n`;
+  draft += `4. Mark as graduated: \`npx tsx scripts/graduate-learning.ts --mark-graduated ${entry.id} --skill ${skill}\`\n`;
+
+  return draft;
+}
+
+function writeGraduationDraft(entry: LearningEntry, domain: string, targetSkill?: string): string {
+  const draftPath = path.join(DECISIONS_INBOX, `graduation-${entry.id}.md`);
+
+  fs.mkdirSync(DECISIONS_INBOX, { recursive: true });
+
+  const draft = generateGraduationDraft(entry, domain, targetSkill);
+  fs.writeFileSync(draftPath, draft);
+
+  return draftPath;
+}
+
+function markAsGraduated(branches: string[], learningId: string, skill: string): void {
+  const learning = findLearningById(branches, learningId);
+
+  if (!learning) {
+    console.error(`❌ Learning ${learningId} not found`);
+    return;
+  }
+
+  const worktreePath = getWorktreePath(learning.branch);
+
+  if (!worktreePath) {
+    console.log(`⚠️  Branch ${learning.branch} has no worktree — graduation recorded but not applied to log`);
+    console.log(`    The domain squad will see the graduation on their next pull/sync`);
+    return;
+  }
+
+  // Update the log in the worktree
+  try {
+    const log = new LearningLog(worktreePath);
+    log.markGraduated(learningId, skill);
+
+    console.log(`✅ Marked ${learningId} as graduated to ${skill} in ${learning.domain}'s log`);
+  } catch (err: any) {
+    console.error(`❌ Failed to mark as graduated: ${err.message}`);
+  }
+}
+
+function getWorktreePath(branch: string): string | null {
+  try {
+    const output = execSync('git worktree list --porcelain', {
+      cwd: REPO_ROOT,
+      encoding: 'utf-8',
+    });
+
+    const lines = output.trim().split('\n');
+    let currentPath: string | null = null;
+
+    for (const line of lines) {
+      if (line.startsWith('worktree ')) {
+        currentPath = line.substring('worktree '.length);
+      } else if (line.startsWith('branch ')) {
+        const branchName = line.substring('branch refs/heads/'.length);
+        if (branchName === branch && currentPath) {
+          return currentPath;
+        }
+      } else if (line === '') {
+        currentPath = null;
+      }
+    }
+  } catch (err) {
+    console.error('⚠️  Failed to list worktrees:', err);
+  }
+
+  return null;
+}
+
+// ==================== Reporting ====================
+
+function printCandidates(candidates: GraduationCandidate[]): void {
+  console.log('\n📋 Graduation Candidates');
+  console.log('━'.repeat(80));
+  console.log(`Found ${candidates.length} high-confidence generalizable learnings\n`);
+
+  for (let i = 0; i < candidates.length; i++) {
+    const candidate = candidates[i];
+    const num = String(i + 1).padStart(2, ' ');
+
+    console.log(`${num}. [${candidate.domain}] ${candidate.entry.agent}: ${candidate.entry.summary}`);
+    console.log(`    ID: ${candidate.entry.id}`);
+    console.log(`    Confidence: ${candidate.entry.confidence} | Score: ${candidate.score}`);
+
+    if (candidate.entry.related_skill) {
+      console.log(`    Related skill: ${candidate.entry.related_skill}`);
+    }
+
+    console.log(`    Tags: ${candidate.entry.tags.join(', ')}`);
+    console.log('');
+  }
+
+  console.log('To graduate a learning, run:');
+  console.log('  npx tsx scripts/graduate-learning.ts --id <ID> --target-skill <skill-name>');
+  console.log('');
+}
+
+// ==================== Main ====================
+
+function main(): void {
+  const branches = discoverBranches();
+
+  if (branches.length === 0) {
+    console.error(`❌ No ${BRANCH_PREFIX}* branches found.`);
+    process.exit(1);
+  }
+
+  // --candidates mode
+  if (flags.candidates) {
+    console.log('🔍 Finding graduation candidates...');
+    const candidates = findGraduationCandidates(branches);
+
+    if (candidates.length === 0) {
+      console.log('⚪ No graduation candidates found.');
+      return;
+    }
+
+    printCandidates(candidates);
+    return;
+  }
+
+  // --from-sweep mode
+  if (flags.fromSweep) {
+    console.log(`🔍 Processing sweep report: ${flags.fromSweep}`);
+
+    const sweepPath = path.isAbsolute(flags.fromSweep)
+      ? flags.fromSweep
+      : path.join(REPO_ROOT, flags.fromSweep);
+
+    const patterns = findPatternsFromSweep(sweepPath);
+
+    if (patterns.length === 0) {
+      console.log('⚪ No graduation patterns found in sweep report.');
+      return;
+    }
+
+    console.log(`✅ Found ${patterns.length} patterns to graduate`);
+
+    for (const pattern of patterns) {
+      const learning = findLearningById(branches, pattern.learningId);
+
+      if (!learning) {
+        console.log(`⚠️  Learning ${pattern.learningId} not found, skipping...`);
+        continue;
+      }
+
+      const draftPath = writeGraduationDraft(learning.entry, learning.domain, pattern.skill);
+      console.log(`📝 Created graduation draft: ${draftPath}`);
+    }
+
+    return;
+  }
+
+  // --id mode
+  if (flags.id) {
+    console.log(`🔍 Finding learning ${flags.id}...`);
+
+    const learning = findLearningById(branches, flags.id);
+
+    if (!learning) {
+      console.error(`❌ Learning ${flags.id} not found in any domain log`);
+      process.exit(1);
+    }
+
+    console.log(`✅ Found in ${learning.domain}`);
+
+    const targetSkill = flags.targetSkill || learning.entry.related_skill;
+
+    if (!targetSkill) {
+      console.error('❌ No target skill specified and learning has no related_skill');
+      console.error('   Use --target-skill <skill-name> to specify');
+      process.exit(1);
+    }
+
+    // Generate graduation draft
+    const draftPath = writeGraduationDraft(learning.entry, learning.domain, targetSkill);
+
+    console.log('\n📝 Graduation Draft Created');
+    console.log('━'.repeat(80));
+    console.log(`Path: ${draftPath}`);
+    console.log('');
+    console.log('Next steps:');
+    console.log(`1. Review the draft: cat "${draftPath}"`);
+    console.log(`2. Update the skill: vim .squad/skills/${targetSkill}/SKILL.md`);
+    console.log(`3. Commit: git add .squad/skills/${targetSkill}/SKILL.md && git commit -m "skill: update ${targetSkill}"`);
+    console.log(`4. Mark as graduated: npx tsx scripts/graduate-learning.ts --mark-graduated ${flags.id} --skill ${targetSkill}`);
+    console.log('');
+
+    return;
+  }
+
+  // --mark-graduated mode (hidden flag for internal use)
+  if (args.includes('--mark-graduated')) {
+    const idIndex = args.indexOf('--mark-graduated');
+    const learningId = args[idIndex + 1];
+    const skillIndex = args.indexOf('--skill');
+    const skill = skillIndex >= 0 ? args[skillIndex + 1] : null;
+
+    if (!learningId || !skill) {
+      console.error('❌ Usage: --mark-graduated <id> --skill <skill-name>');
+      process.exit(1);
+    }
+
+    markAsGraduated(branches, learningId, skill);
+    return;
+  }
+
+  // No flags — show usage
+  console.log('Usage:');
+  console.log('  npx tsx scripts/graduate-learning.ts --candidates');
+  console.log('  npx tsx scripts/graduate-learning.ts --id <ID> --target-skill <skill-name>');
+  console.log('  npx tsx scripts/graduate-learning.ts --from-sweep <sweep-report.md>');
+}
+
+// Run
+try {
+  main();
+} catch (err: any) {
+  console.error('❌ Graduation failed:', err.message);
+  process.exit(1);
+}

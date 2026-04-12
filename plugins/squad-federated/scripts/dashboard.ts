@@ -40,6 +40,7 @@ function startDashboard(): void {
 }
 
 function startDockerDirectly(): void {
+  const image = process.env.ASPIRE_IMAGE || 'mcr.microsoft.com/dotnet/aspire-dashboard:latest';
   const child = spawn('docker', [
     'run', '-d',
     '--name', 'squad-aspire',
@@ -47,7 +48,7 @@ function startDockerDirectly(): void {
     '-p', '4317:18889',
     '-p', '4318:18890',
     '-e', 'DASHBOARD__FRONTEND__AUTHMODE=Unsecured',
-    'mcr.microsoft.com/dotnet/aspire-dashboard:latest',
+    image,
   ], { stdio: 'inherit' });
 
   child.on('close', (code) => {
