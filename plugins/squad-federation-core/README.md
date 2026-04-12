@@ -44,6 +44,8 @@ From there, use natural language to manage your federation:
 
 > **Power users:** All operations are also available as scripts (`scripts/onboard.ts`, `scripts/launch.ts`, `scripts/monitor.ts`, etc.). See [ARCHITECTURE.md](ARCHITECTURE.md) §10 for CLI reference.
 
+> **📖 Full walkthrough:** See [EXAMPLE.md](EXAMPLE.md) for a complete end-to-end example — from empty project to running federated teams.
+
 ## Three-Layer Architecture
 
 ```
