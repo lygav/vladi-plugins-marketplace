@@ -215,6 +215,14 @@ Confirm it's running: "✅ Monitoring dashboard live at http://localhost:18888. 
 
 No endpoint, port, or service name in config. The runtime uses sensible defaults. The OTel MCP server auto-starts with each team session via the plugin's `.mcp.json`.
 
+### Step 5.5: Branch prefix
+
+**Ask:** "Team worktrees use git branches. The default prefix is `squad/` (e.g., `squad/frontend-team`, `squad/payments`). Want to change it?"
+
+**Default:** `squad/`
+
+Most users keep the default. Only change if there's a naming conflict or organizational convention.
+
 ### Step 6: Generate config
 
 Assemble `federate.config.json` at the repository root with **only** core fields:
@@ -232,7 +240,7 @@ Assemble `federate.config.json` at the repository root with **only** core fields
 
 **Rules for this config:**
 - `description` — from Step 1, verbatim
-- `branchPrefix` — always `"squad/"` (don't ask the user unless they bring it up)
+- `branchPrefix` — from Step 5.5, default `"squad/"`
 - `mcpStack` — from Step 4, or empty array
 - `telemetry.enabled` — from Step 5
 
