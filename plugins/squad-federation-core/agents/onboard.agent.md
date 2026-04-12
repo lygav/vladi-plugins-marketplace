@@ -39,6 +39,8 @@ Your job is to set up a new domain worktree, compose the right team, and seed in
 - For each marketplace, browse available plugins: `copilot plugin marketplace browse <name>`
 - Match plugin names/descriptions against the team's domain and purpose keywords
   (e.g., team for "payments API" → look for plugins matching "api", "testing", "security", "payments")
+- Marketplace skills are always for the TEAM (installed into the team's worktree).
+  Meta-squad skills come from archetype plugins, not marketplaces.
 - If matches found, present them to the user:
   *"Found these skills in the marketplace that could help this team:*
   - *`api-testing` — API test patterns and validation*

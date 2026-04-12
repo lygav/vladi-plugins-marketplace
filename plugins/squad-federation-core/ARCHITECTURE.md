@@ -714,10 +714,11 @@ User: "Spin off a backend team for the payments API"
      Install for this team?"
 ```
 
-This happens automatically in the onboard agent (step 5). If no
-marketplaces are registered or no matches found, the step is skipped
-silently. Skills installed this way become available to the team
-immediately on first launch.
+This happens automatically in the onboard agent (step 5). Marketplace
+skills are always team-scoped — they get installed into the team's
+worktree. Meta-squad skills come exclusively from archetype plugin
+installs (global), not from marketplace discovery. If no marketplaces
+are registered or no matches found, the step is skipped silently.
 
 ### .squad/archetype.json Schema
 
