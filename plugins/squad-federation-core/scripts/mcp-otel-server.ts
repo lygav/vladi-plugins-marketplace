@@ -14,7 +14,7 @@ import { randomBytes } from 'crypto';
 // ==================== Configuration ====================
 
 const OTEL_ENDPOINT = process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318';
-const SERVICE_NAME = process.env.OTEL_SERVICE_NAME || 'squad-federated';
+const SERVICE_NAME = process.env.OTEL_SERVICE_NAME || 'squad-federation-core';
 const DOMAIN = process.env.SQUAD_DOMAIN || 'unknown';
 
 const activeSpans = new Map<string, { startTime: bigint; attributes: Record<string, any> }>();
@@ -91,7 +91,7 @@ function formatOTLPTrace(span: {
     resourceSpans: [{
       resource: { attributes: resourceAttributes() },
       scopeSpans: [{
-        scope: { name: 'squad-federated-otel', version: '1.0.0' },
+        scope: { name: 'squad-federation-core-otel', version: '1.0.0' },
         spans: [{
           traceId: span.traceId, spanId: span.spanId, name: span.name,
           kind: 1,
@@ -112,7 +112,7 @@ function formatOTLPMetric(metric: {
     resourceMetrics: [{
       resource: { attributes: resourceAttributes() },
       scopeMetrics: [{
-        scope: { name: 'squad-federated-otel', version: '1.0.0' },
+        scope: { name: 'squad-federation-core-otel', version: '1.0.0' },
         metrics: [{
           name: metric.name,
           gauge: {
@@ -133,7 +133,7 @@ function formatOTLPLog(body: string, timestamp: bigint, attributes: Record<strin
     resourceLogs: [{
       resource: { attributes: resourceAttributes() },
       scopeLogs: [{
-        scope: { name: 'squad-federated-otel', version: '1.0.0' },
+        scope: { name: 'squad-federation-core-otel', version: '1.0.0' },
         logRecords: [{
           timeUnixNano: timestamp.toString(),
           ...(severity ? { severityNumber: severity.number, severityText: severity.text } : {}),
@@ -290,7 +290,7 @@ async function handleRequest(msg: JsonRpcRequest): Promise<void> {
     respond(id, {
       protocolVersion: '2024-11-05',
       capabilities: { tools: {} },
-      serverInfo: { name: 'squad-federated-otel', version: '1.0.0' },
+      serverInfo: { name: 'squad-federation-core-otel', version: '1.0.0' },
     });
     return;
   }

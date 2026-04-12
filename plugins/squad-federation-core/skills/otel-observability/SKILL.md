@@ -174,7 +174,7 @@ After starting the dashboard and a domain session:
 
 1. Open `http://localhost:18888`
 2. Navigate to the Traces tab
-3. Look for spans with service name `squad-federated`
+3. Look for spans with service name `squad-federation-core`
 4. Filter by `squad.domain` attribute to view a specific domain
 
 If no data appears:
@@ -190,7 +190,7 @@ The MCP OTel server respects these environment variables:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | OTLP collector endpoint |
-| `OTEL_SERVICE_NAME` | `squad-federated` | Service name in traces |
+| `OTEL_SERVICE_NAME` | `squad-federation-core` | Service name in traces |
 | `SQUAD_DOMAIN` | `unknown` | Domain name for resource attributes |
 
 These are set automatically by `launch.ts` when starting domain sessions.

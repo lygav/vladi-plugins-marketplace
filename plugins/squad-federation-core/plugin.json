@@ -1,5 +1,5 @@
 {
-  "name": "squad-federated",
+  "name": "squad-federation-core",
   "description": "Federated squad model — permanent per-domain expert squads with orchestration, knowledge lifecycle, OTel observability, and headless scan automation",
   "version": "0.1.0",
   "author": {

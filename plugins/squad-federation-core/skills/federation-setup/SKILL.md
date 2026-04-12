@@ -188,7 +188,7 @@ Ask about observability preferences.
 **If enabling, confirm:**
 - Dashboard port (default: 18888)
 - OTLP endpoint (default: `http://localhost:4318`)
-- Service name (default: `squad-federated`)
+- Service name (default: `squad-federation-core`)
 
 Store as `telemetry` object in the config:
 
@@ -197,7 +197,7 @@ Store as `telemetry` object in the config:
   "telemetry": {
     "enabled": true,
     "endpoint": "http://localhost:4318",
-    "serviceName": "squad-federated",
+    "serviceName": "squad-federation-core",
     "dashboardPort": 18888
   }
 }
@@ -282,7 +282,7 @@ interface TelemetryConfig {
   "telemetry": {
     "enabled": true,
     "endpoint": "http://localhost:4318",
-    "serviceName": "squad-federated",
+    "serviceName": "squad-federation-core",
     "dashboardPort": 18888
   }
 }

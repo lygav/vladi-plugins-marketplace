@@ -1,5 +1,5 @@
 {
-  "name": "squad-federated-scripts",
+  "name": "squad-federation-core-scripts",
   "version": "0.1.0",
   "type": "module",
   "description": "Federated squad orchestration scripts — domain-agnostic machinery for multi-squad workflows",

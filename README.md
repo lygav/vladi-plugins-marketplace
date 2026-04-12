@@ -12,14 +12,14 @@ copilot plugin marketplace add lygav/vladi-plugins-marketplace
 copilot plugin marketplace browse vladi-plugins-marketplace
 
 # Install a plugin
-copilot plugin install squad-federated@vladi-plugins-marketplace
+copilot plugin install squad-federation-core@vladi-plugins-marketplace
 ```
 
 ## Available Plugins
 
 | Plugin | Description |
 |--------|-------------|
-| [squad-federated](plugins/squad-federated/) | Federated squad model — permanent per-domain expert squads with orchestration, knowledge lifecycle, OTel observability |
+| [squad-federation-core](plugins/squad-federation-core/) | Federated squad model — permanent per-domain expert squads with orchestration, knowledge lifecycle, OTel observability |
 
 ## License
 

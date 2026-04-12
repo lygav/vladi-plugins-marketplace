@@ -9,10 +9,10 @@
   },
   "plugins": [
     {
-      "name": "squad-federated",
+      "name": "squad-federation-core",
       "description": "Federated squad model — permanent per-domain expert squads with orchestration, knowledge lifecycle, OTel observability, and headless scan automation",
       "version": "0.1.0",
-      "source": "plugins/squad-federated",
+      "source": "plugins/squad-federation-core",
       "author": {
         "name": "Vladi Lyga"
       },
@@ -23,7 +23,7 @@
     },
     {
       "name": "squad-archetype-deliverable",
-      "description": "Deliverable archetype for squad-federated — scatter-gather pattern producing file artifacts",
+      "description": "Deliverable archetype for squad-federation-core — scatter-gather pattern producing file artifacts",
       "version": "0.1.0",
       "source": "plugins/squad-archetype-deliverable",
       "author": {
@@ -36,7 +36,7 @@
     },
     {
       "name": "squad-archetype-coding",
-      "description": "Coding archetype for squad-federated — implementation teams that produce pull requests",
+      "description": "Coding archetype for squad-federation-core — implementation teams that produce pull requests",
       "version": "0.1.0",
       "source": "plugins/squad-archetype-coding",
       "author": {

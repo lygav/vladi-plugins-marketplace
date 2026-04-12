@@ -1,6 +1,6 @@
 {
   "name": "squad-archetype-coding",
-  "description": "Coding archetype for squad-federated — implementation teams that produce pull requests",
+  "description": "Coding archetype for squad-federation-core — implementation teams that produce pull requests",
   "version": "0.1.0",
   "author": { "name": "Vladi Lyga" },
   "keywords": ["squad", "archetype", "coding", "development", "pull-request"],
