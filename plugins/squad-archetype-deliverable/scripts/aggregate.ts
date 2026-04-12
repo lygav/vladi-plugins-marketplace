@@ -7,13 +7,15 @@
  *
  * Configuration (federate.config.json or env vars):
  *   - deliverable: filename to collect (default: "deliverable.json")
+ *   - deliverableSchema: path to JSON Schema for validation (optional)
  *   - importHook: path to script to run per collected file (optional)
- *   - branchPrefix: branch prefix for domain branches (default: "scan/")
+ *   - branchPrefix: branch prefix for domain branches (default: "squad/")
  *
  * Usage:
  *   npx tsx scripts/aggregate.ts                          # Aggregate all domains
  *   npx tsx scripts/aggregate.ts --list                   # Show what's available
  *   npx tsx scripts/aggregate.ts --dry-run                # Collect but don't import
+ *   npx tsx scripts/aggregate.ts --validate               # Validate deliverables against schema
  *   npx tsx scripts/aggregate.ts --teams "my-product,analytics-engine"
  */
 
@@ -28,6 +30,7 @@ const CONFIG_PATH = path.join(REPO_ROOT, 'federate.config.json');
 
 interface FederateConfig {
   deliverable: string;
+  deliverableSchema?: string;
   importHook?: string;
   branchPrefix: string;
 }
@@ -35,7 +38,7 @@ interface FederateConfig {
 function loadConfig(): FederateConfig {
   const defaults: FederateConfig = {
     deliverable: 'deliverable.json',
-    branchPrefix: 'scan/',
+    branchPrefix: 'squad/',
   };
 
   // Config file takes precedence
@@ -91,6 +94,7 @@ interface ManifestEntry {
   item_count: number;
   imported: boolean;
   error?: string;
+  validation_warnings?: string[];
 }
 
 interface Manifest {
@@ -105,6 +109,7 @@ const args = process.argv.slice(2);
 const flags = {
   list: args.includes('--list'),
   dryRun: args.includes('--dry-run'),
+  validate: args.includes('--validate'),
   domains: args.find(a => a.startsWith('--teams='))?.split('=')[1]?.split(',') || null,
 };
 
@@ -217,6 +222,82 @@ function extractMetadata(content: string, domainName: string): DeliverableMetada
   }
 }
 
+// ==================== Schema Validation ====================
+
+function validateDeliverable(content: string, schemaPath: string): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  let data: any;
+  try {
+    data = JSON.parse(content);
+  } catch (err) {
+    return { valid: false, errors: ['Invalid JSON: ' + (err as Error).message] };
+  }
+
+  let schema: any;
+  try {
+    const absPath = path.isAbsolute(schemaPath) ? schemaPath : path.join(REPO_ROOT, schemaPath);
+    schema = JSON.parse(fs.readFileSync(absPath, 'utf-8'));
+  } catch (err) {
+    return { valid: false, errors: ['Failed to read schema: ' + (err as Error).message] };
+  }
+
+  // Check top-level type
+  if (schema.type) {
+    const actualType = Array.isArray(data) ? 'array' : typeof data;
+    if (schema.type !== actualType) {
+      errors.push(`Expected type "${schema.type}" but got "${actualType}"`);
+    }
+  }
+
+  // Validate array items
+  if (schema.type === 'array' && schema.items && Array.isArray(data)) {
+    const itemSchema = schema.items;
+    data.forEach((item: any, index: number) => {
+      if (itemSchema.required && Array.isArray(itemSchema.required)) {
+        for (const field of itemSchema.required) {
+          if (item[field] === undefined || item[field] === null) {
+            errors.push(`missing required field "${field}" in item[${index}]`);
+          }
+        }
+      }
+      if (itemSchema.properties) {
+        for (const [key, propSchema] of Object.entries<any>(itemSchema.properties)) {
+          if (item[key] !== undefined && propSchema.type) {
+            const actual = Array.isArray(item[key]) ? 'array' : typeof item[key];
+            if (propSchema.type !== actual) {
+              errors.push(`field "${key}" in item[${index}]: expected "${propSchema.type}" but got "${actual}"`);
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Validate object fields
+  if (schema.type === 'object' || (!schema.type && schema.properties)) {
+    if (schema.required && Array.isArray(schema.required)) {
+      for (const field of schema.required) {
+        if (data[field] === undefined || data[field] === null) {
+          errors.push(`missing required field "${field}"`);
+        }
+      }
+    }
+    if (schema.properties) {
+      for (const [key, propSchema] of Object.entries<any>(schema.properties)) {
+        if (data[key] !== undefined && propSchema.type) {
+          const actual = Array.isArray(data[key]) ? 'array' : typeof data[key];
+          if (propSchema.type !== actual) {
+            errors.push(`field "${key}": expected "${propSchema.type}" but got "${actual}"`);
+          }
+        }
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
 function discoverAllDomains(): DomainBranch[] {
   const worktreeMap = discoverWorktrees();
   const branches = discoverBranches();
@@ -320,7 +401,8 @@ function runImportHook(domainName: string, collectedPath: string): { success: bo
 function writeManifest(
   domains: DomainBranch[],
   collectedFiles: Map<string, string>,
-  importResults: Map<string, { success: boolean; error?: string }>
+  importResults: Map<string, { success: boolean; error?: string }>,
+  validationResults?: Map<string, { valid: boolean; errors: string[] }>
 ): void {
   const manifestEntries: ManifestEntry[] = [];
 
@@ -333,6 +415,7 @@ function writeManifest(
     const content = fs.readFileSync(collectedPath, 'utf-8');
     const metadata = extractMetadata(content, domain.name);
     const importResult = importResults.get(domain.name);
+    const validationResult = validationResults?.get(domain.name);
 
     manifestEntries.push({
       name: domain.name,
@@ -342,6 +425,7 @@ function writeManifest(
       item_count: metadata.item_count,
       imported: importResult?.success || false,
       error: importResult?.error,
+      validation_warnings: validationResult?.valid === false ? validationResult.errors : undefined,
     });
   }
 
@@ -379,7 +463,8 @@ function printListTable(domains: DomainBranch[]): void {
 function printSummaryReport(
   domains: DomainBranch[],
   collectedFiles: Map<string, string>,
-  importResults: Map<string, { success: boolean; error?: string }>
+  importResults: Map<string, { success: boolean; error?: string }>,
+  validationResults?: Map<string, { valid: boolean; errors: string[] }>
 ): void {
   const total = domains.length;
   const withDeliverable = domains.filter(d => d.hasDeliverable).length;
@@ -418,6 +503,14 @@ function printSummaryReport(
     } else {
       console.log(`⚪ ${domain.name.padEnd(30)} (no ${config.deliverable} — scan pending)`);
     }
+  }
+
+  if (validationResults && validationResults.size > 0) {
+    const validCount = Array.from(validationResults.values()).filter(r => r.valid).length;
+    const totalValidated = validationResults.size;
+    const warningCount = totalValidated - validCount;
+    console.log('');
+    console.log(`🔎 Validated ${validCount}/${totalValidated} teams.${warningCount > 0 ? ` ${warningCount} validation warning${warningCount > 1 ? 's' : ''}.` : ''}`);
   }
 
   console.log('');
@@ -465,6 +558,36 @@ function main(): void {
     return;
   }
 
+  // Validate deliverables against schema if --validate or deliverableSchema configured
+  const validationResults = new Map<string, { valid: boolean; errors: string[] }>();
+  const schemaPath = config.deliverableSchema;
+
+  if (flags.validate || schemaPath) {
+    if (!schemaPath) {
+      console.warn('⚠️  --validate passed but no deliverableSchema configured in federate.config.json');
+    } else {
+      console.log(`\n🔎 Validating deliverables against ${schemaPath}...`);
+
+      for (const [domainName, collectedPath] of collectedFiles.entries()) {
+        const content = fs.readFileSync(collectedPath, 'utf-8');
+        const metadata = extractMetadata(content, domainName);
+        const result = validateDeliverable(content, schemaPath);
+        validationResults.set(domainName, result);
+
+        if (result.valid) {
+          console.log(`  ✅ ${domainName}: valid (${metadata.item_count} items)`);
+        } else {
+          console.log(`  ⚠️ ${domainName}: invalid — ${result.errors[0]}${result.errors.length > 1 ? ` (+${result.errors.length - 1} more)` : ''}`);
+        }
+      }
+
+      const validCount = Array.from(validationResults.values()).filter(r => r.valid).length;
+      const totalValidated = validationResults.size;
+      const warningCount = totalValidated - validCount;
+      console.log(`\nValidated ${validCount}/${totalValidated} teams.${warningCount > 0 ? ` ${warningCount} validation warning${warningCount > 1 ? 's' : ''}.` : ''}`);
+    }
+  }
+
   const importResults = new Map<string, { success: boolean; error?: string }>();
 
   if (!flags.dryRun) {
@@ -487,11 +610,11 @@ function main(): void {
   }
 
   // Write manifest
-  writeManifest(domains, collectedFiles, importResults);
+  writeManifest(domains, collectedFiles, importResults, validationResults);
   console.log(`\n📝 Manifest written: ${MANIFEST_PATH}`);
 
   // Print summary
-  printSummaryReport(domains, collectedFiles, importResults);
+  printSummaryReport(domains, collectedFiles, importResults, validationResults);
 }
 
 // Run

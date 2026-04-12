@@ -14,7 +14,7 @@ Meta-squad aggregates deliverables from all teams → unified result
 
 | Component | Purpose |
 |-----------|---------|
-| `skills/deliverable-playbook/` | Playbook: discovery → analysis → deep-dives → validation → distillation |
+| `skills/deliverable-playbook/` | Playbook: discovery (scope + data sources) → analysis → deep-dives → validation → distillation |
 | `templates/launch-prompt-*.md` | Prompt templates for first run, refresh, and reset |
 | `templates/cleanup-hook.sh` | Reset cleanup: deletes deliverable + raw/ |
 | `templates/merge_fragments.py` | Merges per-item JSON fragments into unified deliverable |
