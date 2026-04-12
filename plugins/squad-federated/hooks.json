@@ -1,0 +1,12 @@
+{
+  "SessionStart": [
+    {
+      "hooks": [
+        {
+          "type": "prompt",
+          "prompt": "Check if this project uses the federated squad model by looking for federate.config.json or .squad/signals/ directory. If found, briefly mention: 'Federation detected — domain squads available. Use /skills to see federation skills.'"
+        }
+      ]
+    }
+  ]
+}
