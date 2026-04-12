@@ -151,6 +151,19 @@ function resetTeam(worktreePath: string): void {
 
 // ==================== Prompt Resolution ====================
 
+// Signal protocol instructions — ALWAYS appended to every prompt regardless of source.
+// Without these, headless sessions won't update status.json or check directives.
+function signalInstructions(team: string): string {
+  return `
+---
+## Signal Protocol (required)
+- Check .squad/signals/inbox/ for directives before starting work.
+- Report progress to .squad/signals/status.json — update "state" and "step" fields.
+  States: initializing → scanning → distilling → complete (or failed).
+- You are running in HEADLESS mode — do not ask questions, do not wait for input.
+`;
+}
+
 function genericFallback(team: string, runType: RunType, config: FederateConfig): string {
   const runLabel =
     runType === 'first-run' ? 'This is your FIRST RUN.' :
@@ -158,9 +171,7 @@ function genericFallback(team: string, runType: RunType, config: FederateConfig)
                               'This is a FRESH START (artifacts cleared).';
 
   return `You are team ${team}. Read DOMAIN_CONTEXT.md for your mission.
-Check .squad/signals/inbox/ for directives. Follow your ${config.playbookSkill} skill.
-Report progress to .squad/signals/status.json.
-You are running in HEADLESS mode — do not ask questions.
+Follow your ${config.playbookSkill} skill.
 
 ${runLabel}`;
 }
@@ -177,31 +188,36 @@ function resolvePrompt(
   config: FederateConfig,
   source: PromptSource,
 ): string {
-  // 1. --prompt CLI flag
-  if (source.cliPrompt) return source.cliPrompt;
+  let base: string;
 
+  // 1. --prompt CLI flag
+  if (source.cliPrompt) {
+    base = source.cliPrompt;
+  }
   // 2. --prompt-file CLI flag
-  if (source.cliPromptFile) {
+  else if (source.cliPromptFile) {
     const resolved = path.resolve(source.cliPromptFile);
     if (!fs.existsSync(resolved)) {
       throw new Error(`Prompt file not found: ${resolved}`);
     }
-    return fs.readFileSync(resolved, 'utf-8');
+    base = fs.readFileSync(resolved, 'utf-8');
   }
-
   // 3. Team-level template
-  const templatePath = path.join(worktreePath, '.squad', 'launch-prompt.md');
-  if (fs.existsSync(templatePath)) {
+  else if (fs.existsSync(path.join(worktreePath, '.squad', 'launch-prompt.md'))) {
+    const templatePath = path.join(worktreePath, '.squad', 'launch-prompt.md');
     let tmpl = fs.readFileSync(templatePath, 'utf-8');
-    // Interpolate simple placeholders
     tmpl = tmpl.replace(/\{team\}/g, team);
     tmpl = tmpl.replace(/\{runType\}/g, runType);
     tmpl = tmpl.replace(/\{playbookSkill\}/g, config.playbookSkill);
-    return tmpl;
+    base = tmpl;
+  }
+  // 4. Generic fallback
+  else {
+    base = genericFallback(team, runType, config);
   }
 
-  // 4. Generic fallback
-  return genericFallback(team, runType, config);
+  // Always append signal protocol instructions
+  return base + signalInstructions(team);
 }
 
 function buildStepPrompt(
@@ -211,19 +227,20 @@ function buildStepPrompt(
   config: FederateConfig,
   source: PromptSource,
 ): string {
-  // If user supplied an explicit prompt, use it as-is for the step too
-  if (source.cliPrompt || source.cliPromptFile) {
-    const base = source.cliPrompt ?? fs.readFileSync(path.resolve(source.cliPromptFile!), 'utf-8');
-    return `${base}\n\nRun ONLY the "${step}" step.`;
-  }
+  let base: string;
 
-  return `Team ${team}, run ONLY step "${step}" from your ${config.playbookSkill} skill.
-Check .squad/signals/inbox/ for directives first.
+  if (source.cliPrompt || source.cliPromptFile) {
+    const raw = source.cliPrompt ?? fs.readFileSync(path.resolve(source.cliPromptFile!), 'utf-8');
+    base = `${raw}\n\nRun ONLY the "${step}" step.`;
+  } else {
+    base = `Team ${team}, run ONLY step "${step}" from your ${config.playbookSkill} skill.
 
 After completion:
-- Update .squad/signals/status.json (state: complete, step: "${step}")
+- Update .squad/signals/status.json (state: complete, step: "${step}")`;
+  }
 
-You are running in HEADLESS mode — do not ask questions.`;
+  // Always append signal protocol instructions
+  return base + signalInstructions(team);
 }
 
 // ==================== Launch ====================
