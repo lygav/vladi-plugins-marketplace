@@ -1,0 +1,25 @@
+{
+  "name": "copilot-plugins",
+  "owner": {
+    "name": "Vladi Lyga"
+  },
+  "metadata": {
+    "description": "Personal Copilot CLI plugin marketplace — reusable plugins for AI-assisted development workflows",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "squad-federated",
+      "description": "Federated squad model — permanent per-domain expert squads with orchestration, knowledge lifecycle, OTel observability, and headless scan automation",
+      "version": "0.1.0",
+      "source": "plugins/squad-federated",
+      "author": {
+        "name": "Vladi Lyga"
+      },
+      "license": "MIT",
+      "keywords": ["squad", "federation", "multi-team", "orchestration", "domain-experts", "otel"],
+      "category": "workflow",
+      "tags": ["squad", "federation", "multi-agent", "knowledge-management"]
+    }
+  ]
+}
