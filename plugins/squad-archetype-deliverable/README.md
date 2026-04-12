@@ -12,14 +12,15 @@ Meta-squad aggregates deliverables from all teams → unified result
 
 ## What's Included
 
-| Component | Purpose |
-|-----------|---------|
-| `skills/deliverable-playbook/` | Playbook: discovery (scope + data sources) → analysis → deep-dives → validation → distillation |
-| `templates/launch-prompt-*.md` | Prompt templates for first run, refresh, and reset |
-| `templates/cleanup-hook.sh` | Reset cleanup: deletes deliverable + raw/ |
-| `templates/merge_fragments.py` | Merges per-item JSON fragments into unified deliverable |
-| `scripts/aggregate.ts` | Collects deliverables from all team worktrees |
-| `agents/aggregator.agent.md` | Autonomous aggregation agent |
+| Component | Actor | Purpose |
+|-----------|-------|---------|
+| `skills/deliverable-playbook/` | **Team** | Playbook: discovery (scope + data sources) → analysis → deep-dives → validation → distillation. Schema evolution lifecycle. |
+| `skills/deliverable-aggregation/` | **Meta-squad** | Collect, validate, and aggregate deliverables from completed teams |
+| `agents/aggregator.agent.md` | **Meta-squad** | Autonomous aggregation agent |
+| `scripts/aggregate.ts` | **Meta-squad** | Collects deliverables, validates against schema, runs import hook |
+| `templates/launch-prompt-*.md` | **Team** | Prompt templates for first run, refresh, and reset |
+| `templates/cleanup-hook.sh` | **Team** | Reset cleanup: deletes deliverable + raw/ |
+| `templates/merge_fragments.py` | **Team** | Merges per-item JSON fragments into unified deliverable |
 
 ## Installation
 

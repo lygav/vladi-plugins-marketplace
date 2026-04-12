@@ -106,19 +106,14 @@ The squad's work is complete when:
 - All items in `raw/` have been incorporated or explicitly excluded with rationale
 - `deliverable.schema.json` exists (created on first run, updated when structure evolves)
 
-## Aggregation
+## What Happens After Completion
 
-After all domain squads finish, the meta-squad runs:
+Once status is `complete`, the **meta-squad** (not this team) handles what comes next:
+- Collects your deliverable (see `deliverable-aggregation` skill)
+- Validates against the schema
+- Runs any project-specific import pipeline
 
-```bash
-npx tsx scripts/aggregate.ts
-```
-
-This collects every domain's `deliverable.json`, writes them to
-`.squad/aggregation/collected/`, runs any configured import hook, and produces a
-manifest at `.squad/aggregation/manifest.json`.
-
-See `scripts/aggregate.ts` for CLI flags (`--list`, `--dry-run`, `--teams`).
+Your job is to produce a high-quality deliverable and report completion. The leadership team takes it from there.
 
 ## Schema as Skill
 
