@@ -20,6 +20,32 @@
       "keywords": ["squad", "federation", "multi-team", "orchestration", "domain-experts", "otel"],
       "category": "workflow",
       "tags": ["squad", "federation", "multi-agent", "knowledge-management"]
+    },
+    {
+      "name": "squad-archetype-deliverable",
+      "description": "Deliverable archetype for squad-federated — scatter-gather pattern producing file artifacts",
+      "version": "0.1.0",
+      "source": "plugins/squad-archetype-deliverable",
+      "author": {
+        "name": "Vladi Lyga"
+      },
+      "license": "MIT",
+      "keywords": ["squad", "archetype", "deliverable", "scatter-gather"],
+      "category": "workflow",
+      "tags": ["squad", "archetype", "deliverable", "scatter-gather"]
+    },
+    {
+      "name": "squad-archetype-coding",
+      "description": "Coding archetype for squad-federated — implementation teams that produce pull requests",
+      "version": "0.1.0",
+      "source": "plugins/squad-archetype-coding",
+      "author": {
+        "name": "Vladi Lyga"
+      },
+      "license": "MIT",
+      "keywords": ["squad", "archetype", "coding", "development", "pull-request"],
+      "category": "archetype",
+      "tags": ["squad", "archetype", "coding", "implementation"]
     }
   ]
 }

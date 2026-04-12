@@ -1,0 +1,8 @@
+{
+  "name": "squad-archetype-deliverable",
+  "description": "Deliverable archetype for squad-federated — scatter-gather pattern producing file artifacts",
+  "version": "0.1.0",
+  "author": { "name": "Vladi Lyga" },
+  "keywords": ["squad", "archetype", "deliverable", "scatter-gather"],
+  "skills": "skills/"
+}

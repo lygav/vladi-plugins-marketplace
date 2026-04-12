@@ -1,21 +1,14 @@
-# Domain Worktree
+# Team Worktree
 
-This branch is a **permanent domain expert squad** worktree managed by the federated squad model.
+This branch is a **permanent team worktree** managed by the federated squad model. It persists across sessions — agent histories, learnings, and domain context survive resets and re-launches.
 
-## Squad Archetypes
+## What Goes Here
 
-Domain squads come in different shapes depending on the work:
+`DOMAIN_CONTEXT.md` at the worktree root describes this team's mission, boundaries, and key domain knowledge. It is the first thing the squad reads on every session.
 
-| Archetype | Output | Completion Criteria |
-|-----------|--------|---------------------|
-| **Deliverable** | JSON/file artifact | File produced, aggregated by meta-squad |
-| **Coding** | Pull request(s) | PR opened/merged |
-| **Research** | Design doc, PRD, ADR | Document written and approved |
-| **Task** | Work items completed | Status updated, follow-up requested |
+If an **archetype** is installed (deliverable, coding, research, task), it provides the team's playbook — work pattern, steps, completion criteria, and any hooks. Archetype config lives at `.squad/archetype.yaml` inside this worktree, not in the federation-level config.
 
-Your squad's archetype is configured in `federate.config.json` at the project root. Mixed federations (non-homogeneous) are supported — the meta-squad can manage squads of different archetypes.
-
-## File Structure
+## .squad/ Structure
 
 ```
 .squad/                 # Team state (managed automatically)
@@ -29,56 +22,23 @@ Your squad's archetype is configured in `federate.config.json` at the project ro
   agents/               # Agent charters and histories
   skills/               # Inherited + domain-specific skills
   ceremonies.md         # Coordination ceremonies
-
-# — Archetype-specific files (vary by squad type) —
-
-# Deliverable squads:
-deliverable.json        # Output artifact (name configurable)
-raw/                    # Working data collected during analysis
-  fragments/            # Per-item fragments produced by agents
-
-# Coding squads:
-# (output is PRs — no local deliverable)
-
-# Research squads:
-docs/                   # Design docs, PRDs, ADRs
+  archetype.yaml        # Archetype config (when installed)
 ```
 
-## How It Works
+## Core Mechanics
 
-### For Deliverable Squads (scatter-gather)
-1. Squad analyzes the domain, agents produce fragments in `raw/fragments/`
-2. Lead merges fragments into the deliverable (`merge_fragments.py` or manual)
-3. Meta-squad aggregator reads the deliverable via `git show`
+### Signals
+Every team writes `status.json` and communicates through `inbox/` (directives from meta-squad) and `outbox/` (reports back). This is the universal coordination protocol — it works the same regardless of what the team produces.
 
-### For Coding Squads
-1. Squad receives task description via launch prompt or inbox directive
-2. Agents implement changes, write tests, open PR(s)
-3. Completion = PR opened. Meta-squad tracks PR status.
+### Knowledge Flow
+- **Seed:** Teams inherit shared knowledge at creation
+- **Sync:** Cross-team learnings propagate during ceremonies
+- **Graduate:** Proven learnings promote to the shared knowledge base
 
-### For Research Squads
-1. Squad receives research question or design brief
-2. Agents investigate, draft documents
-3. Completion = document written. Meta-squad reviews and approves.
+### Ceremonies
+- **Retro:** Reflect on what worked and what didn't
+- **Knowledge-check:** Surface and share new learnings
+- **Triage:** Re-prioritize based on new signals
 
-### For Any Squad — Universal Mechanics
-- **Signals:** All squads write `status.json` and use inbox/outbox
-- **Learnings:** All squads maintain a learning log
-- **Ceremonies:** Retro, knowledge-check, triage apply to all archetypes
-- **Knowledge:** Seed/sync/graduate flows work regardless of archetype
-
-## Re-running (Delta Mode)
-
-When re-launched on an existing worktree:
-- The squad reads prior state (deliverable, docs, history)
-- Focuses on **what changed** rather than rebuilding from scratch
-- Agent histories and learning log survive resets
-
-## Meta-Squad Coordination
-
-The meta-squad does NOT need homogeneous squads. It can manage:
-- Squad A producing a deliverable (inventory)
-- Squad B coding a feature (PR)
-- Squad C researching architecture (design doc)
-
-Each reports status via the same signal protocol. The meta-squad reads status and sends directives regardless of archetype.
+### Delta Mode
+When re-launched on an existing worktree, the squad reads prior state and focuses on **what changed** rather than rebuilding from scratch.
