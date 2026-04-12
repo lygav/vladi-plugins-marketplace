@@ -1,6 +1,6 @@
 ---
 name: "federation-orchestration"
-description: "The user wants to federate work across domain squads, manage a meta-squad, orchestrate parallel domain expert squads, launch federated scans, or understand the federation architecture. Triggers on: federate, federation, domain squad, manage squads, meta-squad, orchestrate domains, multi-squad."
+description: "The user wants to manage an EXISTING federation — launch teams, monitor progress, send directives, sync skills, or understand how the federation works. Only activates when federate.config.json already exists. Triggers on: launch team, monitor teams, send directive, sync skills, sweep learnings, how does federation work, federation architecture, manage my teams."
 version: "0.1.0"
 ---
 
