@@ -12,11 +12,13 @@ Completion = PR opened. Meta-squad tracks PR status.
 
 ## What's Included
 
-| Component | Purpose |
-|-----------|---------|
-| `skills/coding-playbook/` | Playbook: design → implement → test → PR |
-| `templates/launch-prompt-*.md` | Prompt templates for first run, refresh, and reset |
-| `templates/cleanup-hook.sh` | Reset cleanup: no-op (code lives in git) |
+| Component | Actor | Purpose |
+|-----------|-------|---------|
+| `skills/coding-playbook/` | Coding team | Playbook: design → implement → test → PR |
+| `skills/pr-review-coordination/` | **Meta-squad** | Track PRs, coordinate reviews, send feedback, manage merges |
+| `skills/task-assignment/` | **Meta-squad** | Break down work, write specs, assign tasks to coding teams |
+| `templates/launch-prompt-*.md` | — | Prompt templates for first run, refresh, and reset |
+| `templates/cleanup-hook.sh` | — | Reset cleanup: no-op (code lives in git) |
 
 ## Installation
 
