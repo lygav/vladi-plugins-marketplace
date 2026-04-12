@@ -1,16 +1,20 @@
 ---
 name: "federation-setup"
 description: "The user wants to set up or configure a new federation. Triggers on: federate this project, set up federation, go multi-team, I need multiple teams, I need a team org, create a meta-squad, configure federation, federate init, initialize federation, setup wizard, new federation, team organization."
-version: "0.1.0"
+version: "0.2.0"
 ---
 
 ## Purpose
 
-Guide the user through interactive federation setup. This skill replaces a CLI wizard with a conversational flow. Walk the user through each configuration decision, validate prerequisites, and generate a complete `federate.config.json` that powers the federation system.
+Guide the user through interactive federation setup. Walk through each decision conversationally, validate prerequisites, and generate a minimal `federate.config.json`.
+
+Core config covers *only* what the federation runtime needs. Archetype-specific settings (deliverable filenames, schemas, pipeline steps, import hooks) live with the archetype — not here.
+
+Team composition is handled by Squad's casting system. Don't ask for roles, team size, or member lists.
 
 ## Prerequisites Check
 
-Before starting setup, verify the environment. Run these checks and report failures before proceeding:
+Before starting, verify the environment. Run all checks, collect results, then report a summary.
 
 ### Required: Squad
 
@@ -18,7 +22,7 @@ Before starting setup, verify the environment. Run these checks and report failu
 squad --version
 ```
 
-Squad is the foundation — it provides the agent framework, casting system, and `squad.agent.md` coordinator. If `squad` is not found, stop and instruct:
+Squad provides the agent framework, casting, and `squad.agent.md` coordinator. If missing, stop:
 
 > "Squad is not installed. Federation builds on top of Squad. Install it first:
 > ```bash
@@ -27,23 +31,23 @@ Squad is the foundation — it provides the agent framework, casting system, and
 > ```
 > See https://github.com/bradygaster/squad for details."
 
-Also verify Squad is initialized in the current project:
+Also verify Squad is initialized:
 
 ```bash
 test -f .github/agents/squad.agent.md || test -f .squad/team.md
 ```
 
-If neither exists, the project doesn't have Squad set up. Instruct:
+If neither exists:
 
 > "Squad is installed but not initialized in this project. Run `squad init` first, then come back to set up federation."
 
-### Required: Git
+### Required: Git 2.20+
 
 ```bash
 git --version
 ```
 
-Minimum: git 2.20+ (worktree improvements). If missing, stop and instruct the user to install git.
+Worktree support requires git 2.20+. If missing or too old, stop with install/upgrade instructions.
 
 ### Required: Node.js 20+
 
@@ -51,15 +55,15 @@ Minimum: git 2.20+ (worktree improvements). If missing, stop and instruct the us
 node --version
 ```
 
-Must be v20.0.0 or later. The federation scripts use modern Node.js features (native fetch, structured clone). If the version is too old, recommend `nvm install 20`.
+Must be v20.0.0 or later (native fetch, structured clone). If too old, recommend `nvm install 20`.
 
-### Optional: Docker (for Aspire Dashboard)
+### Optional: Docker
 
 ```bash
 docker --version
 ```
 
-Docker is only required if the user wants OTel observability via the Aspire dashboard. If Docker is missing, note it and continue — telemetry can be enabled later.
+Only needed for the OTel observability dashboard. If missing, note it — telemetry can be enabled later.
 
 ### Required: Repository State
 
@@ -68,312 +72,309 @@ git rev-parse --is-inside-work-tree
 git status --porcelain
 ```
 
-Must be inside a git repository. Warn if there are uncommitted changes — onboarding creates branches and worktrees, so a clean state is recommended.
+Must be inside a git repo. Warn (don't block) on uncommitted changes — onboarding creates branches and worktrees, so a clean state is recommended.
 
-Report all results to the user in a summary before proceeding:
+### Report Summary
+
+Show all results before proceeding:
 
 ```
+✅ Squad 1.2.0
 ✅ git 2.43.0
 ✅ Node.js v20.11.0
-⚠️  Docker not found (OTel dashboard will not be available)
+⚠️  Docker not found (OTel dashboard unavailable)
 ✅ Git repository detected
-⚠️  3 uncommitted changes (recommend committing before setup)
+⚠️  3 uncommitted changes (recommend committing first)
 ```
+
+If any required check fails, stop and provide remediation instructions. Don't continue past prerequisites with a broken environment.
+
+---
 
 ## Conversational Setup Flow
 
-Walk through each step in order. Ask one question at a time. Provide sensible defaults. Explain why each setting matters.
+Walk through each step in order. One question at a time. Provide sensible defaults. Keep it conversational.
 
-### Step 1: Domain Description
+### Step 1: What are you building?
 
-Ask the user to describe what their federation will manage.
+**Ask:** "What's the goal for your team organization? Describe what you're trying to accomplish."
 
-**Prompt:** "What does this federation cover? Describe the product area, system, or problem domain in a sentence or two."
+**Why:** This seeds agent charters and gives casting context. It's the first thing anyone reading the config will see.
 
-**Why:** This description seeds the agent charters and helps generate meaningful domain names. It appears in the config for documentation purposes.
+**Store as:** `description` in config.
 
-Store the answer as `description` in the config.
+**Examples of good responses:**
+- "Inventory all Azure services across our org"
+- "Build a multi-team code review pipeline"
+- "Coordinate security audits across 12 microservices"
 
-**Example responses:**
-- "A suite of cloud security monitoring services"
-- "Our payment processing platform with multiple microservices"
-- "The data analytics pipeline from ingestion to reporting"
+Accept whatever the user gives. Don't try to normalize it.
 
-### Step 1.5: Squad Archetype
+### Step 2: Work pattern (archetype selection)
 
-Ask: "What type of work will your squads do?"
+**Ask:** "What kind of work will your teams do?"
 
-Present choices:
-- **Deliverable** — squads produce a file artifact (JSON output). Meta-squad aggregates results. *(inventory, audit report, compliance check)*
-- **Coding** — squads implement features or fixes. Output is pull requests. *(feature dev, bug fixes, refactoring)*
-- **Research** — squads investigate and produce documents. Output is design docs, PRDs, ADRs. *(architecture research, feasibility study)*
-- **Task** — squads execute work items. Output is status updates with optional follow-ups. *(migration, cleanup, one-off ops)*
+**Present choices:**
 
-Note: "You can also mix archetypes — a meta-squad can manage squads of different types."
+| Archetype | What it means |
+|-----------|---------------|
+| **Deliverable** | Teams produce file artifacts — reports, inventories, audit results |
+| **Coding** | Teams write code and open PRs |
+| **Research** | Teams investigate topics and produce documents |
+| **Task** | Teams execute discrete work items |
+| **Mixed** | Different teams do different things |
 
-Store as `archetype`. This adjusts subsequent defaults:
-- Deliverable: ask for filename + schema in Step 2
-- Coding: skip deliverable, default steps = design/implement/test/pr
-- Research: skip deliverable, default steps = explore/analyze/draft/review
-- Task: skip deliverable, default steps = plan/execute/verify
+**Say:** "You can always add more team types later."
 
-### Step 1.6: Install Archetype
+**Store the selection internally** — it determines which archetype plugin to install. The archetype name does NOT go into core config.
 
-Based on the user's selection, install the archetype plugin:
-- Deliverable: `copilot plugin install squad-archetype-deliverable@vladi-plugins-marketplace`
-- Coding: `copilot plugin install squad-archetype-coding@vladi-plugins-marketplace`
+**If Mixed:** Ask which archetypes they need right now. Install all of them in Step 3.
 
-Run the install command via bash. Confirm success before proceeding.
-If the marketplace isn't registered: `copilot plugin marketplace add lygav/vladi-plugins-marketplace`
+### Step 3: Install archetype
 
-### Step 2: Deliverable Name (deliverable archetype only)
+Based on the selection, install the corresponding archetype plugin.
 
-Ask what the output file should be called.
+**First, check if the marketplace is registered:**
 
-**Prompt:** "What should each domain's output file be called? This is the JSON file that each domain squad produces as its final deliverable."
-
-**Default:** `deliverable.json`
-
-**Why:** The aggregation pipeline collects this file from each domain worktree. Naming it consistently matters.
-
-Store as `deliverable` in the config. If the user provides a schema file path, store it as `deliverableSchema`.
-
-**Follow-up:** "Do you have a JSON schema for this deliverable? If so, provide the path (relative to repo root). Otherwise, we'll skip schema validation."
-
-### Step 3: MCP Server Stack
-
-Ask which MCP servers the domain squads need.
-
-**Prompt:** "Which MCP servers should domain squads have access to? These provide tools to the Copilot sessions running in each domain worktree."
-
-**Common options:**
-- `filesystem` — file reading and writing within the worktree
-- `otel` — OpenTelemetry instrumentation (spans, metrics, events, logs)
-- `fetch` — HTTP requests to external APIs
-- Custom servers the user has built
-
-**Default:** `["filesystem", "otel"]`
-
-**Why:** Domain squads run as headless Copilot sessions. Their tool access is determined by the MCP servers configured here. Too few = squads are limited. Too many = potential security or confusion issues.
-
-Store as `mcpStack` array in the config.
-
-### Step 4: Universe Definition
-
-Ask the user to list their domains.
-
-**Prompt:** "List the domains (areas of expertise) for this federation. Each domain becomes an independent expert squad. Give a short name and optional description for each."
-
-**Format guidance:** Names should be lowercase, hyphenated, and descriptive. Examples: `payments`, `auth-service`, `data-pipeline`, `api-gateway`.
-
-**Why:** This defines the "universe" — the set of domain squads that will be onboarded. Each domain gets its own branch, worktree, and agent team.
-
-Store as `universe` array in the config:
-
-```json
-{
-  "universe": [
-    { "name": "payments", "description": "Payment processing and billing services" },
-    { "name": "auth-service", "description": "Authentication and authorization layer" }
-  ]
-}
+```bash
+copilot plugin marketplace list
 ```
 
-**Follow-up questions per domain (optional):**
-- Team size (default: 5)
-- Role composition (default: lead, data-engineer ×2, sre, research-analyst)
-- Domain-specific ID or identifier
+If `vladi-plugins-marketplace` is not listed:
 
-### Step 5: Playbook Steps
+```bash
+copilot plugin marketplace add lygav/vladi-plugins-marketplace
+```
 
-Ask about the workflow pipeline.
+**Then install the archetype:**
 
-**Prompt:** "What steps should each domain squad follow? These are the phases of work, executed in order."
+```bash
+copilot plugin install squad-archetype-{choice}@vladi-plugins-marketplace
+```
 
-**Default pipeline:**
-1. `discovery` — inventory resources and dependencies
-2. `analysis` — examine configurations and patterns
-3. `deep-dives` — investigate findings in detail
-4. `validation` — cross-check and verify findings
-5. `documentation` — write structured findings
-6. `distillation` — compress into final deliverable
+Archetype name mapping:
+- Deliverable → `squad-archetype-deliverable`
+- Coding → `squad-archetype-coding`
+- Research → `squad-archetype-research`
+- Task → `squad-archetype-task`
 
-**Why:** The playbook defines the domain squad's workflow. Each step is a prompt template that drives the agent's behavior.
+For **Mixed**: install each selected archetype in sequence.
 
-Store as `steps` array in the config. The user can add, remove, or reorder steps.
+**Confirm success** before proceeding. If install fails, show the error and offer to retry or skip.
 
-### Step 6: Telemetry Configuration
+**After successful install, say:**
 
-Ask about observability preferences.
+> "Archetype installed. It may have its own configuration — check its playbook skill when you're setting up your first team."
 
-**Prompt:** "Do you want to enable OpenTelemetry observability? This gives you a dashboard to monitor all domain squads in real time — traces, metrics, and logs."
+This is important: the archetype owns its own setup concerns. Core federation doesn't ask archetype-specific questions.
 
-**Default:** enabled if Docker is available, disabled otherwise.
+### Step 4: Data sources (MCP stack)
 
-**If enabling, confirm:**
-- Dashboard port (default: 18888)
-- OTLP endpoint (default: `http://localhost:4318`)
-- Service name (default: `squad-federation-core`)
+**Ask:** "What data sources or tools do your teams need access to?"
 
-Store as `telemetry` object in the config:
+**Explain:** MCP servers provide tools to headless agent sessions running in each team's worktree. Common examples:
+
+- `filesystem` — read/write files in the worktree
+- `fetch` — make HTTP requests to external APIs
+- `otel` — emit traces, metrics, and logs
+- Custom servers you've built
+
+**Default:** empty array `[]` — teams use whatever tools are available in the project's MCP configuration.
+
+**Say:** "If you're not sure, start with an empty list. Teams inherit whatever MCP servers are configured in the project. You can always add more later by editing the config."
+
+**Store as:** `mcpStack` array in config.
+
+### Step 5: Telemetry
+
+**Ask:** "Enable observability? This gives you a dashboard with traces, metrics, and logs from all your teams."
+
+**Default logic:**
+- Docker available → default **yes**
+- Docker not available → default **no**, note that they can enable it later when Docker is available
+
+Don't ask about endpoints, ports, or service names. Those are runtime concerns with sensible defaults.
+
+**Store as:**
 
 ```json
 {
   "telemetry": {
-    "enabled": true,
-    "endpoint": "http://localhost:4318",
-    "serviceName": "squad-federation-core",
-    "dashboardPort": 18888
+    "enabled": true
   }
 }
 ```
 
-**If Docker was not found in prerequisites:** "Docker is not installed, so the Aspire dashboard won't be available. You can still enable telemetry — data will be exported to the OTLP endpoint, and you can point it at any compatible collector later."
+That's it. No endpoint, no port, no service name in core config. The runtime picks those up from environment or uses defaults.
 
-### Step 7: Additional Settings
+### Step 6: Generate config
 
-Ask about optional configuration.
+Assemble `federate.config.json` at the repository root with **only** core fields:
 
-**Prompt:** "Any additional settings?"
+```json
+{
+  "description": "...",
+  "branchPrefix": "squad/",
+  "mcpStack": [],
+  "telemetry": {
+    "enabled": true
+  }
+}
+```
 
-**Optional fields:**
-- `branchPrefix`: branch naming prefix (default: `scan/`)
-- `importHook`: path to a script that runs after deliverable aggregation
-- `playbookSkill`: name of the skill that contains step prompts (default: `domain-playbook`)
+**Rules for this config:**
+- `description` — from Step 1, verbatim
+- `branchPrefix` — always `"squad/"` (don't ask the user unless they bring it up)
+- `mcpStack` — from Step 4, or empty array
+- `telemetry.enabled` — from Step 5
 
-Most users accept defaults here. Only ask if the user seems experienced or has specific requirements.
+**Nothing else goes in this file.** No deliverable, no schema, no universe, no importHook, no steps, no roles, no team definitions. Those are archetype or team-level concerns.
 
-## Generating the Config
+**Show the generated config to the user.** Ask them to confirm or adjust.
 
-After collecting all answers, generate `federate.config.json` at the repository root.
+If the user wants to change something, make the edit and show the updated config. Loop until they confirm.
 
-### FederateConfig Schema
+**Write the file:**
+
+```bash
+cat > federate.config.json << 'EOF'
+{
+  "description": "...",
+  "branchPrefix": "squad/",
+  "mcpStack": [],
+  "telemetry": {
+    "enabled": true
+  }
+}
+EOF
+```
+
+### Step 7: Cast the meta-squad
+
+**Say:** "Now let's cast your leadership team. This is the meta-squad — it coordinates all your teams."
+
+Delegate to Squad's casting system. The simplest path:
+
+> "Describe what you need your leadership team to handle, and Squad's casting will assemble the right agents. Or just run `squad init` to set up a default meta-squad."
+
+Don't prescribe roles. Don't suggest specific team compositions. Let the casting system do its job based on the user's description from Step 1.
+
+If Squad is already initialized (detected in prerequisites), skip this step and note:
+
+> "Your meta-squad is already set up. Moving on."
+
+### Step 8: Onboard first team
+
+**Ask:** "Ready to spin up your first team? What should it work on?"
+
+**If yes:** Delegate to the onboard flow. Pass the user's description of what the team should work on. The onboard agent handles branch creation, worktree setup, and team casting.
+
+**If no:** That's fine. Close out with:
+
+> "No problem. When you're ready, just say **'spin up a team for X'** or **'@federation onboard a team'**."
+
+Don't push. Setup is complete once the config exists and the meta-squad is cast. Onboarding teams is a separate concern.
+
+---
+
+## Post-Setup
+
+After the config is written and confirmed, provide these reference notes:
+
+### Adding teams
+
+> Say **"spin up a team for X"** anytime to onboard a new team. Each team gets its own branch, worktree, and agent crew — cast automatically by Squad based on what the team needs to do.
+
+### Changing configuration
+
+> Edit `federate.config.json` directly. The schema is minimal — `description`, `branchPrefix`, `mcpStack`, and `telemetry`. Changes take effect on the next team onboard or launch.
+
+### Adding archetypes
+
+> Need a different work pattern? Install another archetype:
+> ```bash
+> copilot plugin install squad-archetype-{type}@vladi-plugins-marketplace
+> ```
+> Available: `deliverable`, `coding`, `research`, `task`.
+
+### Archetype-specific configuration
+
+> Each archetype has its own settings (deliverable filenames, pipeline steps, schemas, hooks). Those live with the team, not in the core config. Check the archetype's playbook skill for details.
+
+---
+
+## Config Schema
 
 ```typescript
 interface FederateConfig {
-  // Core
-  description: string;              // What this federation covers
-  deliverable: string;              // Output filename per domain
-  deliverableSchema?: string;       // Path to JSON schema for validation
+  /** What this federation is trying to accomplish */
+  description: string;
 
-  // Execution
-  mcpStack: string[];               // MCP servers for domain sessions
-  playbookSkill: string;            // Skill containing step prompts
-  steps: string[];                  // Ordered playbook steps
-  branchPrefix: string;             // Branch prefix for domains
+  /** Branch prefix for team worktrees (default: "squad/") */
+  branchPrefix: string;
 
-  // Universe
-  universe: DomainDefinition[];     // Domain definitions
+  /** MCP servers available to team sessions */
+  mcpStack: string[];
 
-  // Telemetry
-  telemetry: TelemetryConfig;       // OTel settings
-
-  // Hooks
-  importHook?: string;              // Post-aggregation script path
-}
-
-interface DomainDefinition {
-  name: string;                     // Domain name (kebab-case)
-  description?: string;             // What this domain covers
-  domainId?: string;                // External identifier
-  teamSize?: number;                // Number of agents (default: 5)
-  roles?: string[];                 // Role composition
-}
-
-interface TelemetryConfig {
-  enabled: boolean;
-  endpoint?: string;                // OTLP endpoint URL
-  serviceName?: string;             // OTel service name
-  dashboardPort?: number;           // Dashboard web UI port
+  /** Observability settings */
+  telemetry: {
+    enabled: boolean;
+  };
 }
 ```
 
-### Example Output
+No other fields in core config. Archetype-specific settings live in the team's worktree, managed by the archetype plugin.
+
+### Example
 
 ```json
 {
-  "description": "Cloud security monitoring platform with multiple detection services",
-  "deliverable": "deliverable.json",
-  "deliverableSchema": "schemas/deliverable.schema.json",
-  "mcpStack": ["filesystem", "otel"],
-  "playbookSkill": "domain-playbook",
-  "steps": ["discovery", "analysis", "deep-dives", "validation", "documentation", "distillation"],
-  "branchPrefix": "scan/",
-  "universe": [
-    { "name": "payments", "description": "Payment processing subsystem", "teamSize": 5 },
-    { "name": "auth-service", "description": "Authentication and identity", "teamSize": 4 },
-    { "name": "data-pipeline", "description": "Data ingestion and transformation", "teamSize": 5 }
-  ],
+  "description": "Inventory all Azure services across the organization",
+  "branchPrefix": "squad/",
+  "mcpStack": ["filesystem", "fetch"],
   "telemetry": {
-    "enabled": true,
-    "endpoint": "http://localhost:4318",
-    "serviceName": "squad-federation-core",
-    "dashboardPort": 18888
+    "enabled": true
   }
 }
 ```
 
-## Post-Setup Actions
+---
 
-After generating the config file, guide the user through next steps:
+## Error Handling
 
-### 1. Review the Config
+### During Prerequisites
+- **git not found:** Stop. Provide install instructions for the detected OS.
+- **Node.js too old:** Stop. Recommend `nvm install 20` or platform-specific upgrade.
+- **Squad not installed:** Stop. Provide install command.
+- **Squad not initialized:** Stop. Tell user to run `squad init` first.
+- **Docker not found:** Note the limitation, continue. Default telemetry to disabled.
+- **Uncommitted changes:** Warn, offer to commit or stash, but don't block.
 
-Show the generated config and ask the user to confirm. Offer to adjust any field.
+### During Setup
+- **Archetype install fails:** Show the error. Offer to retry, skip (proceed without archetype), or abort.
+- **Config file already exists:** Show current config. Ask: "Update the existing config or start fresh?"
+- **User gives ambiguous archetype choice:** Ask a clarifying follow-up. Don't guess.
 
-### 2. Onboard Domains
+### During Onboarding
+- **Onboard agent not available:** Provide manual instructions (branch, worktree, agent setup).
+- **Branch prefix conflicts:** If `squad/*` branches already exist, list them and ask if the user wants to incorporate or ignore them.
 
-For each domain in the universe, run the onboard script:
+---
 
-```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/onboard.ts \
-  --name "{domain.name}" \
-  --domain-id "{domain.domainId || domain.name}" \
-  --team-size {domain.teamSize || 5} \
-  --roles "{domain.roles?.join(',') || 'lead,data-engineer,data-engineer,sre,research-analyst'}"
-```
+## What This Skill Does NOT Do
 
-Offer to run this automatically for all domains or one at a time.
+To keep the boundary clean, this skill explicitly avoids:
 
-### 3. Start the Dashboard (if telemetry enabled)
+- **Asking for team rosters or roles** — Squad's casting handles composition
+- **Collecting deliverable filenames or schemas** — that's archetype config
+- **Defining pipeline steps** — archetype concern
+- **Setting up import hooks** — archetype concern
+- **Asking users to list all teams upfront** — teams onboard one at a time
+- **Prescribing team sizes** — casting decides based on the work
+- **Configuring telemetry endpoints or ports** — runtime defaults handle this
 
-```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/dashboard.ts
-```
-
-Verify the dashboard is accessible at `http://localhost:{dashboardPort}`.
-
-### 4. Launch the First Scan
-
-```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/launch.ts --all
-```
-
-Or launch one domain at a time to verify the setup works:
-
-```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/launch.ts --team {first-domain}
-```
-
-### 5. Monitor Progress
-
-```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/monitor.ts --watch
-```
-
-## Re-Running Setup
-
-If the user already has a `federate.config.json`, inform them:
-
-- **Editing**: open the file and modify fields directly. The schema above documents all fields.
-- **Adding domains**: add entries to the `universe` array, then run `onboard.ts` for each new domain.
-- **Resetting**: delete `federate.config.json` and re-run this setup flow.
-- **Partial re-config**: this wizard can be re-run. It will overwrite the existing config. Existing worktrees and branches are not affected — only the config file changes.
-
-## Error Handling During Setup
-
-- If `git status` shows uncommitted changes, warn but do not block. Offer to commit or stash.
-- If Node.js is too old, provide upgrade instructions for the detected OS.
-- If Docker is not found, disable telemetry by default and note the limitation.
-- If the repo already has `scan/*` branches, list them and ask if the user wants to include them in the new config's universe or start fresh.
-- If `federate.config.json` already exists, show the current config and ask: "Update the existing config or start fresh?"
+If the user asks about any of these during setup, point them to the right place:
+- Team composition → "Squad's casting will handle that when you onboard a team"
+- Deliverable config → "The archetype plugin manages that — check its playbook skill"
+- Pipeline steps → "Those are defined by the archetype, not core federation"
+- Telemetry details → "The runtime uses sensible defaults. Override via environment variables if needed"
