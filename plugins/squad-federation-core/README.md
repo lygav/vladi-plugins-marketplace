@@ -27,7 +27,7 @@ copilot plugin install squad-federation-core@vladi-plugins-marketplace
 | **Signal protocol** | File-based IPC between meta-squad and teams. Status tracking, directives, reports, alerts — all via `.squad/signals/`. |
 | **Knowledge lifecycle** | Learnings flow three ways: seed (main→team), sync (periodic), graduate (team→main). Cross-team pattern detection included. |
 | **Headless launch** | Spin up teams in detached Copilot sessions with configurable MCP stacks. Prompt resolution from archetype templates. |
-| **OTel observability** | Built-in MCP server exposing spans, metrics, events, and logs. Auto-starts on session. Aspire dashboard included. |
+| **OTel observability** | Copilot CLI has no built-in telemetry. This plugin bridges the gap with a custom MCP server that gives agents span, metric, event, and log tools — making headless sessions observable. Aspire dashboard included. |
 | **Marketplace skill discovery** | During onboarding, browses installed marketplaces for skills matching the team's domain. Suggests and installs on approval. |
 | **Non-homogeneous federation** | Meta-squad can manage coding teams, research teams, and deliverable teams simultaneously — each with its own archetype. |
 | **Ceremony templates** | Built-in coordination rituals: task-retro, knowledge-check, pre-task-triage. Trigger automatically based on state. |
