@@ -36,7 +36,9 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const REPO_ROOT = path.resolve(__dirname, '..');
+// REPO_ROOT must be the user's project, not the plugin install directory.
+// Scripts run via `npx tsx` from the user's cwd.
+const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
 
 // ==================== Types ====================
 

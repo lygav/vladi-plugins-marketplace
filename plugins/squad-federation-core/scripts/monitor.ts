@@ -14,6 +14,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import {
   discoverDomains,
@@ -29,7 +30,8 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const REPO_ROOT = path.resolve(__dirname, '..');
+// REPO_ROOT must be the user's project, not the plugin install directory.
+const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
 const DEFAULT_INTERVAL = 30; // seconds
 
 // ==================== Types ====================

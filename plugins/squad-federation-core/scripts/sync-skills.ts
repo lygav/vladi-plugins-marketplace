@@ -2,12 +2,12 @@
 /**
  * Skill Sync Engine
  *
- * Propagates skill updates from the main branch to domain worktrees.
+ * Propagates skill updates from the main branch to team worktrees.
  *
  * Usage:
- *   npx tsx scripts/sync-skills.ts                         # Sync all skills to all domains
+ *   npx tsx scripts/sync-skills.ts                         # Sync all skills to all teams
  *   npx tsx scripts/sync-skills.ts --skill my-skill        # Sync specific skill
- *   npx tsx scripts/sync-skills.ts --team my-team      # Sync to specific domain
+ *   npx tsx scripts/sync-skills.ts --team my-team          # Sync to specific team
  *   npx tsx scripts/sync-skills.ts --dry-run               # Show what would change
  */
 
@@ -219,8 +219,13 @@ function syncSkillsToWorktree(
   try {
     process.chdir(worktreePath);
 
-    // Fetch latest from main
-    execSync(`git fetch origin ${MAIN_BRANCH}`, { stdio: 'pipe' });
+    // Fetch latest from main — worktrees share the same .git, so fetch from repo root
+    try {
+      execSync(`git fetch origin ${MAIN_BRANCH}`, { cwd: REPO_ROOT, stdio: 'pipe' });
+    } catch {
+      // Fetch may fail if no remote; fall back to local refs
+      console.log(`⚠️  Could not fetch origin/${MAIN_BRANCH}, using local refs`);
+    }
 
     // Check for local modifications
     const status = execSync('git status --porcelain', { encoding: 'utf-8' });
@@ -236,26 +241,22 @@ function syncSkillsToWorktree(
 
     try {
       execSync(`git checkout origin/${MAIN_BRANCH} -- ${pathSpec}`, { stdio: 'pipe' });
-    } catch (err) {
-      conflicts.push(`Failed to checkout ${pathSpec}`);
-      return { success: false, conflicts };
-    }
-
-    // Also sync schema file if present
-    const schemaPath = 'docs/schemas/domain.schema.json';
-    try {
-      execSync(`git checkout origin/${MAIN_BRANCH} -- ${schemaPath}`, { stdio: 'pipe' });
-    } catch (err) {
-      // Schema file might not exist on main yet, not a critical error
-      console.log(`⚠️  Could not sync schema file (may not exist on main yet)`);
+    } catch {
+      // origin/ ref may not exist; try local branch ref
+      try {
+        execSync(`git checkout ${MAIN_BRANCH} -- ${pathSpec}`, { stdio: 'pipe' });
+      } catch (err) {
+        conflicts.push(`Failed to checkout ${pathSpec}`);
+        return { success: false, conflicts };
+      }
     }
 
     // Commit the sync
     const commitMsg = skillName
-      ? `sync: update ${skillName} and schema from main`
-      : `sync: update all skills and schema from main`;
+      ? `sync: update ${skillName} from main`
+      : `sync: update all skills from main`;
 
-    execSync('git add .squad/skills/ docs/schemas/', { stdio: 'pipe' });
+    execSync('git add .squad/skills/', { stdio: 'pipe' });
 
     const hasChanges = execSync('git diff --cached --name-only', {
       stdio: 'pipe',
