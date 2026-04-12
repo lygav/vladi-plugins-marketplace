@@ -92,6 +92,15 @@ Store as `archetype`. This adjusts subsequent defaults:
 - Research: skip deliverable, default steps = explore/analyze/draft/review
 - Task: skip deliverable, default steps = plan/execute/verify
 
+### Step 1.6: Install Archetype
+
+Based on the user's selection, install the archetype plugin:
+- Deliverable: `copilot plugin install squad-archetype-deliverable@vladi-plugins-marketplace`
+- Coding: `copilot plugin install squad-archetype-coding@vladi-plugins-marketplace`
+
+Run the install command via bash. Confirm success before proceeding.
+If the marketplace isn't registered: `copilot plugin marketplace add lygav/vladi-plugins-marketplace`
+
 ### Step 2: Deliverable Name (deliverable archetype only)
 
 Ask what the output file should be called.

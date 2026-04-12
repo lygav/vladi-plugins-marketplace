@@ -25,32 +25,6 @@ main (meta-squad)
 
 Each domain worktree contains its own `.squad/` directory with agent charters, histories, skills, signals, and learnings. The meta-squad never directly modifies domain worktrees — all cross-boundary communication flows through the signal protocol (see the `inter-squad-signals` skill).
 
-## Squad Archetypes
-
-Domain squads are NOT all the same. The `archetype` field in `federate.config.json` determines the work pattern:
-
-| Archetype | Output | Completion | Aggregate? | Example |
-|-----------|--------|------------|------------|---------|
-| `deliverable` | File artifact | File produced | ✅ Yes | Service inventory, audit report |
-| `coding` | Pull request(s) | PR opened/merged | ❌ Status only | Feature implementation, bug fixes |
-| `research` | Design doc/PRD/ADR | Doc written | ❌ Status only | Architecture research, feasibility study |
-| `task` | Status update | Work done | ❌ Status only | Migration tasks, cleanup, one-off work |
-
-**Non-homogeneous federations** are supported — a meta-squad can manage squads of different archetypes simultaneously. Squad A might produce a deliverable while Squad B writes code and Squad C researches a design.
-
-**What's universal** (all archetypes share):
-- Signal protocol (status.json, inbox/outbox)
-- Learning log (knowledge accumulation)
-- Ceremonies (retro, knowledge-check, triage)
-- Knowledge lifecycle (seed/sync/graduate)
-- OTel observability
-
-**What varies by archetype:**
-- Completion criteria (file vs PR vs doc vs status)
-- Whether `aggregate.ts` is relevant (deliverable only)
-- Prompt templates in `launch.ts`
-- File structure in the worktree
-
 ## Core Scripts
 
 All scripts live at `${CLAUDE_PLUGIN_ROOT}/scripts/` and are invoked via `npx tsx`.
@@ -112,26 +86,6 @@ Monitor reads each domain's `.squad/signals/status.json` and renders a summary t
 
 The `--send` flag writes a directive message to a domain's inbox. This is how the meta-squad steers domain squads without stopping them.
 
-### aggregate.ts — Collect Domain Deliverables
-
-Gathers completed deliverables from all domains into a central location.
-
-```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/aggregate.ts
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/aggregate.ts --list
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/aggregate.ts --dry-run
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/aggregate.ts --teams "payments,auth-service"
-```
-
-What it does:
-1. Discovers all `scan/*` branches and their worktrees
-2. Reads each domain's deliverable file (configured in `federate.config.json`)
-3. Copies deliverables to `.squad/aggregation/collected/{domain}/`
-4. Generates a manifest at `.squad/aggregation/manifest.json` with metadata
-5. Optionally runs an import hook script for post-processing
-
-Use `--list` to preview what domains have deliverables without collecting. Use `--dry-run` to collect into memory without writing.
-
 ## Worktree Mechanics
 
 Git worktrees are the isolation mechanism. Each domain gets a separate working directory with its own branch checked out.
@@ -155,26 +109,7 @@ The `scan/` prefix is the default and is configurable. All federation scripts us
 
 ## Task Lifecycle
 
-A domain squad progresses through configurable playbook steps. Steps vary by archetype:
-
-**Deliverable archetype** (default):
-1. **discovery** — inventory the domain's resources and dependencies
-2. **analysis** — examine configurations, patterns, and potential issues
-3. **deep-dives** — investigate findings that need detailed examination
-4. **validation** — cross-check findings, verify accuracy
-5. **distillation** — compress findings into the final deliverable
-
-**Coding archetype:**
-1. **design** — understand requirements, plan implementation
-2. **implement** — write code
-3. **test** — write and run tests
-4. **pr** — open pull request
-
-**Research archetype:**
-1. **explore** — survey the problem space
-2. **analyze** — deep analysis of options
-3. **draft** — write the document
-4. **review** — refine and get feedback
+A domain squad progresses through configurable playbook steps. Each team follows its archetype's playbook. See the archetype's skill for lifecycle steps and completion criteria.
 
 Steps are fully configurable via `federate.config.json`. The domain squad's Copilot session receives a prompt for the current step, executes it, updates status, and advances.
 
@@ -186,7 +121,7 @@ Steps are fully configurable via `federate.config.json`. The domain squad's Copi
 | Start or restart a domain's work | `launch.ts` | Kick off scanning after onboarding |
 | Check on all domains | `monitor.ts` | See which domains are done, stalled, or failed |
 | Steer a running domain | `monitor.ts --send` | Tell a domain to skip a repository |
-| Collect finished work | `aggregate.ts` | Gather all deliverables after scans complete |
+| Collect finished work | archetype-specific | Aggregation is archetype-specific. Deliverable archetypes provide aggregate tooling. |
 | Resume a specific phase | `launch.ts --step` | Re-run validation after fixing a data issue |
 | Start fresh | `launch.ts --reset` | Domain data is outdated, start over |
 
@@ -228,7 +163,7 @@ When orchestrating a federation run end-to-end:
 4. Monitor progress: run `monitor.ts --watch`
 5. Send directives as needed: run `monitor.ts --send {domain} --directive "..."`
 6. Wait for domains to reach `complete` state
-7. Aggregate: run `aggregate.ts`
+7. Aggregate (if applicable): aggregation is archetype-specific. Deliverable archetypes provide aggregate tooling.
 8. Sweep learnings: run `sweep-learnings.ts` to find cross-domain patterns
 9. Graduate learnings: run `graduate-learning.ts` for reusable knowledge
 
@@ -255,4 +190,4 @@ Never reset when a refresh would suffice — resets discard learnings and signal
 - Use `launch.ts --reset` only as a last resort — it discards all domain progress.
 - If a worktree is corrupted, remove and re-onboard: `git worktree remove` → `onboard.ts`.
 - Stale domains (no status update for >30 minutes during a scan) likely indicate a hung session. Kill the process and re-launch with `--step`.
-- If `aggregate.ts` reports a missing deliverable for a domain that shows `complete`, the deliverable filename may be misconfigured. Check `federate.config.json` matches what the domain actually wrote.
+- If the aggregation step reports a missing deliverable for a domain that shows `complete`, the deliverable filename may be misconfigured. Check `federate.config.json` matches what the domain actually wrote.

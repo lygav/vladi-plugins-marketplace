@@ -71,8 +71,8 @@ Write to `.squad/signals/status.json`:
 
 ```json
 {
-  "phase": "design",
-  "status": "in_progress",
+  "state": "working",
+  "step": "design",
   "summary": "Analyzed requirements. Planning implementation of [brief description].",
   "timestamp": "<ISO-8601>"
 }
@@ -127,8 +127,8 @@ These entries help you on future runs and help other teams understand the codeba
 
 ```json
 {
-  "phase": "implement",
-  "status": "in_progress",
+  "state": "working",
+  "step": "implement",
   "summary": "Implementing [brief description]. Modified [N] files so far.",
   "timestamp": "<ISO-8601>"
 }
@@ -163,8 +163,8 @@ When possible, exercise your changes end-to-end. If you built an API endpoint, c
 
 ```json
 {
-  "phase": "test",
-  "status": "in_progress",
+  "state": "working",
+  "step": "test",
   "summary": "Tests written and passing. [N] new tests added. Full suite passing.",
   "timestamp": "<ISO-8601>"
 }
@@ -207,8 +207,8 @@ Write to `.squad/signals/outbox/`:
 
 ```json
 {
-  "phase": "pr",
-  "status": "complete",
+  "state": "complete",
+  "step": "pr",
   "summary": "PR opened: [title]. Ready for review.",
   "timestamp": "<ISO-8601>"
 }
@@ -220,7 +220,7 @@ Write to `.squad/signals/outbox/`:
 
 Throughout your work, maintain communication through the signal system:
 
-- **Status** (`.squad/signals/status.json`): Update after each phase transition. Always include phase, status, summary, and timestamp.
+- **Status** (`.squad/signals/status.json`): Update after each step transition. Always include state, step, summary, and timestamp. Use canonical state values: `initializing`, `working`, `complete`, `failed`, `paused`.
 - **Inbox** (`.squad/signals/inbox/`): Check at the start of each phase. The meta-squad or other teams may send you feedback, updated requirements, or priority changes.
 - **Outbox** (`.squad/signals/outbox/`): Write completion reports, blockers, and questions. If you are blocked on something you cannot resolve, write it here — do not stop working on what you can do.
 - **Learnings** (`.squad/learnings/log.jsonl`): Write codebase discoveries, patterns, and gotchas as you encounter them.

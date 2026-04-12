@@ -7,7 +7,7 @@
  *
  * Usage:
  *   npx tsx scripts/query-learnings.ts --tags deployment --domain generalizable
- *   npx tsx scripts/query-learnings.ts --squad scan/my-product --tags config-override
+ *   npx tsx scripts/query-learnings.ts --squad squad/my-product --tags config-override
  *   npx tsx scripts/query-learnings.ts --type discovery --since 2025-01-01 --json
  */
 
@@ -113,7 +113,7 @@ Example:
   npx tsx scripts/query-learnings.ts --tags config-override --domain generalizable
 
   # Query another squad (cross-squad)
-  npx tsx scripts/query-learnings.ts --squad scan/my-product --tags deployment
+  npx tsx scripts/query-learnings.ts --squad squad/my-product --tags deployment
     `);
     process.exit(0);
   }

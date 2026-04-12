@@ -1,3 +1,9 @@
+---
+name: deliverable-playbook
+description: This skill activates when a team needs to produce a file deliverable using the scatter-gather pattern — discovery, analysis, validation, and distillation into a structured output file.
+version: 0.1.0
+---
+
 # Deliverable Playbook
 
 > How deliverable squads work — produce fragments, merge into a deliverable artifact, meta-squad aggregates.

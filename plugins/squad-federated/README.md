@@ -154,19 +154,29 @@ See `templates/federate.config.example.ts` for the full `FederateConfig` interfa
 | `mcpStack` | string[] | `[]` | MCP servers for domain sessions |
 | `playbookSkill` | string | `"domain-playbook"` | Playbook skill name |
 | `steps` | string[] | varies by archetype | Playbook step names |
-| `branchPrefix` | string | `"squad/"` | Git branch prefix |
+| `branchPrefix` | string | `"squad/"` | Git branch prefix (matches script defaults) |
 | `telemetry.enabled` | boolean | `true` | OTel observability |
 | `importHook` | string? | — | Custom import script (deliverable only) |
 | `completionHook` | string? | — | Script run when a squad completes |
 
 ## Architecture
 
-### What's in this plugin (domain-agnostic machinery)
-- Federation orchestration: onboard, launch, monitor, aggregate
+The federation system has three layers:
+
+### Core plugin (`squad-federated`) — domain-agnostic machinery
+- Federation orchestration: onboard, launch, monitor
 - Knowledge lifecycle: seed, sync, sweep, graduate, learning log
 - Signal protocol: status.json, inbox/outbox IPC
 - Ceremony templates: retro, knowledge-check, pre-task-triage
 - OTel observability: MCP server, Aspire dashboard
+
+### Archetype plugins (middle layer) — work-pattern specific
+Archetypes define how a squad operates and what it produces. They are auto-installed by the setup wizard (Step 1.6).
+
+| Plugin | Archetype | Output |
+|--------|-----------|--------|
+| `squad-archetype-deliverable` | deliverable | File artifact — includes aggregation agent + scripts |
+| `squad-archetype-coding` | coding | Pull requests |
 
 ### What stays in YOUR project (domain-specific)
 - Your playbook skill (the domain-specific workflow)

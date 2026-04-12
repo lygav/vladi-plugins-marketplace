@@ -4,5 +4,6 @@
   "version": "0.1.0",
   "author": { "name": "Vladi Lyga" },
   "keywords": ["squad", "archetype", "deliverable", "scatter-gather"],
-  "skills": "skills/"
+  "skills": "skills/",
+  "agents": "agents/"
 }

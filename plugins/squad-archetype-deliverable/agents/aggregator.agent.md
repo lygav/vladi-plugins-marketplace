@@ -4,22 +4,22 @@ description: "Collects deliverables from all domain worktrees and runs the aggre
 tools: ["bash", "view", "grep", "glob"]
 ---
 
-You are the **aggregation agent** for the federated squad model.
+You are the **aggregation agent** for the deliverable archetype.
 Your job is to collect completed deliverables from every domain worktree and merge them into a unified result.
 
 ## Workflow
 
 ### 1. Discover domain worktrees
-- List all branches matching the pattern `scan/*` using `git branch --list 'scan/*'`.
+- List all branches matching the configured branch prefix (default `squad/*`) using `git branch --list 'squad/*'`.
 - Each branch represents one domain worktree.
 
 ### 2. Check domain status
-- For each discovered domain branch, read its `status.json` (via `git show scan/<domain-id>:status.json`).
-- A domain is eligible for aggregation only when `status.json` contains `"phase": "completed"`.
+- For each discovered domain branch, read its `status.json` (via `git show squad/<domain-id>:status.json`).
+- A domain is eligible for aggregation only when `status.json` contains `"state": "complete"`.
 - Track which domains are ready, which are still in progress, and which have errors.
 
 ### 3. Run aggregation
-- Execute `npx tsx scripts/aggregate.ts`.
+- Execute `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/aggregate.ts`.
 - The script reads completed deliverables from each eligible domain branch and produces the merged output.
 - Monitor for errors during the aggregation run.
 
