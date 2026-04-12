@@ -110,25 +110,22 @@ Walk through each step in order. One question at a time. Provide sensible defaul
 
 Accept whatever the user gives. Don't try to normalize it.
 
-### Step 2: Work pattern (archetype selection)
+### Step 2: Work pattern for your first team
 
-**Ask:** "What kind of work will your teams do?"
+**Ask:** "What kind of work will your first team do?"
 
 **Present choices:**
 
-| Archetype | What it means |
+| Work pattern | What it means |
 |-----------|---------------|
-| **Deliverable** | Teams produce file artifacts — reports, inventories, audit results |
-| **Coding** | Teams write code and open PRs |
-| **Research** | Teams investigate topics and produce documents |
-| **Task** | Teams execute discrete work items |
-| **Mixed** | Different teams do different things |
+| **Deliverable** | Team produces file artifacts — reports, inventories, audit results |
+| **Coding** | Team writes code and opens PRs |
+| **Research** | Team investigates topics and produces documents |
+| **Task** | Team executes discrete work items |
 
-**Say:** "You can always add more team types later."
+**Say:** "This installs the archetype for your first team. You can add different types of teams later — each team picks its own archetype when onboarded."
 
 **Store the selection internally** — it determines which archetype plugin to install. The archetype name does NOT go into core config.
-
-**If Mixed:** Ask which archetypes they need right now. Install all of them in Step 3.
 
 ### Step 3: Install archetype
 
@@ -158,13 +155,11 @@ Archetype name mapping:
 - Research → `squad-archetype-research`
 - Task → `squad-archetype-task`
 
-For **Mixed**: install each selected archetype in sequence.
-
 **Confirm success** before proceeding. If install fails, show the error and offer to retry or skip.
 
 **After successful install, say:**
 
-> "Archetype installed. It may have its own configuration — check its playbook skill when you're setting up your first team."
+> "Archetype installed. When we onboard your first team, the archetype's setup wizard will ask team-specific questions (like deliverable filename or PR conventions)."
 
 This is important: the archetype owns its own setup concerns. Core federation doesn't ask archetype-specific questions.
 
