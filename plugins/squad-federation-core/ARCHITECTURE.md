@@ -695,6 +695,30 @@ Archetypes provide skills for **both actors**:
 Multiple archetypes can coexist — a meta-squad managing coding teams AND
 deliverable teams has skills from both archetypes available simultaneously.
 
+### Marketplace Skill Discovery at Onboarding
+
+During team onboarding, core browses installed marketplaces for skills
+relevant to the new team's domain and purpose. Keywords from the team
+description are matched against plugin names and descriptions:
+
+```
+User: "Spin off a backend team for the payments API"
+                    │
+                    ▼
+    Core browses installed marketplaces
+    Keywords: "backend", "payments", "API"
+                    │
+                    ▼
+    "Found 'api-testing' and 'security-guidance'
+     in awesome-copilot marketplace.
+     Install for this team?"
+```
+
+This happens automatically in the onboard agent (step 5). If no
+marketplaces are registered or no matches found, the step is skipped
+silently. Skills installed this way become available to the team
+immediately on first launch.
+
 ### .squad/archetype.json Schema
 
 Installed into each worktree by the archetype plugin's setup skill:

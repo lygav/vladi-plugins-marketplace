@@ -34,10 +34,23 @@ Your job is to set up a new domain worktree, compose the right team, and seed in
   - `--team <team-json>`
 - Monitor the script output for errors.
 
-### 5. Verify setup
+### 5. Discover relevant marketplace skills
+- List registered marketplaces: `copilot plugin marketplace list`
+- For each marketplace, browse available plugins: `copilot plugin marketplace browse <name>`
+- Match plugin names/descriptions against the team's domain and purpose keywords
+  (e.g., team for "payments API" → look for plugins matching "api", "testing", "security", "payments")
+- If matches found, present them to the user:
+  *"Found these skills in the marketplace that could help this team:*
+  - *`api-testing` — API test patterns and validation*
+  - *`security-guidance` — Security best practices*
+  *Install any of these for the team?"*
+- If the user accepts, install via `copilot plugin install <name>@<marketplace>`
+- If no marketplaces registered or no matches, skip silently
+
+### 6. Verify setup
 - Confirm the worktree branch `scan/<domain-id>` was created.
 - Confirm `.squad/` directory exists in the worktree with `team.json` and initial skill files.
 - Confirm the template files were copied into the worktree.
 
-### 6. Suggest next steps
+### 7. Suggest next steps
 - Tell the user: "Domain **<name>** is ready. Launch the first scan by invoking the domain squad on the `scan/<domain-id>` branch."
