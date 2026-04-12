@@ -2,6 +2,15 @@
 
 **Core plumbing for federated Squad teams** — launches squads, manages worktrees, runs the knowledge lifecycle, and provides the signal protocol. Archetype-unaware by design.
 
+> **Built on [Squad](https://github.com/bradygaster/squad).** This plugin extends Squad with federation capabilities. Squad must be installed in your project (`squad init`) before using federation. The `squad.agent.md` coordinator, casting system, and agent framework are provided by Squad — this plugin adds the multi-team orchestration layer on top.
+
+## Prerequisites
+
+- **[Squad](https://github.com/bradygaster/squad)** — installed in your project (`squad init` or `squad init --sdk`)
+- **Git 2.20+** — worktree support
+- **Node.js 20+** — scripts runtime
+- **Docker** *(optional)* — for Aspire OTel dashboard
+
 ## Installation
 
 ```bash

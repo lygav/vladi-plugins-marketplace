@@ -12,6 +12,31 @@ Guide the user through interactive federation setup. This skill replaces a CLI w
 
 Before starting setup, verify the environment. Run these checks and report failures before proceeding:
 
+### Required: Squad
+
+```bash
+squad --version
+```
+
+Squad is the foundation — it provides the agent framework, casting system, and `squad.agent.md` coordinator. If `squad` is not found, stop and instruct:
+
+> "Squad is not installed. Federation builds on top of Squad. Install it first:
+> ```bash
+> npm install -g @bradygaster/squad-cli
+> squad init
+> ```
+> See https://github.com/bradygaster/squad for details."
+
+Also verify Squad is initialized in the current project:
+
+```bash
+test -f .github/agents/squad.agent.md || test -f .squad/team.md
+```
+
+If neither exists, the project doesn't have Squad set up. Instruct:
+
+> "Squad is installed but not initialized in this project. Run `squad init` first, then come back to set up federation."
+
 ### Required: Git
 
 ```bash
