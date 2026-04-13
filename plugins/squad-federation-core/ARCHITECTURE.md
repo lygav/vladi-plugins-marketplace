@@ -190,29 +190,29 @@ archetypes own their lifecycle definitions.
 **Validation mechanism:**
 - Core reads `states` schema from `.squad/archetype.json` in the worktree
 - Validates state transitions: state must be in `lifecycle` or `terminal` array
-- Falls back to legacy defaults if no schema exists (backward compatible)
+- Falls back to generic defaults if no schema exists (backward compatible)
 - See §7 for archetype.json schema details
 
 **Example state progressions by archetype:**
 
 **Deliverable Archetype:**
 ```
-initializing → scanning → distilling → aggregating → reviewing → complete/failed
+preparing → scanning → distilling → aggregating → reviewing → complete/failed
 ```
 
 **Coding Archetype:**
 ```
-initializing → implementing → testing → reviewing → deploying → complete/failed
+preparing → implementing → testing → reviewing → deploying → complete/failed
 ```
 
 **Pipeline Archetype (ETL):**
 ```
-initializing → extracting → transforming → loading → validating → complete/failed
+preparing → extracting → transforming → loading → validating → complete/failed
 ```
 
 **Research Archetype:**
 ```
-initializing → exploring → synthesizing → validating → documenting → complete/failed
+preparing → exploring → synthesizing → validating → documenting → complete/failed
 ```
 
 **Pauseable states:** If `pauseable: true` in the archetype schema, teams can
@@ -768,7 +768,7 @@ Installed into each worktree by the archetype plugin's setup skill:
   "cleanup_hook": ".squad/cleanup-hook.sh",
   "states": {
     "lifecycle": [
-      "initializing",
+      "preparing",
       "scanning",
       "distilling",
       "aggregating",
@@ -785,8 +785,8 @@ Installed into each worktree by the archetype plugin's setup skill:
 - `terminal`: Final states that end the team's work
 - `pauseable`: Whether teams can pause mid-lifecycle and resume later
 
-If `states` section is missing, core falls back to legacy default states
-(initializing, scanning, distilling, complete, failed, paused).
+If `states` section is missing, core falls back to generic default states
+(preparing, working, complete, failed, paused, waiting for feedback, finished).
 
 ### Prompt Template Resolution
 
@@ -1060,7 +1060,7 @@ All scripts live in `scripts/` and are invoked via `npx tsx scripts/<name>.ts`.
 Core validates state transitions at runtime but never interprets state semantics.
 
 **Why:**
-- Generic states (`initializing`, `working`, `reviewing`, `complete`) are too coarse
+- Generic states (`preparing`, `working`, `complete`, `failed`, `paused`, `waiting for feedback`, `finished`) are too coarse
   for meaningful monitoring — "working" could mean anything
 - Archetypes know their own lifecycle better than core
 - Different work patterns have fundamentally different progression models:
@@ -1074,7 +1074,7 @@ Core validates state transitions at runtime but never interprets state semantics
 - Archetype declares states in `archetype.json`:
   ```json
   "states": {
-    "lifecycle": ["initializing", "scanning", "distilling", "aggregating"],
+    "lifecycle": ["preparing", "scanning", "distilling", "aggregating"],
     "terminal": ["complete", "failed"],
     "pauseable": true
   }
@@ -1082,7 +1082,7 @@ Core validates state transitions at runtime but never interprets state semantics
 - Core reads schema at domain launch, validates each `status.json` write
 - `ScanStatus.state` changes from enum to `string`
 - Monitor reads archetype metadata and renders state-aware dashboards
-- Backward compatible: falls back to legacy states if no schema exists
+- Backward compatible: falls back to generic default states if no schema exists
 
 **Trade-offs:**
 - **Gain:** Archetype-specific lifecycles match real work patterns, much better
