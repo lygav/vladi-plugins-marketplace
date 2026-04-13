@@ -67,6 +67,14 @@ function parseArgs(args: string[]): ParsedArgs {
       case '--transport': 
         if (value !== 'worktree' && value !== 'directory') {
           console.error('Error: --transport must be "worktree" or "directory"');
+          console.error(`  Received: "${value}"`);
+          console.error('\nRecovery:');
+          console.error('  1. Use "worktree" for git-based teams (recommended):');
+          console.error('     npx tsx scripts/onboard.ts --name my-domain --domain-id abc-123 \\');
+          console.error('       --archetype squad-archetype-deliverable --transport worktree');
+          console.error('  2. Use "directory" for standalone teams without git:');
+          console.error('     npx tsx scripts/onboard.ts --name my-domain --domain-id abc-123 \\');
+          console.error('       --archetype squad-archetype-deliverable --transport directory --path /path/to/dir');
           process.exit(1);
         }
         parsed.transport = value as 'worktree' | 'directory';
@@ -92,6 +100,13 @@ function parseArgs(args: string[]): ParsedArgs {
   // Validate transport-specific requirements
   if (parsed.transport === 'directory' && !parsed.path) {
     console.error('Error: --path is required when --transport is "directory"');
+    console.error('\nRecovery:');
+    console.error('  1. Add --path to specify the directory location:');
+    console.error('     npx tsx scripts/onboard.ts --name my-domain --domain-id abc-123 \\');
+    console.error('       --archetype squad-archetype-deliverable --transport directory --path /path/to/base');
+    console.error('  2. Or switch to worktree transport (no --path needed):');
+    console.error('     npx tsx scripts/onboard.ts --name my-domain --domain-id abc-123 \\');
+    console.error('       --archetype squad-archetype-deliverable --transport worktree');
     process.exit(1);
   }
 
@@ -99,6 +114,17 @@ function parseArgs(args: string[]): ParsedArgs {
   const ARCHETYPE_NAME_REGEX = /^[a-z0-9][a-z0-9-]*$/;
   if (!ARCHETYPE_NAME_REGEX.test(parsed.archetype)) {
     console.error('Error: Invalid archetype name. Use lowercase alphanumeric with hyphens only.');
+    console.error(`  Received: "${parsed.archetype}"`);
+    console.error('\nRecovery:');
+    console.error('  1. Check available archetypes: copilot plugin list | grep archetype');
+    console.error('  2. Use valid format (lowercase, hyphens, no special chars):');
+    console.error('     - Valid: squad-archetype-deliverable');
+    console.error('     - Valid: my-custom-archetype-v2');
+    console.error('     - Invalid: MyArchetype (uppercase not allowed)');
+    console.error('     - Invalid: archetype_name (underscores not allowed)');
+    console.error('  3. Retry with correct archetype name:');
+    console.error(`     npx tsx scripts/onboard.ts --name ${parsed.name} --domain-id ${parsed.domainId} \\`);
+    console.error('       --archetype squad-archetype-deliverable');
     process.exit(1);
   }
 
@@ -158,7 +184,17 @@ async function createTeamTransport(
     try {
       exec(`git rev-parse --verify ${branchName}`, { silent: true });
       console.error(`⚠️  Branch '${branchName}' already exists.`);
-      console.error(`   To re-launch: npx tsx scripts/launch.ts --team ${args.name}`);
+      console.error(`   Domain '${args.name}' appears to be already onboarded.`);
+      console.error('\nRecovery:');
+      console.error('  1. If team is already set up, launch it instead:');
+      console.error(`     npx tsx scripts/launch.ts --team ${args.name}`);
+      console.error('  2. If you want to re-onboard with a clean state:');
+      console.error(`     a. Check if worktree exists: git worktree list | grep ${args.name}`);
+      console.error(`     b. Remove worktree: git worktree remove .worktrees/${args.name} --force`);
+      console.error(`     c. Prune stale references: git worktree prune`);
+      console.error(`     d. Delete branch: git branch -D ${branchName}`);
+      console.error(`     e. Retry onboarding: npx tsx scripts/onboard.ts --name ${args.name} ...`);
+      console.error('  3. If you want to use a different name, pick a unique domain name.');
       process.exit(1);
     } catch { /* doesn't exist — good */ }
     
@@ -173,6 +209,15 @@ async function createTeamTransport(
     
     if (fs.existsSync(location)) {
       console.error(`❌ Directory already exists: ${location}`);
+      console.error('\nRecovery:');
+      console.error('  1. Remove existing directory (WARNING: data will be lost):');
+      console.error(`     rm -rf "${location}"`);
+      console.error('  2. Or choose a different path:');
+      console.error(`     npx tsx scripts/onboard.ts --name ${args.name} --domain-id ${args.domainId} \\`);
+      console.error(`       --archetype ${args.archetype} --transport directory --path /different/path`);
+      console.error('  3. Or use worktree transport instead (creates .worktrees subdirectory):');
+      console.error(`     npx tsx scripts/onboard.ts --name ${args.name} --domain-id ${args.domainId} \\`);
+      console.error(`       --archetype ${args.archetype} --transport worktree`);
       process.exit(1);
     }
     
@@ -400,5 +445,18 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"`, { cwd: l
 
 main().catch((err) => {
   console.error(`\n❌ Onboarding failed: ${err.message}`);
+  console.error('\nRecovery:');
+  console.error('  1. Check if git repository is initialized:');
+  console.error('     git status');
+  console.error('  2. Verify federation is configured:');
+  console.error('     cat federate.config.json');
+  console.error('  3. Ensure working directory is clean:');
+  console.error('     git status --short');
+  console.error('  4. Check available archetypes:');
+  console.error('     copilot plugin list | grep archetype');
+  console.error('  5. Review full error above for specific failure details');
+  console.error('  6. If archetype installation failed, install manually:');
+  console.error('     copilot plugin install <archetype-name>@vladi-plugins-marketplace');
+  console.error('  7. Check disk space and file permissions');
   process.exit(1);
 });

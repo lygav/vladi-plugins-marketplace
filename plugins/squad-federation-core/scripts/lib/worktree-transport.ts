@@ -76,7 +76,23 @@ export class WorktreeTransport extends DirectoryTransport {
       return new WorktreeTransport(worktreePath, branchName, repoRoot);
     } catch (error) {
       throw new Error(
-        `Failed to create worktree for branch ${branchName}: ${(error as Error).message}`
+        `Failed to create worktree for branch ${branchName}: ${(error as Error).message}\n` +
+        `Recovery:\n` +
+        `  1. Check if worktree path already exists:\n` +
+        `     ls -la ${worktreePath}\n` +
+        `  2. Check git status:\n` +
+        `     cd ${repoRoot} && git status\n` +
+        `  3. List existing worktrees:\n` +
+        `     git worktree list\n` +
+        `  4. If worktree exists but is stale, remove it:\n` +
+        `     git worktree remove ${worktreePath} --force\n` +
+        `     git worktree prune\n` +
+        `  5. If branch doesn't exist, create it first:\n` +
+        `     git checkout -b ${branchName}\n` +
+        `  6. Check disk space:\n` +
+        `     df -h\n` +
+        `  7. Ensure parent directory is writable:\n` +
+        `     ls -la $(dirname ${worktreePath})`
       );
     }
   }
@@ -97,7 +113,22 @@ export class WorktreeTransport extends DirectoryTransport {
       });
     } catch (error) {
       throw new Error(
-        `Failed to remove worktree at ${worktreePath}: ${(error as Error).message}`
+        `Failed to remove worktree at ${worktreePath}: ${(error as Error).message}\n` +
+        `Recovery:\n` +
+        `  1. Check if worktree exists:\n` +
+        `     ls -la ${worktreePath}\n` +
+        `  2. List all worktrees:\n` +
+        `     git worktree list\n` +
+        `  3. If worktree is locked, check for .git/worktrees lock:\n` +
+        `     ls -la ${repoRoot}/.git/worktrees/\n` +
+        `  4. Force cleanup if needed:\n` +
+        `     rm -rf ${worktreePath}\n` +
+        `     git worktree prune\n` +
+        `  5. If worktree has uncommitted changes:\n` +
+        `     cd ${worktreePath} && git status\n` +
+        `     # Commit or stash changes before removal\n` +
+        `  6. Check permissions:\n` +
+        `     ls -la $(dirname ${worktreePath})`
       );
     }
   }
@@ -143,7 +174,24 @@ export class WorktreeTransport extends DirectoryTransport {
         encoding: 'utf-8'
       });
     } catch (error) {
-      throw new Error(`Failed to commit in worktree: ${(error as Error).message}`);
+      const worktreePath = await this.getLocation(path.basename(await this.getLocation('')));
+      throw new Error(
+        `Failed to commit in worktree: ${(error as Error).message}\n` +
+        `Recovery:\n` +
+        `  1. Check git status:\n` +
+        `     cd ${worktreePath} && git status\n` +
+        `  2. Verify there are changes to commit:\n` +
+        `     cd ${worktreePath} && git diff --cached\n` +
+        `  3. If no changes staged, check working tree:\n` +
+        `     cd ${worktreePath} && git diff\n` +
+        `  4. If commit message has special characters, escape them\n` +
+        `  5. Check for merge conflicts:\n` +
+        `     cd ${worktreePath} && git status | grep conflict\n` +
+        `  6. Ensure git user is configured:\n` +
+        `     git config user.name && git config user.email\n` +
+        `  7. If hooks are failing, check:\n` +
+        `     cd ${worktreePath} && ls -la .git/hooks/`
+      );
     }
   }
 
@@ -249,8 +297,25 @@ export class WorktreeTransport extends DirectoryTransport {
 
       return urlMatch[0];
     } catch (error) {
+      const worktreePath = await this.getLocation(path.basename(await this.getLocation('')));
       throw new Error(
-        `Failed to create PR for branch ${this.branch}: ${(error as Error).message}`
+        `Failed to create PR for branch ${this.branch}: ${(error as Error).message}\n` +
+        `Recovery:\n` +
+        `  1. Ensure branch is pushed to remote:\n` +
+        `     cd ${worktreePath} && git push -u origin ${this.branch}\n` +
+        `  2. Check gh CLI authentication:\n` +
+        `     gh auth status\n` +
+        `  3. If not authenticated:\n` +
+        `     gh auth login\n` +
+        `  4. Verify remote repository:\n` +
+        `     cd ${worktreePath} && git remote -v\n` +
+        `  5. Check if PR already exists:\n` +
+        `     gh pr list --head ${this.branch}\n` +
+        `  6. Try creating PR manually:\n` +
+        `     cd ${worktreePath}\n` +
+        `     gh pr create --title "Your title" --body "Your body" --base ${base}\n` +
+        `  7. Ensure branch has commits:\n` +
+        `     cd ${worktreePath} && git log --oneline -5`
       );
     }
   }

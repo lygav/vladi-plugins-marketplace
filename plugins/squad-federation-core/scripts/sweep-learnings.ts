@@ -382,6 +382,16 @@ function main(): void {
 
   if (branches.length === 0) {
     console.error(`❌ No ${BRANCH_PREFIX}* branches found.`);
+    console.error('\nRecovery:');
+    console.error('  1. Check if federation is configured:');
+    console.error('     cat federate.config.json');
+    console.error('  2. List all git branches:');
+    console.error('     git branch --all');
+    console.error(`  3. Verify branch prefix is correct (expected: ${BRANCH_PREFIX})`);
+    console.error('  4. If no domains exist, onboard a domain first:');
+    console.error('     npx tsx scripts/onboard.ts --name <domain> --domain-id <id> --archetype <name>');
+    console.error('  5. Check git worktrees:');
+    console.error('     git worktree list');
     process.exit(1);
   }
 
@@ -437,5 +447,19 @@ try {
   main();
 } catch (err: any) {
   console.error('❌ Sweep failed:', err.message);
+  console.error('\nRecovery:');
+  console.error('  1. Verify learning logs exist in domain branches:');
+  console.error('     git show squad/<domain>:.squad/learnings/log.jsonl');
+  console.error('  2. Check if branches are accessible:');
+  console.error('     git branch --list "squad/*"');
+  console.error('  3. Ensure learning logs are valid JSONL:');
+  console.error('     cat .worktrees/<domain>/.squad/learnings/log.jsonl');
+  console.error('  4. Try with filters to narrow the scope:');
+  console.error('     npx tsx scripts/sweep-learnings.ts --tags <tag>');
+  console.error('     npx tsx scripts/sweep-learnings.ts --min-occurrences 2');
+  console.error('  5. Check for corrupt JSONL entries:');
+  console.error('     jq . .worktrees/<domain>/.squad/learnings/log.jsonl');
+  console.error('  6. If specific branch fails, check that branch:');
+  console.error('     git checkout squad/<domain> && cat .squad/learnings/log.jsonl');
   process.exit(1);
 }

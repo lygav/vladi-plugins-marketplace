@@ -241,6 +241,16 @@ function sendDirective(domain: string, directiveText: string): void {
     console.error(`❌ Domain not found: ${domain}`);
     console.log('\nAvailable domains:');
     worktrees.forEach(wt => console.log(`  - ${wt.domain}`));
+    console.error('\nRecovery:');
+    console.error('  1. List all teams to see available domains:');
+    console.error('     npx tsx scripts/monitor.ts');
+    console.error('  2. Check team registry:');
+    console.error('     cat .squad/teams.json');
+    console.error('  3. Verify domain name spelling (case-sensitive)');
+    console.error('  4. If domain should exist, check git worktrees:');
+    console.error('     git worktree list');
+    console.error('  5. If domain is missing, onboard it first:');
+    console.error(`     npx tsx scripts/onboard.ts --name ${domain} --domain-id <id> --archetype <name>`);
     process.exit(1);
   }
 

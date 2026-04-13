@@ -219,14 +219,39 @@ export function loadAndValidateConfig(configPath: string): FederateConfig {
     if (err instanceof ConfigValidationError) {
       console.error(`❌ Config validation failed: ${err.message}`);
       console.error(`   Config file: ${configPath}`);
-      console.error(`\nFix the config and try again. See federate.config.example.ts for reference.`);
+      console.error('\nRecovery:');
+      console.error('  1. Check the example config for reference:');
+      console.error('     cat federate.config.example.ts');
+      console.error('  2. Validate your config structure:');
+      console.error('     cat federate.config.json');
+      console.error('  3. Common issues to check:');
+      console.error('     - squadRoot: must be a valid directory path');
+      console.error('     - worktreeRoot: must be a valid directory path');
+      console.error('     - branchPrefix: must be a non-empty string (e.g., "squad/")');
+      console.error('     - archetypes: must be an object with archetype definitions');
+      console.error('  4. Restore from example:');
+      console.error('     cp federate.config.example.ts federate.config.json');
+      console.error('  5. Verify required fields are present:');
+      console.error('     jq . federate.config.json');
       process.exit(1);
     }
     
     // JSON parse error or other error
     console.error(`❌ Failed to parse config file: ${configPath}`);
     console.error(`   Error: ${(err as Error).message}`);
-    console.error(`\nMake sure the file contains valid JSON.`);
+    console.error('\nRecovery:');
+    console.error('  1. Check for JSON syntax errors:');
+    console.error('     cat federate.config.json | jq .');
+    console.error('  2. Common JSON issues:');
+    console.error('     - Missing or extra commas');
+    console.error('     - Unquoted strings');
+    console.error('     - Invalid escape sequences');
+    console.error('     - Trailing commas in objects/arrays');
+    console.error('  3. Validate JSON online: https://jsonlint.com');
+    console.error('  4. Restore from backup if available:');
+    console.error('     git checkout HEAD -- federate.config.json');
+    console.error('  5. Start fresh from example:');
+    console.error('     cp federate.config.example.ts federate.config.json');
     process.exit(1);
   }
 }
