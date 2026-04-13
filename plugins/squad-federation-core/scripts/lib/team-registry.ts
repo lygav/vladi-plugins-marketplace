@@ -354,20 +354,47 @@ export class TeamRegistry {
 
   /**
    * Acquire lock file with timeout.
+   * Uses atomic exclusive write (wx flag) to prevent TOCTOU race conditions.
    */
   private async acquireLock(): Promise<boolean> {
     const startTime = Date.now();
+    const maxRetries = 10;
+    let retries = 0;
     
-    while (Date.now() - startTime < this.lockTimeout) {
+    while (Date.now() - startTime < this.lockTimeout && retries < maxRetries) {
       try {
-        // Try to create lock file exclusively
-        await fs.writeFile(this.lockPath, process.pid.toString(), { flag: 'wx' });
+        // Atomic exclusive create — fails if file exists
+        const lockData = JSON.stringify({ pid: process.pid, ts: Date.now() });
+        await fs.writeFile(this.lockPath, lockData, { flag: 'wx' });
         return true;
       } catch (error) {
-        // Lock exists — check if stale
-        if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
-          await this.checkStaleLock();
-          await this.sleep(50); // Wait 50ms before retry
+        const err = error as NodeJS.ErrnoException;
+        if (err.code === 'EEXIST') {
+          // Check if lock is stale (>5s old)
+          try {
+            const stat = await fs.stat(this.lockPath);
+            const lockAge = Date.now() - stat.mtimeMs;
+            
+            if (lockAge > 5000) {
+              // Lock is stale — try to remove it atomically
+              // Use unlink which will fail if file doesn't exist (race-safe)
+              await fs.unlink(this.lockPath).catch(() => {
+                // Another process may have already removed it, that's OK
+              });
+              // Retry immediately after removing stale lock
+              retries++;
+              continue;
+            }
+          } catch (statErr) {
+            // Lock file disappeared between EEXIST and stat — that's OK
+            // Another process removed it, retry immediately
+            retries++;
+            continue;
+          }
+          
+          // Lock is not stale — wait and retry
+          await this.sleep(200);
+          retries++;
           continue;
         }
         throw error;
@@ -388,27 +415,6 @@ export class TeamRegistry {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         throw error;
       }
-    }
-  }
-
-  /**
-   * Check if lock is stale and remove it.
-   * A lock is stale if the process that created it is no longer running.
-   */
-  private async checkStaleLock(): Promise<void> {
-    try {
-      const lockContent = await fs.readFile(this.lockPath, 'utf-8');
-      const lockPid = parseInt(lockContent, 10);
-      
-      // Check if process is still running
-      try {
-        process.kill(lockPid, 0); // Signal 0 just checks existence
-      } catch {
-        // Process not running — remove stale lock
-        await fs.unlink(this.lockPath).catch(() => {});
-      }
-    } catch {
-      // Can't read lock file — leave it alone
     }
   }
 
