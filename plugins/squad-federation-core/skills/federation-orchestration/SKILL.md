@@ -16,8 +16,8 @@ Guide the orchestration of a federated squad system where a **meta-squad** coord
 
 The federation model has two layers:
 
-1. **Meta-squad (coordinator)** — runs on the `main` branch. Owns the federation config, launches domain squads, monitors progress, aggregates results, and manages knowledge flows.
-2. **Domain squads (experts)** — each runs on its own `scan/{domain}` branch in a dedicated git worktree. Domain squads are autonomous: they execute a playbook, produce a deliverable, and communicate via the signal protocol.
+1. **Meta-squad (coordinator)** — runs on the `main` branch. Owns the federation config, launches domain squads, monitors progress, and manages knowledge flows.
+2. **Domain squads (experts)** — each runs on its own `scan/{domain}` branch in a dedicated git worktree. Domain squads are autonomous: they execute a playbook, produce outputs, and communicate via the signal protocol.
 
 ```
 main (meta-squad)
@@ -42,7 +42,7 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/onboard.ts \
   --name "payments" \
   --domain-id "pay-001" \
   --team-size 5 \
-  --roles "lead,data-engineer,data-engineer,sre,research-analyst" \
+  --roles "lead,developer,developer,sre,analyst" \
   --agents "Agent Alpha,Agent Beta,Agent Gamma,Agent Delta,Agent Epsilon"
 ```
 
@@ -69,12 +69,12 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/launch.ts --team payments --reset
 ```
 
 Modes:
-- **First scan** (no flags): starts from the beginning of the playbook. Initializes signals, sets state to `initializing`.
+- **First scan** (no flags): starts from the beginning of the playbook. Initializes signals, sets state to `preparing`.
 - **Step targeting** (`--step <name>`): resumes or jumps to a specific playbook step. Useful when a domain squad stalled or needs to redo a phase.
-- **Reset** (`--reset`): wipes the deliverable and signals, restarts from scratch. Use when a domain's data is stale or fundamentally wrong.
+- **Reset** (`--reset`): wipes outputs and signals, restarts from scratch. Use when a domain's data is stale or fundamentally wrong.
 - **All** (`--all`): launches every onboarded domain in parallel. Each gets its own detached session.
 
-The launch script reads `federate.config.json` from the repo root for settings: deliverable filename, MCP stack, playbook steps, telemetry toggle. It also checks schema freshness — if the deliverable schema on main has changed since the domain's last run, it flags it in the launch prompt.
+The launch script reads `federate.config.json` from the repo root for settings: MCP stack, playbook skill, telemetry toggle. Archetype plugins may add additional configuration checks based on their requirements.
 
 ### monitor.ts — Observe Domain Progress
 
@@ -113,20 +113,20 @@ The `scan/` prefix is the default and is configurable. All federation scripts us
 
 ## Task Lifecycle
 
-A domain squad progresses through configurable playbook steps. Each team follows its archetype's playbook. See the archetype's skill for lifecycle steps and completion criteria.
+A domain squad progresses through playbook steps defined by its archetype. The specific steps, their order, and completion criteria are managed by the archetype plugin (see your archetype's playbook skill for details).
 
-Steps are fully configurable via `federate.config.json`. The domain squad's Copilot session receives a prompt for the current step, executes it, updates status, and advances.
+The domain squad's Copilot session receives a prompt for the current step, executes it, updates status via the signal protocol, and advances.
 
 ## When to Use Each Script
 
 | Goal | Script | Example |
 |------|--------|---------|
 | Add a new domain to the federation | `onboard.ts` | First time setting up "payments" domain |
-| Start or restart a domain's work | `launch.ts` | Kick off scanning after onboarding |
+| Start or restart a domain's work | `launch.ts` | Kick off work after onboarding |
 | Check on all domains | `monitor.ts` | See which domains are done, stalled, or failed |
 | Steer a running domain | `monitor.ts --send` | Tell a domain to skip a repository |
-| Collect finished work | archetype-specific | Aggregation is archetype-specific. Deliverable archetypes provide aggregate tooling. |
-| Resume a specific phase | `launch.ts --step` | Re-run validation after fixing a data issue |
+| Collect finished work | See archetype skill | Output collection is archetype-specific — check your archetype's playbook skill |
+| Resume a specific phase | `launch.ts --step` | Re-run a step after fixing an issue |
 | Start fresh | `launch.ts --reset` | Domain data is outdated, start over |
 
 ## Signal Protocol Overview
@@ -145,17 +145,14 @@ The `federate.config.json` file at the repo root controls federation behavior:
 
 ```json
 {
-  "deliverable": "deliverable.json",
-  "deliverableSchema": "schemas/deliverable.schema.json",
   "mcpStack": ["filesystem", "otel"],
   "playbookSkill": "domain-playbook",
-  "steps": ["discovery", "analysis", "deep-dives", "validation", "documentation", "distillation"],
   "branchPrefix": "scan/",
   "telemetry": { "enabled": true }
 }
 ```
 
-If the file does not exist, defaults are used. Environment variables (`FEDERATE_DELIVERABLE`, `FEDERATE_BRANCH_PREFIX`, `FEDERATE_IMPORT_HOOK`) can override specific fields.
+Additional archetype-specific configuration may be present depending on which archetype plugin is installed. If the file does not exist, defaults are used. Environment variables (`FEDERATE_BRANCH_PREFIX`, `FEDERATE_PLAYBOOK_SKILL`) can override specific fields.
 
 ## Orchestration Checklist
 
@@ -167,7 +164,7 @@ When orchestrating a federation run end-to-end:
 4. Monitor progress: run `monitor.ts --watch`
 5. Send directives as needed: run `monitor.ts --send {domain} --directive "..."`
 6. Wait for domains to reach `complete` state
-7. Aggregate (if applicable): aggregation is archetype-specific. Deliverable archetypes provide aggregate tooling.
+7. Collect outputs (if applicable): see your archetype's playbook skill for output collection steps
 8. Sweep learnings: run `sweep-learnings.ts` to find cross-domain patterns
 9. Graduate learnings: run `graduate-learning.ts` for reusable knowledge
 
@@ -175,12 +172,12 @@ When orchestrating a federation run end-to-end:
 
 When a domain needs to re-run, choose the right mode:
 
-**Refresh** (`launch.ts --step {step}`): picks up from a specific step. Preserves all earlier work — signals, learnings, partial deliverables. Use when:
+**Refresh** (`launch.ts --step {step}`): picks up from a specific step. Preserves all earlier work — signals, learnings, partial outputs. Use when:
 - A step failed and you fixed the root cause
 - The meta-squad sent a directive that changes later steps
-- Schema changed on main and you need to re-distill
+- You need to re-run a specific phase
 
-**Reset** (`launch.ts --reset`): wipes the deliverable, clears signals, and restarts from scratch. Use when:
+**Reset** (`launch.ts --reset`): wipes outputs, clears signals, and restarts from scratch. Use when:
 - The domain's data sources fundamentally changed
 - A bad directive corrupted the analysis
 - The worktree is in an unknown state and you need a clean start
@@ -193,5 +190,5 @@ Never reset when a refresh would suffice — resets discard learnings and signal
 - Use `launch.ts --step {last-good-step}` to retry from a known good state.
 - Use `launch.ts --reset` only as a last resort — it discards all domain progress.
 - If a worktree is corrupted, remove and re-onboard: `git worktree remove` → `onboard.ts`.
-- Stale domains (no status update for >30 minutes during a scan) likely indicate a hung session. Kill the process and re-launch with `--step`.
-- If the aggregation step reports a missing deliverable for a domain that shows `complete`, the deliverable filename may be misconfigured. Check `federate.config.json` matches what the domain actually wrote.
+- Stale domains (no status update for >30 minutes during a run) likely indicate a hung session. Kill the process and re-launch with `--step`.
+- If output collection reports missing files, check the archetype's expected output configuration matches what the domain actually wrote.

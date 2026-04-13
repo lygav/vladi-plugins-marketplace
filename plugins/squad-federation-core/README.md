@@ -73,29 +73,60 @@ Each new team picks its own archetype. A coding team and a deliverable team can 
 
 > **📖 Full walkthrough:** See [EXAMPLE.md](EXAMPLE.md) — from empty project to running federated teams.
 
-## How It Works
+## Three-Layer Architecture
+
+This plugin is the **Core layer** in a three-layer composition model:
+
+```
+┌────────────────────────────────────────────────────┐
+│  PROJECT LAYER                                     │
+│  Domain playbook skills · schemas · import hooks   │  ← Your expertise
+├────────────────────────────────────────────────────┤
+│  ARCHETYPE LAYER                                   │
+│  Team playbook · state machine · aggregation       │  ← Work pattern (deliverable/coding/research)
+│  Auto-installed: squad-archetype-deliverable       │
+│                  squad-archetype-coding            │
+├────────────────────────────────────────────────────┤
+│  CORE LAYER (this plugin)                          │
+│  Worktrees · signals · knowledge · OTel · launch   │  ← Infrastructure
+└────────────────────────────────────────────────────┘
+```
+
+### What each layer owns
+
+| Layer | Owns | Example config |
+|-------|------|----------------|
+| **Core** | `federate.config.json` | Branch prefix, MCP stack, telemetry, worktree location |
+| **Archetype** | `.squad/archetype-config.json` (per team) | Deliverable schema, PR strategy, team playbook, state machine |
+| **Project** | `.squad/` skills, schemas, import hooks | Domain-specific playbook skills, validation rules |
+
+**Key design:** Core is **archetype-unaware**. It doesn't know what teams produce — just how to launch, monitor, and coordinate them. Archetypes define the work pattern and state machine. Your project brings domain expertise.
+
+> **Deep dive:** [ARCHITECTURE.md](ARCHITECTURE.md) — schemas, protocols, flows, and CLI commands.
+
+### Setup flow
 
 ```
 Describe your goal → Core setup wizard
         │
         ▼
-Select work pattern (archetype) → Auto-install archetype plugin
+Select work pattern → Core auto-installs archetype plugin
         │
         ▼
-Archetype setup wizard (deliverable: filename, schema | coding: PR branch, tests)
+Archetype setup wizard → fine-tune state machine, playbook, schemas
         │
         ▼
-Configure MCP stack + monitoring dashboard
+Configure MCP stack + OTel dashboard
         │
         ▼
-Cast meta-squad (leadership team)
+Cast meta-squad → Squad framework handles agent creation
         │
         ▼
-Onboard first team → persistent worktree, Squad casts agents
+Onboard first team → persistent worktree, archetype state machine
         │
         ▼
 Launch → headless session runs autonomously
-Monitor → real-time signals dashboard
+Monitor → real-time signals + OTel traces
 ```
 
 Each layer owns its config:
@@ -235,8 +266,9 @@ Most teams work on the same codebase:
 |---------|-------------|
 | **Conversational setup** | Describe your goal — *"federate this project"*, *"go multi-team"*. The wizard configures everything. |
 | **`@federation` agent** | Dedicated agent for explicit multi-team control. Bypasses Squad's coordinator when needed. |
+| **Three-layer architecture** | Core (infrastructure) → Archetype (work pattern) → Project (domain). Each layer owns its config. Archetypes install as plugins. |
+| **Archetype state machines** | Each archetype defines its own lifecycle (e.g., deliverable: draft→validate→finalize; coding: spec→implement→review→merge). Teams transition through archetype-specific states. |
 | **Persistent worktrees** | Each team gets a permanent git worktree with its own branch, agents, and accumulated knowledge. |
-| **Archetype system** | Goal-specific behavior as installable plugins. Teams gain capabilities on install — like Neo downloading skills. |
 | **Signal protocol** | File-based IPC between meta-squad and teams. Status, directives, reports, alerts via `.squad/signals/`. |
 | **Knowledge lifecycle** | Three flows: seed (main→team), sync (periodic), graduate (team→main). Cross-team pattern detection. |
 | **Headless launch** | Teams run in detached Copilot sessions. Prompt resolved from archetype templates. |
@@ -244,27 +276,6 @@ Most teams work on the same codebase:
 | **Marketplace discovery** | During onboarding, suggests relevant skills from installed marketplaces based on team purpose. |
 | **Non-homogeneous teams** | Meta-squad manages coding, research, and deliverable teams simultaneously. |
 | **Ceremonies** | Built-in coordination rituals: retro, knowledge-check, pre-task-triage. |
-| **Schema-first deliverables** | Deliverable archetype drives schema evolution from first run. Validation at aggregation. |
-
-## Three-Layer Architecture
-
-```
-┌──────────────────────────────────────────────────┐
-│  YOUR PROJECT                                    │
-│  Domain playbook skill · schemas · import hooks  │
-├──────────────────────────────────────────────────┤
-│  ARCHETYPE PLUGIN (auto-installed)               │
-│  Team playbook · meta-squad skills · templates   │
-│  e.g. squad-archetype-deliverable                │
-├──────────────────────────────────────────────────┤
-│  squad-federation-core (this plugin)             │
-│  Worktrees · signals · knowledge · OTel · launch │
-└──────────────────────────────────────────────────┘
-```
-
-**Core** has zero knowledge of what teams produce. **Archetypes** define the work pattern. **Your project** provides domain expertise.
-
-> Deep dive: **[ARCHITECTURE.md](ARCHITECTURE.md)** (schemas, protocols, flows)
 
 ## Components
 

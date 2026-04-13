@@ -31,6 +31,7 @@ import {
   initializeSignals,
   type DomainWorktree,
 } from './lib/signals.js';
+import { loadAndValidateConfig, type FederateConfig } from './lib/config.js';
 
 // ==================== Configuration ====================
 
@@ -41,13 +42,6 @@ const __dirname = path.dirname(__filename);
 const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
 
 // ==================== Types ====================
-
-interface FederateConfig {
-  branchPrefix: string;
-  telemetry: { enabled: boolean; aspire?: boolean };
-  mcpStack: string[];
-  playbookSkill: string;
-}
 
 function readDomainId(worktreePath: string, fallback: string): string {
   // Try DOMAIN_CONTEXT.md first
@@ -72,24 +66,7 @@ function readDomainId(worktreePath: string, fallback: string): string {
 type RunType = 'first-run' | 'refresh' | 'reset';
 
 // ==================== Config Loading ====================
-
-const DEFAULT_CONFIG: FederateConfig = {
-  branchPrefix: 'squad/',
-  telemetry: { enabled: true },
-  mcpStack: [],
-  playbookSkill: 'domain-playbook',
-};
-
-function loadConfig(): FederateConfig {
-  const configPath = path.join(REPO_ROOT, 'federate.config.json');
-  if (fs.existsSync(configPath)) {
-    try {
-      const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      return { ...DEFAULT_CONFIG, ...raw };
-    } catch { /* fall through */ }
-  }
-  return { ...DEFAULT_CONFIG };
-}
+// Config loading now uses validated config from lib/config.ts
 
 // ==================== Helpers ====================
 
@@ -377,7 +354,7 @@ function main(): void {
     process.exit(1);
   }
 
-  const config = loadConfig();
+  const config = loadAndValidateConfig(path.join(REPO_ROOT, 'federate.config.json'));
   const worktrees = discoverDomains(REPO_ROOT);
   const promptSource: PromptSource = { cliPrompt, cliPromptFile };
 

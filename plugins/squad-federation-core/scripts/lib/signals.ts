@@ -9,8 +9,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
+import { discoverDomains as discoverDomainsFromLib, type DomainWorktree } from './discovery.js';
 
 // ==================== Types ====================
 
@@ -38,11 +38,8 @@ export interface SignalMessage {
   acknowledged_at?: string;
 }
 
-export interface DomainWorktree {
-  domain: string;
-  branch: string;
-  path: string;
-}
+// Re-export DomainWorktree type from discovery for backward compatibility
+export type { DomainWorktree };
 
 // ==================== Filesystem Helpers ====================
 
@@ -161,33 +158,8 @@ export function acknowledgeMessage(worktreePath: string, box: 'inbox' | 'outbox'
 
 // ==================== Worktree Discovery ====================
 
-export function discoverDomains(repoRoot?: string): DomainWorktree[] {
-  const root = repoRoot || process.cwd();
-  try {
-    const output = execSync('git worktree list --porcelain', { cwd: root, encoding: 'utf-8' });
-    const worktrees: DomainWorktree[] = [];
-    let currentPath = '';
-    let currentBranch = '';
-
-    for (const line of output.split('\n')) {
-      if (line.startsWith('worktree ')) {
-        currentPath = line.replace('worktree ', '');
-      } else if (line.startsWith('branch ')) {
-        currentBranch = line.replace('branch refs/heads/', '');
-        // Domain branches follow the pattern: {prefix}{domain-name}
-        // Default prefix is "squad/" — configurable via FederateConfig
-        const prefix = process.env.FEDERATE_BRANCH_PREFIX || 'squad/';
-        if (currentBranch.startsWith(prefix)) {
-          const domain = currentBranch.replace(prefix, '');
-          worktrees.push({ domain, branch: currentBranch, path: currentPath });
-        }
-      }
-    }
-    return worktrees;
-  } catch {
-    return [];
-  }
-}
+// Re-export discoverDomains from discovery lib for backward compatibility
+export { discoverDomains } from './discovery.js';
 
 export function validateWorktree(worktreePath: string): { valid: boolean; issues: string[] } {
   const issues: string[] = [];

@@ -170,26 +170,53 @@ headless orchestration where domain squads run in detached Copilot sessions.
 interface ScanStatus {
   domain: string;          // "team-alpha"
   domain_id: string;       // external identifier (project ID, etc.)
-  state: 'initializing' | 'scanning' | 'distilling' | 'complete' | 'failed' | 'paused';
+  state: string;           // archetype-specific state string (validated at runtime)
   step: string;            // current step description (free-form)
   started_at: string;      // ISO 8601
   updated_at: string;      // ISO 8601, auto-set on every write
-  completed_at?: string;   // ISO 8601, set when state == complete
+  completed_at?: string;   // ISO 8601, set when terminal state reached
   progress_pct?: number;   // 0-100, optional progress indicator
   error?: string;          // error description when state == failed
   agent_active?: string;   // name of currently active agent
 }
 ```
 
-**Valid state transitions:**
+**Archetype-Specific State Machines**
 
+The `state` field is a string validated against the archetype's declared state
+schema in `archetype.json`. Core validates but never interprets state semantics —
+archetypes own their lifecycle definitions.
+
+**Validation mechanism:**
+- Core reads `states` schema from `.squad/archetype.json` in the worktree
+- Validates state transitions: state must be in `lifecycle` or `terminal` array
+- Falls back to generic defaults if no schema exists (backward compatible)
+- See §7 for archetype.json schema details
+
+**Example state progressions by archetype:**
+
+**Deliverable Archetype:**
 ```
-initializing ──► scanning ──► distilling ──► complete
-      │              │             │
-      └──────────────┴─────────────┴──► failed
-                     │
-                     └──► paused ──► scanning
+preparing → scanning → distilling → aggregating → reviewing → complete/failed
 ```
+
+**Coding Archetype:**
+```
+preparing → implementing → testing → pr-open → pr-review → pr-approved → merged → complete/failed
+```
+
+**Pipeline Archetype (ETL):**
+```
+preparing → extracting → transforming → loading → validating → complete/failed
+```
+
+**Research Archetype:**
+```
+preparing → exploring → synthesizing → validating → documenting → complete/failed
+```
+
+**Pauseable states:** If `pauseable: true` in the archetype schema, teams can
+transition to `paused` from any lifecycle state and resume later.
 
 ### SignalMessage Interface
 
@@ -667,8 +694,15 @@ These attributes enable filtering in the Aspire dashboard by domain squad.
 ## 7. Archetype System
 
 Archetypes define **what a squad does** — the work pattern, deliverable
-structure, playbook, and cleanup behavior. Core defines **how squads
-operate** — git mechanics, signals, telemetry, knowledge flow.
+structure, playbook, cleanup behavior, and **lifecycle state machine**. Core
+defines **how squads operate** — git mechanics, signals, telemetry, knowledge
+flow.
+
+Archetypes now own their lifecycle state definitions, not just work patterns.
+Core validates state transitions at runtime but never interprets state semantics.
+This strengthens the three-layer separation via **Dependency Inversion**: both
+core and archetype layers depend on the `states` schema abstraction, not on
+each other's implementations.
 
 ### On-Demand Skill Acquisition
 
@@ -731,9 +765,28 @@ Installed into each worktree by the archetype plugin's setup skill:
   "installed_at": "2025-07-20T10:00:00Z",
   "playbook_skill": "service-onboarding-playbook",
   "deliverable_schema": "docs/schemas/domain.schema.json",
-  "cleanup_hook": ".squad/cleanup-hook.sh"
+  "cleanup_hook": ".squad/cleanup-hook.sh",
+  "states": {
+    "lifecycle": [
+      "preparing",
+      "scanning",
+      "distilling",
+      "aggregating",
+      "reviewing"
+    ],
+    "terminal": ["complete", "failed"],
+    "pauseable": true
+  }
 }
 ```
+
+**State machine schema (optional):**
+- `lifecycle`: Ordered array of progression states the archetype moves through
+- `terminal`: Final states that end the team's work
+- `pauseable`: Whether teams can pause mid-lifecycle and resume later
+
+If `states` section is missing, core falls back to generic default states
+(preparing, working, complete, failed, paused, waiting for feedback, finished).
 
 ### Prompt Template Resolution
 
@@ -968,7 +1021,7 @@ All scripts live in `scripts/` and are invoked via `npx tsx scripts/<name>.ts`.
 **sync-skills.ts** — Skill propagation from main to domain worktrees. Discovers all `squad/*` branches, checks out updated skill files from main, commits sync, and updates `.squad/sync-state.json`. Handles worktree and bare-branch targets. Detects conflicts with locally modified skills.
 `npx tsx scripts/sync-skills.ts [--skill <name>] [--team <name>] [--dry-run]`
 
-**monitor.ts** — Federation status dashboard. Reads `status.json` from all domain worktrees. Displays scan state, progress, active agent, and timing for each domain. Supports watch mode for continuous monitoring.
+**monitor.ts** — Federation status dashboard. Reads `status.json` from all domain worktrees. Displays archetype-specific state progressions, progress, active agent, and timing for each domain. Groups teams by archetype when multiple archetypes coexist. Supports watch mode for continuous monitoring.
 `npx tsx scripts/monitor.ts [--watch]`
 
 **learn.ts** — CLI wrapper for appending learning log entries. Agents call this during scans to record discoveries, patterns, corrections, techniques, and gotchas.
@@ -991,8 +1044,72 @@ All scripts live in `scripts/` and are invoked via `npx tsx scripts/<name>.ts`.
 
 ### Library Modules (scripts/lib/)
 
-**signals.ts** — Signal protocol implementation. Provides `ScanStatus`, `SignalMessage`, and `DomainWorktree` types. Functions: `readStatus`, `writeStatus`, `initializeSignals`, `sendMessage`, `readMessages`, `acknowledgeMessage`, `discoverDomains`, `validateWorktree`.
+**signals.ts** — Signal protocol implementation. Provides `ScanStatus`, `SignalMessage`, and `DomainWorktree` types. Functions: `readStatus`, `writeStatus`, `validateStatus` (runtime state validation against archetype schema), `loadArchetypeMetadata`, `initializeSignals`, `sendMessage`, `readMessages`, `acknowledgeMessage`, `discoverDomains`, `validateWorktree`.
 
 **learning-log.ts** — `LearningLog` class. Append-only JSONL storage with `append()`, `query()` (with filters), `markGraduated()`, `count()`. Static methods `readFromBranch()` and `readAllDomains()` for cross-team reads via `git show`.
 
 **ceremonies.ts** — Ceremony template definitions and markdown generator. Exports `CeremonyDefinition` interface, three built-in templates (`task-retro`, `knowledge-check`, `pre-task-triage`), and `generateCeremoniesMarkdown()`.
+
+---
+
+## 11. Design Decisions
+
+### Archetype-Specific State Machines (Approved 2026-04-13)
+
+**Decision:** Archetypes declare their own lifecycle state machines in `archetype.json`.
+Core validates state transitions at runtime but never interprets state semantics.
+
+**Why:**
+- Generic states (`preparing`, `working`, `complete`, `failed`, `paused`, `waiting for feedback`, `finished`) are too coarse
+  for meaningful monitoring — "working" could mean anything
+- Archetypes know their own lifecycle better than core
+- Different work patterns have fundamentally different progression models:
+  - Deliverable: scanning → distilling → aggregating
+  - Coding: implementing → testing → pr-open → pr-review → pr-approved → merged
+  - ETL Pipeline: extracting → transforming → loading
+- Better monitoring: meta-squad sees "Team Alpha 80% through distilling" instead
+  of generic "Team Alpha working at 80%"
+
+**How (Option C — Fully Agnostic Core):**
+- Archetype declares states in `archetype.json`:
+  ```json
+  "states": {
+    "lifecycle": ["preparing", "scanning", "distilling", "aggregating"],
+    "terminal": ["complete", "failed"],
+    "pauseable": true
+  }
+  ```
+- Core reads schema at domain launch, validates each `status.json` write
+- `ScanStatus.state` changes from enum to `string`
+- Monitor reads archetype metadata and renders state-aware dashboards
+- Backward compatible: falls back to generic default states if no schema exists
+
+**Trade-offs:**
+- **Gain:** Archetype-specific lifecycles match real work patterns, much better
+  observability granularity, enables archetype-specific ceremony triggers
+- **Cost:** Monitor code becomes archetype-aware (more complex rendering logic),
+  cross-archetype comparisons require careful grouping
+- **Verdict:** Worth it — monitoring complexity is centralized in one place,
+  benefits distributed across all teams
+
+**Architecture Fit:**
+Strengthens the three-layer separation. This is **Dependency Inversion** —
+both core and archetype layers depend on the `states` schema abstraction, not
+on each other. Core validates but never interprets. Archetype defines but
+never enforces. The schema contract mediates between them.
+
+**Implementation Impact:**
+- `lib/signals.ts`: Add `validateStatus()`, `loadArchetypeMetadata()` (~60 lines)
+- `scripts/monitor.ts`: Archetype-aware dashboard rendering (~130 lines)
+- Archetype plugins: Add `states` section to `archetype.json` (~20 lines each)
+- Total: ~170 lines new code, ~40 lines modified
+
+**Success Metrics:**
+- Before: Generic "working" state tells nothing about team progress
+- After: "Team Alpha 80% through distilling, Team Bravo stuck in testing"
+- Developer experience: Define lifecycle in 5 lines of JSON
+- Performance: Validation adds <1ms per write (unnoticeable)
+
+**Related Issues:** [#18](https://github.com/lygav/vladi-plugins-marketplace/issues/18)
+**Design Document:** `.squad/decisions/inbox/mal-archetype-state-machines.md`
+

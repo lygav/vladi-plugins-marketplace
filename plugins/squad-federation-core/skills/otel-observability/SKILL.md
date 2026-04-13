@@ -56,11 +56,11 @@ Use metrics to track counts, quantities, and measurements. Metrics are point-in-
 ```
 otel_metric name="resources.analyzed" value=47 attributes={"squad.domain": "payments", "resource.type": "api-endpoint"}
 otel_metric name="learnings.recorded" value=3 attributes={"squad.domain": "payments", "learning.type": "pattern"}
-otel_metric name="deliverable.size_bytes" value=15234 attributes={"squad.domain": "payments"}
+otel_metric name="output.size_bytes" value=15234 attributes={"squad.domain": "payments"}
 ```
 
 **Parameters:**
-- `name`: Metric name. Use dot-separated hierarchy: `resources.{type}`, `learnings.{action}`, `deliverable.{aspect}`.
+- `name`: Metric name. Use dot-separated hierarchy: `resources.{type}`, `learnings.{action}`, `output.{aspect}`. Naming depends on your archetype.
 - `value`: Numeric value (integer).
 - `attributes`: Key-value pairs. Include `squad.domain`.
 
@@ -68,18 +68,18 @@ otel_metric name="deliverable.size_bytes" value=15234 attributes={"squad.domain"
 - Emit metrics at natural completion points, not in tight loops.
 - Use consistent names across all domains so metrics are comparable.
 - Metric names describe what is measured, not the domain. `resources.analyzed` is correct. `payments.resources` is wrong.
-- Emit a metric at scan completion summarizing the run: resources analyzed, findings count, duration.
+- Emit a metric at run completion summarizing the work: resources analyzed, findings count, duration.
 
 ### otel_event — Milestone Markers
 
 Use events to mark significant points in time. Events are like log entries but structured and correlated with the trace.
 
-**When to use:** At milestone transitions — step changes, state transitions, important decisions, external interactions.
+**When to use:** At milestone transitions — step changes, state transitions (including `waiting for feedback`, `finished`), important decisions, external interactions.
 
 ```
 otel_event name="step.transition" attributes={"squad.domain": "payments", "from_step": "discovery", "to_step": "analysis"}
 otel_event name="directive.received" attributes={"squad.domain": "payments", "directive.subject": "Skip legacy-utils"}
-otel_event name="deliverable.written" attributes={"squad.domain": "payments", "deliverable.path": "deliverable.json"}
+otel_event name="output.written" attributes={"squad.domain": "payments", "output.path": "output.json"}
 ```
 
 **Parameters:**
@@ -89,7 +89,7 @@ otel_event name="deliverable.written" attributes={"squad.domain": "payments", "d
 **Best practices:**
 - Emit events at every playbook step transition.
 - Emit an event when processing a directive from the meta-squad.
-- Emit an event when the deliverable is written.
+- Emit an event when your archetype's output is written.
 - Emit an event when recording a learning.
 - Do not use events for routine progress — use spans for that. Events mark discrete moments.
 
@@ -232,7 +232,7 @@ otel_metric name="learnings.recorded" value=1 attributes={"learning.type": "patt
 ```
 otel_metric name="scan.duration_seconds" value=N
 otel_metric name="scan.findings_count" value=N
-otel_event name="scan.completed" attributes={"squad.domain": "...", "scan.state": "complete"}
+otel_event name="scan.completed" attributes={"squad.domain": "...", "scan.state": "finished"}
 otel_span end name="scan.full" status="ok"
 ```
 
