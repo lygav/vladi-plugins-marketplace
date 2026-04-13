@@ -1,0 +1,15 @@
+{
+  "name": "squad-archetype-deliverable",
+  "version": "0.1.0",
+  "description": "Teams that produce file artifacts",
+  "coreCompatibility": ">=0.2.0",
+  "meta": {
+    "skills": "meta/skills/",
+    "agents": "meta/agents/",
+    "scripts": "meta/scripts/"
+  },
+  "team": {
+    "skills": "team/skills/",
+    "templates": "team/templates/"
+  }
+}
