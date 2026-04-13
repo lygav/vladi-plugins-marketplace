@@ -1,17 +1,18 @@
 # squad-federation-core — Architecture
 
 **Author:** Ripley (Lead Architect)
-**Version:** 0.1.0
-**Status:** Shipped
+**Version:** 0.2.0
+**Status:** Current
 
 ---
 
 ## 1. System Overview
 
 squad-federation-core is a Copilot plugin that implements a federated multi-team model.
-A **meta-squad** on the main branch orchestrates N permanent **domain squads**, each
-living on a dedicated git branch in a persistent worktree. Domain squads accumulate
-expertise, run autonomously in headless sessions, and communicate via file-based signals.
+A **meta-squad** orchestrates N permanent **domain squads** via a **transport abstraction**.
+Teams can exist in git worktrees, standalone directories, remote repos, or cloud storage—core
+is transport-agnostic. Domain squads accumulate expertise, run autonomously in headless sessions,
+and communicate via file-based signals.
 
 ### Three-Layer Architecture
 
@@ -19,26 +20,27 @@ expertise, run autonomously in headless sessions, and communicate via file-based
 ┌──────────────────────────────────────────────────────────────────────┐
 │  CORE LAYER — squad-federation-core plugin                         │
 │                                                                      │
-│  Git worktree lifecycle · Signal protocol · Learning log             │
-│  Launch mechanics · OTel MCP server · Skill sync engine              │
-│  Ceremony definitions · Monitoring dashboard                         │
+│  SDK (types, transport, base classes) · Team registry               │
+│  Signal protocol · Learning log · Launch mechanics                   │
+│  OTel MCP server · Skill sync engine · Hybrid monitoring             │
 │                                                                      │
-│  Domain-agnostic. Knows nothing about what squads DO — only how      │
-│  they are created, communicate, observe, and share knowledge.        │
+│  Transport-agnostic. Knows nothing about what squads DO or where     │
+│  they live — only how they communicate, observe, and share knowledge.│
 ├──────────────────────────────────────────────────────────────────────┤
-│  ARCHETYPE LAYER — e.g. squad-archetype-inventory                  │
+│  ARCHETYPE LAYER — e.g. squad-archetype-deliverable                │
 │                                                                      │
-│  Prompt templates · Playbook skills · Deliverable schemas            │
-│  Cleanup hooks · Domain-specific ceremonies                          │
+│  Meta: Orchestration skills · Aggregation scripts · Monitoring       │
+│  Team: Execution agents · Playbook skills · Cleanup hooks            │
+│  Archetype manifest (states, monitor config, triage, recovery)       │
 │                                                                      │
 │  Defines the WORK PATTERN for a class of squads. Installed into      │
-│  worktrees during onboarding. Multiple archetypes can coexist in     │
+│  teams during onboarding. Multiple archetypes can coexist in         │
 │  a single federation.                                                │
 ├──────────────────────────────────────────────────────────────────────┤
 │  PROJECT LAYER — your repository                                   │
 │                                                                      │
-│  federate.config.json · DOMAIN_CONTEXT.md per team                   │
-│  Project-specific MCP servers · Custom skills                        │
+│  .squad/teams.json (team registry) · DOMAIN_CONTEXT.md per team      │
+│  federate.config.json · Project-specific MCP servers · Custom skills │
 │                                                                      │
 │  Binds the federation to a concrete codebase and problem domain.     │
 └──────────────────────────────────────────────────────────────────────┘
@@ -46,29 +48,205 @@ expertise, run autonomously in headless sessions, and communicate via file-based
 
 ### Runtime Topology
 
+**Example with WorktreeTransport:**
+
 ```
 ~/project/ (main branch — meta-squad)
-├── .squad/skills/              ← authoritative skills
-├── .squad/learnings/log.jsonl  ← cross-cutting patterns
-├── federate.config.json        ← federation plumbing config
+├── .squad/
+│   ├── teams.json               ← team registry (source of truth)
+│   ├── skills/                  ← authoritative skills
+│   └── learnings/log.jsonl      ← cross-cutting patterns
+├── federate.config.json         ← federation plumbing config
 │
-├── project-team-alpha/         ← persistent worktree → squad/team-alpha
+├── project-team-alpha/          ← persistent worktree → squad/team-alpha
 │   ├── .squad/
-│   │   ├── signals/            ← IPC with meta-squad
-│   │   ├── learnings/          ← domain-specific discoveries
-│   │   └── skills/             ← synced from main + local extensions
+│   │   ├── archetype.json       ← archetype manifest (meta + team)
+│   │   ├── signals/             ← IPC with meta-squad
+│   │   ├── learnings/           ← domain-specific discoveries
+│   │   └── skills/              ← synced from main + local extensions
 │   └── DOMAIN_CONTEXT.md
 │
-├── project-team-beta/          ← persistent worktree → squad/team-beta
+├── project-team-beta/           ← persistent worktree → squad/team-beta
 │   └── (same structure)
 │
-└── project-team-gamma/         ← persistent worktree → squad/team-gamma
+└── project-team-gamma/          ← persistent worktree → squad/team-gamma
     └── (same structure)
+```
+
+**Example with DirectoryTransport:**
+
+```
+~/project/ (meta-squad)
+├── .squad/
+│   ├── teams.json               ← team registry
+│   ├── skills/                  ← authoritative skills
+│   └── learnings/log.jsonl
+├── federate.config.json
+│
+└── .squad-teams/                ← standalone team directories
+    ├── team-alpha/
+    │   ├── .squad/
+    │   │   ├── archetype.json
+    │   │   ├── signals/
+    │   │   ├── learnings/
+    │   │   └── skills/
+    │   └── DOMAIN_CONTEXT.md
+    │
+    ├── team-beta/
+    └── team-gamma/
 ```
 
 ---
 
-## 2. Git Mechanics
+## 2. Team Discovery & Transport Abstraction
+
+### Team Registry (.squad/teams.json)
+
+The **team registry** is the source of truth for team discovery. It replaces hardcoded
+`git worktree list` calls with a declarative manifest:
+
+```json
+{
+  "version": "1.0",
+  "teams": [
+    {
+      "domain": "team-alpha",
+      "domainId": "alpha-001",
+      "archetypeId": "deliverable",
+      "transport": "worktree",
+      "location": "/Users/user/project-team-alpha",
+      "branch": "squad/team-alpha",
+      "createdAt": "2025-01-15T10:00:00Z",
+      "metadata": {}
+    },
+    {
+      "domain": "team-beta",
+      "domainId": "beta-002",
+      "archetypeId": "coding",
+      "transport": "directory",
+      "location": ".squad-teams/team-beta",
+      "createdAt": "2025-01-16T14:30:00Z",
+      "metadata": {}
+    }
+  ]
+}
+```
+
+**Benefits:**
+- Multi-transport federations (worktree + directory + remote in same project)
+- Fast team lookup (no git subprocess calls)
+- Extensible metadata (store custom team properties)
+- Enables future mesh routing (team-to-team signals)
+
+### TeamTransport Interface
+
+All team workspace operations go through the `TeamTransport` interface, defined in `sdk/transport.ts`:
+
+```typescript
+export interface TeamTransport {
+  // File operations
+  readFile(teamId: string, filePath: string): Promise<string | null>;
+  writeFile(teamId: string, filePath: string, content: string): Promise<void>;
+  exists(teamId: string, filePath: string): Promise<boolean>;
+  
+  // Status & signals
+  readStatus(teamId: string): Promise<ScanStatus | null>;
+  readInboxSignals(teamId: string): Promise<SignalMessage[]>;
+  writeInboxSignal(teamId: string, signal: SignalMessage): Promise<void>;
+  readOutboxSignals(teamId: string): Promise<SignalMessage[]>;
+  
+  // Learning log
+  readLearningLog(teamId: string): Promise<LearningEntry[]>;
+  appendLearning(teamId: string, entry: LearningEntry): Promise<void>;
+  
+  // Workspace management
+  workspaceExists(teamId: string): Promise<boolean>;
+  getLocation(teamId: string): Promise<string>;
+  listFiles(teamId: string, directory?: string): Promise<string[]>;
+  bootstrap(teamId: string, archetypeId: string, config: Record<string, unknown>): Promise<void>;
+}
+```
+
+**Core never imports transport implementations.** Transport selection happens at runtime
+via the registry's `transport` field.
+
+### WorktreeTransport (lib/worktree-transport.ts)
+
+Git worktree adapter for v0.1.0 compatibility. Teams live on permanent branches:
+
+**Branch naming:** `{branchPrefix}{team-name}` (default: `squad/team-alpha`)
+
+**Lifecycle:**
+```bash
+# Create
+git branch squad/team-alpha main
+git worktree add ~/project-team-alpha squad/team-alpha
+
+# Discovery (replaced by registry)
+# OLD: git worktree list --porcelain
+# NEW: Read .squad/teams.json
+
+# Removal (manual)
+git worktree remove ~/project-team-alpha
+git branch -D squad/team-alpha
+```
+
+**No-merge-back principle:** Domain branches never merge to main. Knowledge flows via:
+- Graduation proposals (learning log → skill)
+- Signal outbox reports (meta reads)
+- Cross-read: `git show squad/team-alpha:.squad/learnings/log.jsonl`
+
+**Isolation:** Each worktree has independent `.squad/` directory. Shared git object store
+(disk-efficient), but zero coordination overhead between concurrent sessions.
+
+### DirectoryTransport (lib/directory-transport.ts)
+
+Standalone directory adapter. Teams exist in `.squad-teams/{teamName}/`:
+
+**Benefits:**
+- No git required (works in monorepos, cloud sync, etc.)
+- Simpler setup for non-git users
+- File-based backups (just copy directory tree)
+
+**Tradeoffs:**
+- No version control for team workspace
+- No cross-read via `git show` (use direct file reads)
+
+### Future Transports (v0.3.0+)
+
+- **RemoteTransport** — Teams in separate repos (HTTP/SSH)
+- **CloudTransport** — Azure Blob Storage / S3 (serverless orchestration)
+- **TeamsChannelTransport** — Microsoft Teams channels (human-in-loop coordination)
+- **EventHubTransport** — Azure Event Hub (pub-sub mesh)
+
+See DESIGN.md §4.2 for transport roadmap.
+
+### Transport Selection
+
+Scripts use `selectTransport()` helper from `lib/team-registry.ts`:
+
+```typescript
+import { selectTransport } from './lib/team-registry.js';
+
+const team = registry.teams.find(t => t.domain === 'team-alpha');
+const transport = selectTransport(team.transport, config);
+
+const status = await transport.readStatus(team.domain);
+```
+
+Core is **100% transport-agnostic**. Adding a new transport requires:
+1. Implement `TeamTransport` interface
+2. Register in `selectTransport()` factory
+3. Document in DESIGN.md
+
+No changes to core scripts, signals, or knowledge lifecycle.
+
+---
+
+## 2a. Git Mechanics (WorktreeTransport only)
+
+This section applies **only** to WorktreeTransport. For other transports, see their
+respective implementation docs.
 
 ### Branch Naming
 
@@ -94,26 +272,12 @@ git worktree add ~/project-team-alpha squad/team-alpha
 The worktree directory is named `{repoName}-{teamName}`, placed as a sibling
 of the main repository directory.
 
-**Discovery** — `discoverDomains()` in `signals.ts`:
-
-```bash
-git worktree list --porcelain
-```
-
-Parses output for branches matching `{branchPrefix}*`. Returns an array of
-`DomainWorktree` objects:
-
-```typescript
-interface DomainWorktree {
-  domain: string;    // "team-alpha"
-  branch: string;    // "squad/team-alpha"
-  path: string;      // "/home/user/project-team-alpha"
-}
-```
+**Discovery** — via team registry (`.squad/teams.json`), not `git worktree list`.
+Registry stores the worktree path and branch name.
 
 **Validation** — `validateWorktree()` checks for:
 - Worktree path exists on disk
-- `.squad/team.md` present (squad initialized)
+- `.squad/archetype.json` present (archetype initialized)
 - `.squad/signals/` directory present (signal protocol initialized)
 
 **Removal** — manual (domain squads are permanent by design):
@@ -121,9 +285,10 @@ interface DomainWorktree {
 ```bash
 git worktree remove ~/project-team-alpha
 git branch -D squad/team-alpha
+# Also remove from .squad/teams.json
 ```
 
-### No-Merge-Back Principle
+### No-Merge-Back Principle (WorktreeTransport)
 
 Domain branches **never** merge back to main. Knowledge flows via:
 - Graduation proposals (domain → main learning log → main skill)
@@ -133,9 +298,10 @@ Domain branches **never** merge back to main. Knowledge flows via:
 The main branch reads FROM domain branches. Domain branches receive skill
 updates via cherry-pick sync, never via `git merge main`.
 
-### Isolation Model
+### Isolation Model (WorktreeTransport)
 
 Each worktree has a complete, independent `.squad/` directory:
+- **Archetype manifest** — defines states, monitor config, triage, recovery
 - **Skills** — seeded from main at creation, synced periodically
 - **Learnings** — independent append-only log per domain
 - **Signals** — independent inbox/outbox/status per domain
@@ -178,6 +344,7 @@ interface ScanStatus {
   progress_pct?: number;   // 0-100, optional progress indicator
   error?: string;          // error description when state == failed
   agent_active?: string;   // name of currently active agent
+  archetype_id: string;    // archetype identifier (for multi-archetype dashboards)
 }
 ```
 
@@ -188,10 +355,10 @@ schema in `archetype.json`. Core validates but never interprets state semantics 
 archetypes own their lifecycle definitions.
 
 **Validation mechanism:**
-- Core reads `states` schema from `.squad/archetype.json` in the worktree
+- Core reads `states` schema from `.squad/archetype.json` in the team workspace
 - Validates state transitions: state must be in `lifecycle` or `terminal` array
 - Falls back to generic defaults if no schema exists (backward compatible)
-- See §7 for archetype.json schema details
+- See §8 for archetype.json schema details
 
 **Example state progressions by archetype:**
 
@@ -220,18 +387,34 @@ transition to `paused` from any lifecycle state and resume later.
 
 ### SignalMessage Interface
 
+**v0.2.0 updates:**
+- Added `to` field for mesh routing (team-to-team signals)
+- Added `protocol` version field for forward compatibility
+
 ```typescript
 interface SignalMessage {
   id: string;              // UUID v4
-  ts: string;              // ISO 8601
+  timestamp: string;       // ISO 8601 (renamed from 'ts' for clarity)
   from: string;            // "meta-squad" or domain name
+  to: string;              // recipient identifier (enables mesh routing)
   type: 'directive' | 'question' | 'report' | 'alert';
   subject: string;         // short summary
   body: string;            // full message content
+  protocol: string;        // protocol version (e.g., "1.0")
   acknowledged?: boolean;  // set to true when receiver processes it
   acknowledged_at?: string; // ISO 8601
 }
 ```
+
+**Mesh routing (v0.2.0):**
+The `to` field enables team-to-team signals, not just meta ↔ team. Example:
+- `from: "team-alpha", to: "team-beta"` — cross-team coordination
+- `from: "meta-squad", to: "*"` — broadcast to all teams
+- `from: "team-gamma", to: "meta-squad"` — escalation to meta
+
+**Protocol versioning:**
+The `protocol` field allows future signal format changes without breaking compatibility.
+Current version: `"1.0"`. Receivers should validate and handle unknown protocols gracefully.
 
 **Message types:**
 
@@ -404,12 +587,15 @@ Step 6: Learning entry marked graduated=true
 The learning log is an append-only JSONL file at `.squad/learnings/log.jsonl`.
 One JSON object per line.
 
+**v0.2.0 update:** Added `version` field for forward compatibility and schema evolution.
+
 ```typescript
 type LearningType = 'discovery' | 'correction' | 'pattern' | 'technique' | 'gotcha';
 
 interface LearningEntry {
   id: string;              // "learn-{timestamp}-{random6}"
-  ts: string;              // ISO 8601
+  timestamp: string;       // ISO 8601 (renamed from 'ts')
+  version: string;         // schema version (e.g., "1.0")
   type: LearningType;
   agent: string;           // agent who logged this
   domain?: string;         // domain name (for cross-reads)
@@ -425,6 +611,9 @@ interface LearningEntry {
   graduated_to?: string;   // target skill name
 }
 ```
+
+**Version field:** Enables schema evolution. Current version: `"1.0"`. Future versions
+can add/remove fields without breaking old readers (they ignore unknown fields).
 
 **Entry types:**
 
@@ -464,7 +653,164 @@ Cross-domain writes flow through graduation to main, then sync back out.
 
 ---
 
-## 5. Launch Mechanics
+## 5. SDK Organization
+
+**v0.2.0 introduces a formal SDK** at `squad-federation-core/sdk/` — the contract
+layer between core and archetypes. Archetypes import from SDK, never from core internals.
+
+### SDK Barrel Export (sdk/index.ts)
+
+All types and utilities exposed through a single entry point:
+
+```typescript
+export * from './types.js';
+export * from './transport.js';
+export * from './monitor-base.js';
+export * from './triage-base.js';
+export * from './recovery-base.js';
+export * from './schemas.js';
+```
+
+**Usage:**
+```typescript
+import {
+  MonitorCollector,
+  TeamContext,
+  ScanStatus,
+  TeamTransport,
+  selectTransport
+} from '@squad/federation-core/sdk';
+```
+
+### SDK Files
+
+**sdk/types.ts** — Core interfaces:
+- `ArchetypeManifest` — archetype.json schema
+- `StateSchema` — state machine declaration
+- `MonitorConfig`, `TriageConfig`, `RecoveryConfig` — dashboard/diagnostic metadata
+- `TeamContext` — team identification and transport
+- `ScanStatus` — current team state
+- `SignalMessage` — IPC message format
+- `LearningEntry` — learning log entry format
+
+**sdk/transport.ts** — `TeamTransport` interface (see §2)
+
+**sdk/monitor-base.ts** — `MonitorCollector` abstract base class:
+```typescript
+export abstract class MonitorCollector {
+  abstract collect(team: TeamContext): Promise<StatusData>;
+  
+  protected async readStatus(team: TeamContext): Promise<ScanStatus | null> {
+    return team.transport.readStatus(team.domain);
+  }
+  
+  protected async readInboxSignals(team: TeamContext): Promise<SignalMessage[]> {
+    return team.transport.readInboxSignals(team.domain);
+  }
+  
+  protected async readLearnings(team: TeamContext): Promise<LearningEntry[]> {
+    return team.transport.readLearningLog(team.domain);
+  }
+}
+```
+
+**sdk/triage-base.ts** — `TriageAnalyzer` abstract base class:
+```typescript
+export abstract class TriageAnalyzer {
+  abstract diagnose(team: TeamContext, statusData: StatusData): Promise<DiagnosisResult>;
+  
+  // Helper methods for common diagnostic patterns
+  protected isStalled(status: ScanStatus, thresholdMinutes: number): boolean {
+    const updatedAt = new Date(status.updated_at);
+    const now = new Date();
+    return (now.getTime() - updatedAt.getTime()) / 60000 > thresholdMinutes;
+  }
+}
+```
+
+**sdk/recovery-base.ts** — `RecoveryEngine` abstract base class:
+```typescript
+export abstract class RecoveryEngine {
+  abstract suggestActions(diagnosis: DiagnosisResult): Promise<RecoveryAction[]>;
+  
+  // Execute a recovery action (if automated)
+  async execute(action: RecoveryAction, team: TeamContext): Promise<void> {
+    if (!action.automated) {
+      throw new Error(`Action ${action.id} requires manual execution`);
+    }
+    // Delegate to subclass
+    await this.executeAutomated(action, team);
+  }
+  
+  protected abstract executeAutomated(action: RecoveryAction, team: TeamContext): Promise<void>;
+}
+```
+
+**sdk/schemas.ts** — Zod schemas for runtime validation:
+```typescript
+import { z } from 'zod';
+
+export const ScanStatusSchema = z.object({
+  domain: z.string(),
+  domain_id: z.string(),
+  state: z.string(),
+  step: z.string(),
+  started_at: z.string(),
+  updated_at: z.string(),
+  completed_at: z.string().optional(),
+  progress_pct: z.number().optional(),
+  error: z.string().optional(),
+  agent_active: z.string().optional(),
+  archetype_id: z.string(),
+});
+
+export const SignalMessageSchema = z.object({
+  id: z.string(),
+  timestamp: z.string(),
+  from: z.string(),
+  to: z.string(),
+  type: z.enum(['directive', 'question', 'report', 'alert']),
+  subject: z.string(),
+  body: z.string(),
+  protocol: z.string(),
+  acknowledged: z.boolean().optional(),
+  acknowledged_at: z.string().optional(),
+});
+
+export const LearningEntrySchema = z.object({
+  id: z.string(),
+  timestamp: z.string(),
+  version: z.string(),
+  type: z.enum(['discovery', 'correction', 'pattern', 'technique', 'gotcha']),
+  agent: z.string(),
+  domain: z.string().optional(),
+  tags: z.array(z.string()),
+  title: z.string(),
+  body: z.string(),
+  confidence: z.enum(['low', 'medium', 'high']),
+  source: z.string().optional(),
+  supersedes: z.string().optional(),
+  related_skill: z.string().optional(),
+  evidence: z.array(z.string()).optional(),
+  graduated: z.boolean().optional(),
+  graduated_to: z.string().optional(),
+});
+```
+
+### Extension Points
+
+Archetypes extend the SDK to implement custom behavior:
+
+1. **Custom monitors** — extend `MonitorCollector`, implement `collect()`
+2. **Custom triage** — extend `TriageAnalyzer`, implement `diagnose()`
+3. **Custom recovery** — extend `RecoveryEngine`, implement `suggestActions()` and `executeAutomated()`
+4. **Custom transports** — implement `TeamTransport` interface
+
+Core discovers and loads these via archetype.json manifest, never via direct imports.
+
+---
+
+## 6. Launch Mechanics
 
 `launch.ts` is the entry point for starting headless domain squad sessions.
 It resolves a prompt, initializes the signal protocol, and spawns a detached
@@ -573,9 +919,182 @@ npx tsx scripts/launch.ts --all                            # launch all teams
 
 ---
 
-## 6. OTel Observability
+## 7. Hybrid Monitoring & Observability
 
-### Architecture
+**v0.2.0 introduces hybrid monitoring** — scripts collect mechanical data,
+skills interpret and present insights. This replaces the pure-OTel approach.
+
+### Design Philosophy
+
+Old (v0.1.0): Agents instrument themselves with `otel_span`, `otel_metric` calls.
+- Problem: Instrumentation noise in agent code.
+- Problem: No archetype-specific dashboards.
+
+New (v0.2.0): Scripts collect, skills interpret.
+- **Scripts** run outside agents, collect status/signals/learnings, write to `.squad/monitor/data/`.
+- **Skills** read that data, run analyses, present human-readable dashboards.
+- **Archetypes** implement both: `meta/scripts/monitor.ts` + `meta/skills/monitor-dashboard.md`.
+
+### Monitor + Triage + Recovery Pattern
+
+Each archetype provides three components:
+
+**1. MonitorCollector** — Mechanical data collection (SDK base class):
+
+```typescript
+import { MonitorCollector, TeamContext, StatusData } from '@squad/federation-core/sdk';
+
+export class BackendMonitor extends MonitorCollector {
+  async collect(team: TeamContext): Promise<StatusData> {
+    const status = await this.readStatus(team);
+    const signals = await this.readInboxSignals(team);
+    const learnings = await this.readLearnings(team);
+    
+    // Archetype-specific data gathering
+    const buildStatus = await this.checkBuildHealth(team);
+    const testResults = await this.checkTestResults(team);
+    
+    return {
+      status,
+      signals,
+      learnings,
+      custom: { buildStatus, testResults }
+    };
+  }
+}
+```
+
+**2. TriageAnalyzer** — Diagnose issues (SDK base class):
+
+```typescript
+import { TriageAnalyzer, TeamContext, StatusData, DiagnosisResult } from '@squad/federation-core/sdk';
+
+export class BackendTriage extends TriageAnalyzer {
+  async diagnose(team: TeamContext, data: StatusData): Promise<DiagnosisResult> {
+    const issues: Issue[] = [];
+    
+    // Check for stalled state
+    if (this.isStalled(data.status, 30)) {
+      issues.push({
+        severity: 'high',
+        title: `Team ${team.domain} stalled in ${data.status.state}`,
+        details: `No progress for 30+ minutes`,
+        category: 'state-machine'
+      });
+    }
+    
+    // Archetype-specific checks
+    if (data.custom.buildStatus === 'broken') {
+      issues.push({
+        severity: 'critical',
+        title: 'Build broken',
+        details: data.custom.buildStatus.error,
+        category: 'build'
+      });
+    }
+    
+    return { issues, healthy: issues.length === 0 };
+  }
+}
+```
+
+**3. RecoveryEngine** — Suggest/execute fixes (SDK base class):
+
+```typescript
+import { RecoveryEngine, DiagnosisResult, RecoveryAction } from '@squad/federation-core/sdk';
+
+export class BackendRecovery extends RecoveryEngine {
+  async suggestActions(diagnosis: DiagnosisResult): Promise<RecoveryAction[]> {
+    const actions: RecoveryAction[] = [];
+    
+    for (const issue of diagnosis.issues) {
+      if (issue.category === 'state-machine' && issue.title.includes('stalled')) {
+        actions.push({
+          id: `restart-${Date.now()}`,
+          title: 'Restart team agent',
+          description: 'Kill existing process and relaunch',
+          automated: true,
+          risk: 'low'
+        });
+      }
+      
+      if (issue.category === 'build' && issue.title.includes('broken')) {
+        actions.push({
+          id: `fix-build-${Date.now()}`,
+          title: 'Fix build errors',
+          description: 'Send directive to team to fix compilation errors',
+          automated: false,  // requires human review
+          risk: 'medium'
+        });
+      }
+    }
+    
+    return actions;
+  }
+  
+  protected async executeAutomated(action: RecoveryAction, team: TeamContext): Promise<void> {
+    if (action.title === 'Restart team agent') {
+      // Kill and relaunch team process
+      await team.transport.sendDirective(team.domain, {
+        subject: 'System restart',
+        body: 'Your agent was restarted due to stall detection.'
+      });
+      // (actual restart logic here)
+    }
+  }
+}
+```
+
+### Dashboard Skill Pattern
+
+Skills present monitoring data to users:
+
+```markdown
+---
+name: monitor-dashboard
+description: Show federation health and team status
+---
+
+# Monitor Dashboard
+
+Displays current health of all teams in the federation.
+
+## How it works
+
+1. Reads `.squad/monitor/data/*.json` (written by monitor script)
+2. Runs triage analysis on each team
+3. Presents table with state, health, issues, suggested actions
+
+## Usage
+
+User: "show me the dashboard"
+Agent: (reads monitor data, runs triage, displays table)
+```
+
+The skill reads cached data (fast), interprets it, presents it.
+
+### Archetype.json Manifest
+
+Archetypes declare their monitoring components:
+
+```json
+{
+  "id": "backend",
+  "version": "1.0.0",
+  "monitoring": {
+    "collector": "meta/scripts/monitor.ts",
+    "triage": "meta/scripts/triage.ts",
+    "recovery": "meta/scripts/recovery.ts",
+    "skills": ["meta/skills/monitor-dashboard.md", "meta/skills/diagnose.md"]
+  }
+}
+```
+
+Core discovers and loads these automatically.
+
+### OTel Observability (Optional)
+
+v0.1.0's OTel instrumentation is still supported for low-level tracing:
 
 ```
 Domain A (worktree) ──► mcp-otel-server (stdin/stdout) ──┐
@@ -583,103 +1102,13 @@ Domain B (worktree) ──► mcp-otel-server (stdin/stdout) ──┼──► 
 Domain C (worktree) ──► mcp-otel-server (stdin/stdout) ──┘   :4318          :18888
 ```
 
-Each headless Copilot session spawns its own `mcp-otel-server.ts` process.
-The agent calls OTel tools via MCP protocol. The server exports OTLP/HTTP
-to a shared collector.
+Each headless session can spawn `mcp-otel-server.ts` for span/metric/event/log export.
 
-### MCP Server Protocol
+**Tools:** `otel_span`, `otel_metric`, `otel_event`, `otel_log` (see v0.1.0 docs).
 
-The OTel MCP server communicates via **JSON-RPC 2.0 over stdin/stdout**
-(newline-delimited). It implements the MCP 2024-11-05 protocol:
+**Export:** OTLP/HTTP to Aspire Dashboard (port 4318).
 
-- `initialize` → returns server capabilities (tools)
-- `tools/list` → returns the 4 OTel tool definitions
-- `tools/call` → executes a tool, returns result
-
-### Four Tools
-
-**`otel_span`** — Trace span lifecycle
-
-```typescript
-interface OtelSpanParams {
-  action: 'start' | 'end';  // start begins timing, end exports
-  name: string;              // "step-2-classification", "agent:DataEngineer"
-  status?: 'ok' | 'error';  // only on action=end
-  attributes?: Record<string, any>;
-}
-```
-
-Spans are tracked in-memory between start and end. On end, the span is
-formatted as OTLP and exported.
-
-**`otel_metric`** — Point-in-time gauge
-
-```typescript
-interface OtelMetricParams {
-  name: string;              // "squad.items.discovered"
-  value: number;
-  attributes?: Record<string, any>;
-}
-```
-
-**`otel_event`** — Timeline event (implemented as OTLP log record)
-
-```typescript
-interface OtelEventParams {
-  name: string;              // "scan-started", "learning-logged"
-  attributes?: Record<string, any>;
-}
-```
-
-**`otel_log`** — Structured log
-
-```typescript
-interface OtelLogParams {
-  level: 'info' | 'warn' | 'error' | 'debug';
-  message: string;
-  attributes?: Record<string, any>;
-}
-```
-
-Severity mapping: debug=5, info=9, warn=13, error=17 (OTLP severity numbers).
-
-### OTLP/HTTP Export Format
-
-All data is exported as JSON to the collector's HTTP endpoints:
-
-| Data type | Endpoint | Body format |
-|-----------|----------|-------------|
-| Traces | `POST /v1/traces` | `{ resourceSpans: [...] }` |
-| Metrics | `POST /v1/metrics` | `{ resourceMetrics: [...] }` |
-| Logs/Events | `POST /v1/logs` | `{ resourceLogs: [...] }` |
-
-Export is best-effort. If the collector is down, errors are logged to stderr
-but do not fail the agent's operation.
-
-### Aspire Dashboard Port Mapping
-
-Default deployment uses .NET Aspire dashboard:
-
-```yaml
-services:
-  aspire-dashboard:
-    image: mcr.microsoft.com/dotnet/aspire-dashboard:9.0
-    ports:
-      - "18888:18888"     # Aspire UI (browser)
-      - "4317:18889"      # OTLP/gRPC (host:4317 → container:18889)
-      - "4318:18890"      # OTLP/HTTP (host:4318 → container:18890)
-```
-
-| Host port | Container port | Protocol | Purpose |
-|-----------|---------------|----------|---------|
-| 18888 | 18888 | HTTP | Aspire dashboard UI |
-| 4317 | 18889 | gRPC | OTLP/gRPC receiver |
-| 4318 | 18890 | HTTP | OTLP/HTTP receiver (used by mcp-otel-server) |
-
-### Resource Attributes
-
-All spans, metrics, and logs carry:
-
+**Resource attributes:**
 ```typescript
 [
   { key: 'service.name', value: 'squad-{domain}' },
@@ -687,11 +1116,11 @@ All spans, metrics, and logs carry:
 ]
 ```
 
-These attributes enable filtering in the Aspire dashboard by domain squad.
+Most archetypes prefer the hybrid pattern. OTel is useful for deep debugging.
 
 ---
 
-## 7. Archetype System
+## 8. Archetype System
 
 Archetypes define **what a squad does** — the work pattern, deliverable
 structure, playbook, cleanup behavior, and **lifecycle state machine**. Core
@@ -754,9 +1183,76 @@ worktree. Meta-squad skills come exclusively from archetype plugin
 installs (global), not from marketplace discovery. If no marketplaces
 are registered or no matches found, the step is skipped silently.
 
+### Meta vs Team Directory Convention
+
+**v0.2.0 introduces the meta/team split** — archetypes now organize code
+by audience and deployment location:
+
+```
+squad-archetype-backend/
+  ├── meta/                   # Stays in plugin, orchestration code
+  │   ├── agents/
+  │   │   └── aggregator.md  # Meta-squad agent for collecting team output
+  │   ├── skills/
+  │   │   ├── aggregate-results.md
+  │   │   ├── monitor-dashboard.md
+  │   │   └── triage-teams.md
+  │   ├── scripts/
+  │   │   ├── monitor.ts
+  │   │   ├── triage.ts
+  │   │   └── recovery.ts
+  │   └── commands/
+  │       └── deploy-backend.md
+  │
+  └── team/                   # Copied to team workspace at onboarding
+      ├── skills/
+      │   ├── backend-playbook.md
+      │   ├── testing-guide.md
+      │   └── deployment-checklist.md
+      ├── templates/
+      │   ├── api-endpoint.ts.template
+      │   └── test-spec.ts.template
+      └── hooks/
+          └── cleanup-hook.sh
+```
+
+**Meta directory** — Orchestration layer (meta-squad POV):
+- Runs in plugin, has access to full Node.js environment
+- Can import SDK: `import { MonitorCollector, TeamTransport } from '@squad/federation-core/sdk'`
+- Implements monitoring, triage, recovery, aggregation
+- Never copied to team workspaces
+
+**Team directory** — Execution layer (team agent POV):
+- Copied to team workspace during onboarding
+- Becomes `.squad/archetype/*` in team's workspace
+- Skills, templates, hooks for the team agent to use
+- No imports, pure markdown/shell/templates
+
+**Onboarding workflow:**
+
+```typescript
+// Core onboard command
+const archetype = loadArchetypePlugin('squad-archetype-backend');
+
+// Copy team/ to new workspace
+await transport.writeFiles(teamDomain, {
+  '.squad/archetype/skills/': archetype.team.skills,
+  '.squad/archetype/templates/': archetype.team.templates,
+  '.squad/archetype/hooks/': archetype.team.hooks,
+});
+
+// Meta/ stays in plugin, accessed by meta-squad only
+```
+
+**Why this split:**
+- Meta code needs Node.js, npm deps, SDK imports → stays in plugin
+- Team code needs zero deps, portable → copied to workspace
+- Clean separation of orchestration (meta) vs execution (team)
+- Teams never import from plugin or SDK, they're self-contained
+
 ### .squad/archetype.json Schema
 
-Installed into each worktree by the archetype plugin's setup skill:
+Installed into each team workspace by the archetype plugin's setup skill:
 
 ```json
 {
@@ -858,7 +1354,7 @@ regardless of archetype. The archetype only affects:
 
 ---
 
-## 8. Ceremony Protocol
+## 9. Ceremony Protocol
 
 Ceremonies are structured coordination points triggered by squad state
 transitions. They provide reflection, knowledge sharing, and planning.
@@ -944,7 +1440,7 @@ archetype-provided ceremony definitions.
 
 ---
 
-## 9. Configuration
+## 10. Configuration
 
 ### federate.config.json Schema
 
@@ -1008,15 +1504,45 @@ interface FederateConfig {
 
 ---
 
-## 10. Scripts Reference
+## 11. Scripts Reference
 
 All scripts live in `scripts/` and are invoked via `npx tsx scripts/<name>.ts`.
 
-**launch.ts** — Headless team session launcher. Resolves prompt via 4-tier chain, initializes signal protocol, spawns detached Copilot session in domain worktree. Supports single team, multi-team, and all-teams modes. Handles `--reset` cleanup with hook execution and `--step` for single-step runs.
+**launch.ts** — Headless team session launcher. Resolves prompt via 4-tier chain, initializes signal protocol, spawns detached Copilot session in team workspace. Supports single team, multi-team, and all-teams modes. Handles `--reset` cleanup with hook execution and `--step` for single-step runs.
 `npx tsx scripts/launch.ts --team <name> [--reset] [--step <step>] [--prompt "..."] [--prompt-file <path>] [--all] [--teams a,b,c]`
 
-**onboard.ts** — Domain squad creation. Creates git branch, persistent worktree, scaffolds federation state (signals, learnings, ceremonies, telemetry, domain context), runs `squad init` for team casting, cleans up meta-squad files, and commits initial state.
-`npx tsx scripts/onboard.ts --name <name> --domain-id <id> [--description "..."] [--base-branch main]`
+**onboard.ts** — **v0.2.0: Now a conversational wizard.** Team creation is interactive, not CLI-arg driven. Guides the user through questions to build team specification (name, domain-id, archetype, transport, description). Defaults to "start empty, add what's needed" — no archetype required. Creates team workspace via selected transport (worktree or directory), scaffolds federation state (signals, learnings, team registry entry), copies archetype team/ files if archetype selected, and commits initial state. CLI mode still supported for automation.
+`npx tsx scripts/onboard.ts [--name <name>] [--domain-id <id>] [--archetype <id>] [--transport <type>] [--description "..."]`
+
+**Conversational onboarding flow:**
+```
+User: "onboard a new team"
+         │
+         ▼
+Wizard: "What's the team name?" → (user enters "backend-api")
+         │
+         ▼
+Wizard: "Team ID?" → (suggests "backend-api", user confirms)
+         │
+         ▼
+Wizard: "Choose archetype: [backend, deliverable, inventory, none]" → (user picks "backend")
+         │
+         ▼
+Wizard: "Transport: [worktree, directory]" → (user picks "worktree")
+         │
+         ▼
+Wizard: "Description?" → (user enters "Payments API backend service")
+         │
+         ▼
+Core: Creates team, registers in .squad/teams.json, copies archetype team/ files, commits
+         │
+         ▼
+Done: "Team 'backend-api' ready. Run 'launch --team backend-api' to start."
+```
+
+**Start empty approach:** Users can skip archetype selection. Team gets minimal federation
+scaffolding (.squad/signals/, .squad/learnings/) with no archetype.json, no predefined states,
+no monitoring. Meta-squad can later install archetype via "assign archetype" command.
 
 **sync-skills.ts** — Skill propagation from main to domain worktrees. Discovers all `squad/*` branches, checks out updated skill files from main, commits sync, and updates `.squad/sync-state.json`. Handles worktree and bare-branch targets. Detects conflicts with locally modified skills.
 `npx tsx scripts/sync-skills.ts [--skill <name>] [--team <name>] [--dry-run]`
@@ -1052,7 +1578,7 @@ All scripts live in `scripts/` and are invoked via `npx tsx scripts/<name>.ts`.
 
 ---
 
-## 11. Design Decisions
+## 12. Design Decisions
 
 ### Archetype-Specific State Machines (Approved 2026-04-13)
 
