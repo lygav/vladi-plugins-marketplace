@@ -26,104 +26,10 @@ export interface WorktreeInfo {
 // ==================== Core Discovery ====================
 
 /**
- * Discover all domain squad worktrees in the repository.
- *
- * Parses `git worktree list --porcelain` and filters by branch prefix.
- * Domain branches follow the pattern: {prefix}{domain-name}
- * Default prefix is "squad/" — configurable via FEDERATE_BRANCH_PREFIX env var or parameter.
- *
- * @param repoRoot Repository root path (defaults to current working directory)
- * @param branchPrefix Branch prefix to filter (defaults to "squad/" or FEDERATE_BRANCH_PREFIX)
- * @returns Array of domain worktrees with domain name, branch, and path
- */
-export function discoverDomains(repoRoot?: string, branchPrefix?: string): DomainWorktree[] {
-  const root = repoRoot || process.cwd();
-  const prefix = branchPrefix || process.env.FEDERATE_BRANCH_PREFIX || 'squad/';
-
-  try {
-    const output = execSync('git worktree list --porcelain', { cwd: root, encoding: 'utf-8' });
-    const worktrees: DomainWorktree[] = [];
-    let currentPath = '';
-    let currentBranch = '';
-
-    for (const line of output.split('\n')) {
-      if (line.startsWith('worktree ')) {
-        currentPath = line.replace('worktree ', '');
-      } else if (line.startsWith('branch ')) {
-        currentBranch = line.replace('branch refs/heads/', '');
-        if (currentBranch.startsWith(prefix)) {
-          const domain = currentBranch.replace(prefix, '');
-          worktrees.push({ domain, branch: currentBranch, path: currentPath });
-        }
-      }
-    }
-    return worktrees;
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Get the worktree path for a specific branch.
- *
- * @param branch Branch name to find worktree for
- * @param repoRoot Repository root path (defaults to current working directory)
- * @returns Worktree path if found, null otherwise
- */
-export function getWorktreeForBranch(branch: string, repoRoot?: string): string | null {
-  const root = repoRoot || process.cwd();
-
-  try {
-    const output = execSync('git worktree list --porcelain', { cwd: root, encoding: 'utf-8' });
-    const lines = output.trim().split('\n');
-    let currentPath: string | null = null;
-
-    for (const line of lines) {
-      if (line.startsWith('worktree ')) {
-        currentPath = line.substring('worktree '.length);
-      } else if (line.startsWith('branch ')) {
-        const branchName = line.substring('branch refs/heads/'.length);
-        if (branchName === branch && currentPath) {
-          return currentPath;
-        }
-      } else if (line === '') {
-        currentPath = null;
-      }
-    }
-  } catch {
-    // Ignore errors
-  }
-
-  return null;
-}
-
-/**
- * List all squad branches in the repository.
- *
- * @param repoRoot Repository root path (defaults to current working directory)
- * @param branchPrefix Branch prefix to filter (defaults to "squad/" or FEDERATE_BRANCH_PREFIX)
- * @returns Array of branch names
- */
-export function listSquadBranches(repoRoot?: string, branchPrefix?: string): string[] {
-  const root = repoRoot || process.cwd();
-  const prefix = branchPrefix || process.env.FEDERATE_BRANCH_PREFIX || 'squad/';
-
-  try {
-    const output = execSync(`git branch --list '${prefix}*' --format='%(refname:short)'`, {
-      cwd: root,
-      encoding: 'utf-8',
-    });
-
-    return output.trim().split('\n').filter(b => b.length > 0);
-  } catch {
-    return [];
-  }
-}
-
-/**
  * Get all worktrees with detailed metadata.
  *
  * Parses `git worktree list --porcelain` and returns all worktrees with status flags.
+ * This is the single source of truth for worktree data - other functions build views on top.
  *
  * @param repoRoot Repository root path (defaults to current working directory)
  * @returns Array of worktree information objects
@@ -171,6 +77,68 @@ export function getAllWorktrees(repoRoot?: string): WorktreeInfo[] {
 }
 
 /**
+ * Discover all domain squad worktrees in the repository.
+ *
+ * Filters worktrees by branch prefix and extracts domain names.
+ * Domain branches follow the pattern: {prefix}{domain-name}
+ * Default prefix is "squad/" — configurable via FEDERATE_BRANCH_PREFIX env var or parameter.
+ *
+ * @param repoRoot Repository root path (defaults to current working directory)
+ * @param branchPrefix Branch prefix to filter (defaults to "squad/" or FEDERATE_BRANCH_PREFIX)
+ * @returns Array of domain worktrees with domain name, branch, and path
+ */
+export function discoverDomains(repoRoot?: string, branchPrefix?: string): DomainWorktree[] {
+  const prefix = branchPrefix || process.env.FEDERATE_BRANCH_PREFIX || 'squad/';
+  const allWorktrees = getAllWorktrees(repoRoot);
+
+  return allWorktrees
+    .filter(wt => wt.branch && wt.branch.startsWith(prefix))
+    .map(wt => ({
+      domain: wt.branch!.replace(prefix, ''),
+      branch: wt.branch!,
+      path: wt.path,
+    }));
+}
+
+/**
+ * Get the worktree path for a specific branch.
+ *
+ * @param branch Branch name to find worktree for
+ * @param repoRoot Repository root path (defaults to current working directory)
+ * @returns Worktree path if found, null otherwise
+ */
+export function getWorktreeForBranch(branch: string, repoRoot?: string): string | null {
+  const allWorktrees = getAllWorktrees(repoRoot);
+  const found = allWorktrees.find(wt => wt.branch === branch);
+  return found ? found.path : null;
+}
+
+/**
+ * List all squad branches in the repository.
+ *
+ * @param repoRoot Repository root path (defaults to current working directory)
+ * @param branchPrefix Branch prefix to filter (defaults to "squad/" or FEDERATE_BRANCH_PREFIX)
+ * @returns Array of branch names
+ */
+export function listSquadBranches(repoRoot?: string, branchPrefix?: string): string[] {
+  const root = repoRoot || process.cwd();
+  const prefix = branchPrefix || process.env.FEDERATE_BRANCH_PREFIX || 'squad/';
+
+  try {
+    const output = execSync(`git branch --list '${prefix}*' --format='%(refname:short)'`, {
+      cwd: root,
+      encoding: 'utf-8',
+    });
+
+    return output.trim().split('\n').filter(b => b.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+
+
+/**
  * Map worktrees to branches for quick lookup.
  *
  * @param repoRoot Repository root path (defaults to current working directory)
@@ -178,33 +146,14 @@ export function getAllWorktrees(repoRoot?: string): WorktreeInfo[] {
  * @returns Map of branch name to worktree path
  */
 export function mapWorktreesToBranches(repoRoot?: string, branchPrefix?: string): Map<string, string> {
-  const root = repoRoot || process.cwd();
   const prefix = branchPrefix || process.env.FEDERATE_BRANCH_PREFIX || 'squad/';
+  const allWorktrees = getAllWorktrees(repoRoot);
   const worktreeMap = new Map<string, string>();
 
-  try {
-    const output = execSync('git worktree list --porcelain', {
-      cwd: root,
-      encoding: 'utf-8',
-    });
-
-    const lines = output.trim().split('\n');
-    let currentPath: string | null = null;
-
-    for (const line of lines) {
-      if (line.startsWith('worktree ')) {
-        currentPath = line.substring('worktree '.length);
-      } else if (line.startsWith('branch ')) {
-        const branch = line.substring('branch refs/heads/'.length);
-        if (branch.startsWith(prefix) && currentPath) {
-          worktreeMap.set(branch, currentPath);
-        }
-      } else if (line === '') {
-        currentPath = null;
-      }
+  for (const wt of allWorktrees) {
+    if (wt.branch && wt.branch.startsWith(prefix)) {
+      worktreeMap.set(wt.branch, wt.path);
     }
-  } catch {
-    // Ignore errors
   }
 
   return worktreeMap;
