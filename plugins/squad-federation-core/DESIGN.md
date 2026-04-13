@@ -96,6 +96,41 @@ Federation v0.2.0 transforms the squad federation system from a **worktree-speci
 
 The SDK provides the **contract layer** between core and archetypes. All shared types live at `squad-federation-core/sdk/`.
 
+### 2.0 SDK Barrel Export
+
+For archetype developer convenience, the SDK exposes all types and utilities through a single barrel export:
+
+```typescript
+// sdk/index.ts
+
+export * from './types.js';
+export * from './transport.js';
+export * from './monitor-base.js';
+export * from './triage-base.js';
+export * from './recovery-base.js';
+```
+
+**Usage in Archetype Code:**
+
+```typescript
+// squad-archetype-deliverable/meta/monitor.ts
+import {
+  MonitorCollector,
+  TeamContext,
+  ScanStatus,
+  TeamTransport,
+  selectTransport
+} from '@squad/federation-core/sdk';
+
+export class DeliverableMonitor extends MonitorCollector {
+  async collect(team: TeamContext): Promise<StatusData> {
+    // Implementation
+  }
+}
+```
+
+This eliminates the need for archetype authors to know the internal module structure — one import gets everything.
+
 ### 2.1 Core Interfaces
 
 ```typescript
@@ -117,6 +152,9 @@ export interface ArchetypeManifest {
   
   /** Semantic version */
   version: string;
+  
+  /** Core compatibility semver range */
+  coreCompatibility?: string;  // e.g., ">=0.2.0 <1.0.0"
   
   /** State machine declaration */
   states: StateSchema;
@@ -179,6 +217,7 @@ export interface MonitorConfig {
     sectionTitle: string;
     stateProgressFormat: 'percentage' | 'step' | 'custom';
     groupByArchetype: boolean;
+    archetypeEmoji?: string;  // Visual identifier for multi-archetype dashboards
   };
 }
 
@@ -313,6 +352,22 @@ export interface TeamTransport {
   writeFile(teamId: string, filePath: string, content: string): Promise<void>;
   
   /**
+   * Check if a file exists in team workspace.
+   * @param teamId - Team identifier
+   * @param filePath - Relative path from workspace root
+   * @returns True if file exists, false otherwise
+   */
+  exists(teamId: string, filePath: string): Promise<boolean>;
+  
+  /**
+   * Get file/directory metadata (optional).
+   * @param teamId - Team identifier
+   * @param filePath - Relative path from workspace root
+   * @returns Metadata if exists, null otherwise
+   */
+  stat?(teamId: string, filePath: string): Promise<{ isDirectory: boolean; size: number } | null>;
+  
+  /**
    * Read team status (status.json).
    * @param teamId - Team identifier
    * @returns Parsed ScanStatus, or null if not found
@@ -355,10 +410,40 @@ export interface TeamTransport {
   appendLearning(teamId: string, entry: LearningEntry): Promise<void>;
   
   /**
+   * List signals with optional filtering.
+   * @param teamId - Team identifier
+   * @param direction - Signal direction (inbox or outbox)
+   * @param filter - Optional filter criteria
+   * @returns Filtered signal messages
+   */
+  listSignals(
+    teamId: string,
+    direction: 'inbox' | 'outbox',
+    filter?: {
+      type?: string;
+      since?: string;
+      from?: string;
+    }
+  ): Promise<SignalMessage[]>;
+  
+  /**
+   * Watch signals for real-time updates (optional, for push-based transports).
+   * @param teamId - Team identifier
+   * @param direction - Signal direction (inbox or outbox)
+   * @param callback - Callback invoked when new signal arrives
+   * @returns Unsubscribe function
+   */
+  watchSignals?(
+    teamId: string,
+    direction: 'inbox' | 'outbox',
+    callback: (signal: SignalMessage) => void
+  ): () => void;
+  
+  /**
    * Check if team workspace exists.
    * @param teamId - Team identifier
    */
-  exists(teamId: string): Promise<boolean>;
+  workspaceExists(teamId: string): Promise<boolean>;
   
   /**
    * Get workspace path/location.
@@ -390,9 +475,11 @@ export interface SignalMessage {
   id: string;
   timestamp: string;
   from: string;
+  to: string;  // Recipient identifier — enables mesh routing
   type: 'directive' | 'question' | 'report' | 'alert';
   subject: string;
   body: string;
+  protocol: string;  // Protocol version (e.g., "1.0")
   acknowledged?: boolean;
   acknowledged_at?: string;
 }
@@ -579,6 +666,11 @@ interface TeamEntry {
   transport: 'worktree' | 'directory' | 'remote';
   location: string;
   createdAt: string;
+  federation?: {
+    parent: string;           // Parent team identifier (e.g., "meta-squad")
+    parentLocation: string;   // Parent team location path
+    role: 'team' | 'meta';    // Team role in federation
+  };
   metadata?: Record<string, unknown>;
 }
 
@@ -591,10 +683,12 @@ interface TeamEntry {
 export class TeamRegistry {
   private registryPath: string;
   private transports: Map<string, TeamTransport>;
+  private lock: FileLock;  // File lock for concurrent safety
   
   constructor(repoRoot: string) {
     this.registryPath = join(repoRoot, '.squad/teams.json');
     this.transports = new Map();
+    this.lock = new FileLock(join(repoRoot, '.squad/.teams.lock'));
   }
   
   /**
@@ -606,20 +700,38 @@ export class TeamRegistry {
   
   /**
    * Add a team to the registry.
+   * Thread-safe via file lock to prevent concurrent modification during parallel onboards.
    */
   async addTeam(entry: TeamEntry): Promise<void> {
-    const registry = this.load();
-    registry.teams.push(entry);
-    this.save(registry);
+    return this.withLock(async () => {
+      const registry = this.load();
+      registry.teams.push(entry);
+      this.save(registry);
+    });
   }
   
   /**
    * Remove a team from the registry.
+   * Thread-safe via file lock.
    */
   async removeTeam(domainId: string): Promise<void> {
-    const registry = this.load();
-    registry.teams = registry.teams.filter(t => t.domainId !== domainId);
-    this.save(registry);
+    return this.withLock(async () => {
+      const registry = this.load();
+      registry.teams = registry.teams.filter(t => t.domainId !== domainId);
+      this.save(registry);
+    });
+  }
+  
+  /**
+   * Serialize registry operations via file lock for concurrent safety.
+   */
+  private async withLock<T>(fn: () => Promise<T>): Promise<T> {
+    await this.lock.acquire();
+    try {
+      return await fn();
+    } finally {
+      this.lock.release();
+    }
   }
   
   /**
@@ -674,6 +786,131 @@ export class TeamRegistry {
   }
 }
 ```
+
+---
+
+## 4.1 Transport Selection
+
+Transport selection happens at team onboard time and is stored in the team registry. Each team can use a different transport based on its deployment requirements.
+
+**Default:** `worktree` — Same repository, tightly coupled, git-native isolation.
+
+**Selection Workflow:**
+1. During onboard, user is prompted for transport type
+2. Transport-specific configuration is collected (e.g., branch prefix for worktree, directory path for standalone)
+3. Registry entry stores transport type + location
+4. Meta-squad reads through the transport interface — it doesn't care about implementation details
+
+**Helper Utility:**
+
+```typescript
+// sdk/transport.ts
+
+/**
+ * Auto-detect and instantiate appropriate transport for a team location.
+ * @param location - Team workspace path or URL
+ * @returns Configured transport instance
+ */
+export function selectTransport(location: string): TeamTransport {
+  // Check if location is a git worktree
+  if (existsSync(join(location, '.git'))) {
+    return new WorktreeTransport(location);
+  }
+  
+  // Check if location is a plain directory
+  if (existsSync(location) && statSync(location).isDirectory()) {
+    return new DirectoryTransport(location);
+  }
+  
+  throw new Error(`Cannot determine transport for location: ${location}`);
+}
+```
+
+---
+
+## 4.2 Future Transport Roadmap
+
+The transport interface is designed to support multiple backend strategies without protocol changes. This enables federation across diverse deployment environments.
+
+### Planned Transports
+
+#### WorktreeTransport (v0.2.0) — Git Worktree Branches
+**Status:** Implemented  
+**Backend:** Git worktree branches with independent `.squad/` directories  
+**Signals:** Filesystem-based (inbox/outbox as JSON files)  
+**Use Case:** Tightly coupled teams in same repository, full git isolation  
+**Pros:** Zero coordination overhead, permanent state, git-native audit trail  
+**Cons:** Requires all teams in same repo, filesystem-only
+
+#### DirectoryTransport (v0.2.0) — Standalone Directories
+**Status:** Planned  
+**Backend:** Separate directories (not git worktrees)  
+**Signals:** Filesystem-based (inbox/outbox as JSON files)  
+**Use Case:** Loosely coupled teams, cross-repo federations  
+**Pros:** No git dependency, works across repositories  
+**Cons:** No automatic versioning, manual state management
+
+#### TeamsChannelTransport (v0.3.0 Vision) — Microsoft Teams Integration
+**Status:** Future Vision  
+**Backend:** Microsoft Teams channel as signal bus  
+**Signals:** Push-based via Teams messages (tagged format: `[from→to] type: subject`)  
+**Use Case:** Distributed teams, human-in-the-loop coordination, cross-machine federations  
+**Pros:**
+- Human-readable signal history
+- Built-in notifications (Teams alerts)
+- Supports manual intervention and approvals
+- Works across machines/clouds
+- Real-time push updates via `watchSignals()`
+
+**Message Format:**
+```
+[meta-squad→payments] directive: Implement payment retry logic
+
+Body of the directive goes here...
+
+---
+Protocol: 1.0
+Signal ID: abc-123-def
+Timestamp: 2026-04-13T18:30:00Z
+```
+
+**Implementation Notes:**
+- Messages are posted to channel with structured tags
+- `listSignals()` queries channel history with filtering
+- `watchSignals()` subscribes to channel events for real-time updates
+- Acknowledgment via threaded reply or reaction
+- Human operators can intervene by posting messages in same format
+
+#### EventHubTransport (v0.3.0+ Vision) — Azure Event Hub / Pub-Sub
+**Status:** Future Vision  
+**Backend:** Azure Event Hub or similar pub-sub system  
+**Signals:** Push-based via event stream  
+**Use Case:** High-throughput, cross-cloud federations, enterprise scale  
+**Pros:**
+- Designed for massive scale (1M+ signals/sec)
+- Cloud-native durability and replay
+- Multi-subscriber support
+- Real-time push via `watchSignals()`
+
+**Implementation Notes:**
+- Signals published as events with routing metadata
+- `listSignals()` queries event stream history
+- `watchSignals()` subscribes to event stream
+- Automatic retention policies
+
+### Transport Interface Design Considerations
+
+The `TeamTransport` interface includes both **pull-based** (filesystem polling) and **push-based** (event subscriptions) primitives:
+
+- **Pull-based:** `readFile`, `writeFile`, `listSignals` — Work for all transports
+- **Push-based:** `watchSignals` (optional) — Enables real-time updates for event-driven transports
+
+This dual approach ensures:
+1. Filesystem transports (worktree, directory) work without modification
+2. Cloud/messaging transports (Teams, EventHub) can provide push notifications
+3. Monitoring and orchestration logic doesn't need to know which transport is in use
+
+**Transport Symmetry:** All transport method names are **non-hierarchical** — they don't imply hub-spoke topology. Methods like `readFile` and `writeFile` are symmetric and work bidirectionally. This supports future mesh architectures where any team can communicate with any other team directly.
 
 ---
 
@@ -1307,7 +1544,7 @@ function loadArchetypeManifest(plugin: PluginMetadata): ArchetypeManifest {
 3. **Multi-archetype monitoring:** Should dashboard group by archetype or show unified view?
 4. **Transport fallback:** If a transport fails (e.g., git worktree corrupted), can we recover?
 5. **Signal retention:** Do we ever garbage collect old signals, or keep forever as audit trail?
-6. **Learning graduation approval:** Who approves learning → skill promotions? Meta-squad? Human?
+6. **Learning graduation approval:** Graduation proposals queue to meta-squad inbox; human operator confirms via `/approve-graduation` command or similar mechanism.
 7. **Ceremony enforcement:** How do we ensure teams actually run required ceremonies?
 
 ---
@@ -1341,3 +1578,44 @@ See sections 2, 3, 4, and 7 for complete interface definitions.
 ---
 
 **End of Design Document**
+
+---
+
+## Revision History
+
+### 2026-04-13 — Post-Opus Review Updates
+
+**Author:** Mal (Lead)  
+**PR:** #23  
+**Changes Applied:**
+
+**Group 1: Opus Review Fixes (REQUIRED)**
+1. ✅ Added `exists(teamId, filePath)` method to `TeamTransport` interface for file existence checks without catching read errors
+2. ✅ Added `stat?(teamId, filePath)` optional method for file/directory metadata
+3. ✅ Added file locking strategy to `TeamRegistry` via `withLock()` private method for concurrent onboard safety
+4. ✅ Resolved Open Question #6: Learning graduation approval workflow documented
+
+**Group 2: Opus Suggestions (NICE-TO-HAVE)**
+5. ✅ Added `sdk/index.ts` barrel export documentation (Section 2.0)
+6. ✅ Documented `selectTransport()` utility for auto-detection (Section 4.1)
+7. ✅ Added `coreCompatibility` semver field to `ArchetypeManifest` for version safety
+8. ✅ Added `archetypeEmoji` to `MonitorConfig.display` for multi-archetype dashboard visualization
+
+**Group 3: Mesh-Readiness Low-Hanging Fruit**
+9. ✅ Added `to` field to `SignalMessage` interface for routable signals
+10. ✅ Added `protocol` version field to `SignalMessage` interface (e.g., "1.0")
+11. ✅ Added `federation` block to `TeamEntry` registry schema for parent/role tracking
+12. ✅ Renamed `exists(teamId)` to `workspaceExists(teamId)` to distinguish from `exists(teamId, filePath)`
+13. ✅ Verified transport method naming is non-hierarchical and mesh-ready
+
+**Group 4: Transport Evolution for Push-Based Transports**
+14. ✅ Added `listSignals(teamId, direction, filter?)` method to `TeamTransport` for filtered signal queries
+15. ✅ Added optional `watchSignals?(teamId, direction, callback)` method for push-based transports (returns unsubscribe function)
+16. ✅ Added Section 4.2: Future Transport Roadmap documenting planned transports:
+    - WorktreeTransport (v0.2.0) — git worktree branches, filesystem signals
+    - DirectoryTransport (v0.2.0) — standalone directories, filesystem signals
+    - TeamsChannelTransport (v0.3.0 vision) — Microsoft Teams channels, human-readable push-based signals
+    - EventHubTransport (v0.3.0+ vision) — Azure Event Hub, high-throughput pub-sub
+17. ✅ Added Section 4.1: Transport Selection workflow and `selectTransport()` helper utility
+
+**Impact:** These changes position federation-core for mesh architectures, push-based transports, and multi-environment deployments while maintaining backward compatibility with v0.1.0 worktree-only federations.
