@@ -55,9 +55,9 @@ initializing → scanning → distilling → complete
 ```
 
 - **initializing**: infrastructure is being set up, templates seeded
-- **scanning**: actively executing playbook steps (discovery through validation)
-- **distilling**: compressing findings into the final deliverable
-- **complete**: deliverable is written, scan is done
+- **scanning**: actively executing playbook steps
+- **distilling**: processing and finalizing outputs
+- **complete**: work is done, outputs written
 - **failed**: an unrecoverable error occurred (check `error` field)
 - **paused**: manually paused via directive, awaiting resume
 
