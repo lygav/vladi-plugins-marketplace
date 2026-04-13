@@ -129,7 +129,22 @@ export class TeamRegistry {
       
       // Check for duplicate
       if (registry.teams.some(t => t.domainId === entry.domainId)) {
-        throw new Error(`Team with domainId "${entry.domainId}" already registered`);
+        const existingTeam = registry.teams.find(t => t.domainId === entry.domainId);
+        throw new Error(
+          `Team with domainId "${entry.domainId}" already registered.\n` +
+          `Existing team: ${existingTeam?.name || 'unknown'}\n` +
+          `Recovery:\n` +
+          `  1. Check existing teams:\n` +
+          `     cat .squad/teams.json\n` +
+          `  2. If duplicate is a mistake, remove it manually:\n` +
+          `     vim .squad/teams.json  # Remove duplicate entry\n` +
+          `  3. Or use a different domain ID:\n` +
+          `     npx tsx scripts/onboard.ts --name <name> --domain-id <unique-id> --archetype <arch>\n` +
+          `  4. List all teams to see conflicts:\n` +
+          `     npx tsx scripts/monitor.ts\n` +
+          `  5. If teams.json is corrupted, restore from git:\n` +
+          `     git checkout HEAD -- .squad/teams.json`
+        );
       }
 
       registry.teams.push(entry);
@@ -305,7 +320,22 @@ export class TeamRegistry {
       
       // Validation error or corrupt JSON
       if (error instanceof z.ZodError || error instanceof SyntaxError) {
-        throw new Error(`Registry file corrupted: ${this.registryPath}. Backup and delete to reset.`);
+        throw new Error(
+          `Registry file corrupted: ${this.registryPath}\n` +
+          `Recovery:\n` +
+          `  1. Backup the corrupted file:\n` +
+          `     cp .squad/teams.json .squad/teams.json.backup\n` +
+          `  2. Try to fix JSON syntax:\n` +
+          `     cat .squad/teams.json  # Look for syntax errors\n` +
+          `  3. Restore from git if available:\n` +
+          `     git checkout HEAD -- .squad/teams.json\n` +
+          `  4. Or reset registry (will lose team registrations):\n` +
+          `     rm .squad/teams.json\n` +
+          `     echo '{"version":"1.0","teams":[]}' > .squad/teams.json\n` +
+          `  5. Re-onboard teams if reset:\n` +
+          `     npx tsx scripts/onboard.ts --name <name> --domain-id <id> --archetype <arch>\n` +
+          `  6. Validation errors: ${error instanceof z.ZodError ? error.errors.map(e => e.message).join(', ') : 'Invalid JSON'}`
+        );
       }
       
       throw error;

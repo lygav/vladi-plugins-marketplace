@@ -116,7 +116,22 @@ export class DirectoryTransport implements TeamTransport {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         return null;
       }
-      throw new Error(`Failed to read file ${filePath} for team ${teamId}: ${(error as Error).message}`);
+      throw new Error(
+        `Failed to read file ${filePath} for team ${teamId}: ${(error as Error).message}\n` +
+        `Recovery:\n` +
+        `  1. Check if file path exists:\n` +
+        `     ls -la ${this.getFilePath(teamId, filePath)}\n` +
+        `  2. Verify team directory exists:\n` +
+        `     ls -la ${this.basePath}/${teamId}\n` +
+        `  3. Check file permissions:\n` +
+        `     ls -la $(dirname ${this.getFilePath(teamId, filePath)})\n` +
+        `  4. If directory doesn't exist, create it:\n` +
+        `     mkdir -p ${this.basePath}/${teamId}\n` +
+        `  5. Verify correct team ID:\n` +
+        `     ls -la ${this.basePath}/\n` +
+        `  6. Check file system:\n` +
+        `     df -h`
+      );
     }
   }
 
@@ -132,7 +147,25 @@ export class DirectoryTransport implements TeamTransport {
       await fs.mkdir(dirPath, { recursive: true });
       await fs.writeFile(fullPath, content, 'utf-8');
     } catch (error) {
-      throw new Error(`Failed to write file ${filePath} for team ${teamId}: ${(error as Error).message}`);
+      const fullPath = this.getFilePath(teamId, filePath);
+      throw new Error(
+        `Failed to write file ${filePath} for team ${teamId}: ${(error as Error).message}\n` +
+        `Recovery:\n` +
+        `  1. Check disk space:\n` +
+        `     df -h\n` +
+        `  2. Verify parent directory is writable:\n` +
+        `     ls -la $(dirname ${fullPath})\n` +
+        `  3. Check team directory exists:\n` +
+        `     ls -la ${this.basePath}/${teamId}\n` +
+        `  4. Ensure proper permissions:\n` +
+        `     chmod -R u+w ${this.basePath}/${teamId}\n` +
+        `  5. If directory doesn't exist, create it:\n` +
+        `     mkdir -p $(dirname ${fullPath})\n` +
+        `  6. Check for file locks:\n` +
+        `     lsof ${fullPath}\n` +
+        `  7. Verify file path is valid (no special characters):\n` +
+        `     echo "${filePath}"`
+      );
     }
   }
 

@@ -175,7 +175,18 @@ function resolvePrompt(
   else if (source.cliPromptFile) {
     const resolved = path.resolve(source.cliPromptFile);
     if (!fs.existsSync(resolved)) {
-      throw new Error(`Prompt file not found: ${resolved}`);
+      throw new Error(`Prompt file not found: ${resolved}
+
+Recovery:
+  1. Check if file path is correct:
+     ls -la ${path.dirname(resolved)}
+  2. Verify file exists:
+     ls -la ${resolved}
+  3. Use absolute path instead of relative:
+     npx tsx scripts/launch.ts --team <name> --prompt-file /full/path/to/prompt.md
+  4. Or use inline prompt instead:
+     npx tsx scripts/launch.ts --team <name> --prompt "your task here"
+  5. Or omit --prompt-file to use team's .squad/launch-prompt.md template`);
     }
     base = fs.readFileSync(resolved, 'utf-8');
   }
@@ -231,12 +242,33 @@ function launchTeam(
 ): void {
   if (targetStep && isReset) {
     console.error('   ❌ Cannot use --step with --reset.');
+    console.error('\nRecovery:');
+    console.error('  1. To reset a team, use --reset alone:');
+    console.error(`     npx tsx scripts/launch.ts --team ${worktree.domain} --reset`);
+    console.error('  2. To launch with a specific step, use --step alone:');
+    console.error(`     npx tsx scripts/launch.ts --team ${worktree.domain} --step "analyze codebase"`);
+    console.error('  3. To reset AND run a step, do it in two commands:');
+    console.error(`     npx tsx scripts/launch.ts --team ${worktree.domain} --reset`);
+    console.error(`     npx tsx scripts/launch.ts --team ${worktree.domain} --step "your task"`);
     return;
   }
 
   const validation = validateWorktree(worktree.path);
   if (!validation.valid) {
     console.error(`   ❌ Invalid worktree: ${validation.issues.join(', ')}`);
+    console.error(`   Path: ${worktree.path}`);
+    console.error('\nRecovery:');
+    console.error('  1. Check if worktree directory exists:');
+    console.error(`     ls -la ${worktree.path}`);
+    console.error('  2. Verify .squad directory is initialized:');
+    console.error(`     ls -la ${worktree.path}/.squad`);
+    console.error('  3. Re-initialize missing directories:');
+    console.error(`     mkdir -p ${worktree.path}/.squad/signals/{{inbox,outbox}}`);
+    console.error(`     mkdir -p ${worktree.path}/.squad/learnings`);
+    console.error('  4. Or re-onboard the domain:');
+    console.error(`     npx tsx scripts/onboard.ts --name ${worktree.domain} --domain-id <id> --archetype <name>`);
+    console.error('  5. Check git worktree status:');
+    console.error(`     git worktree list | grep ${worktree.domain}`);
     return;
   }
 
@@ -370,6 +402,17 @@ function main(): void {
     if (matched.length === 0) {
       console.error(`Team(s) not found: ${targets.join(', ')}`);
       console.log('Available:', worktrees.map(w => w.domain).join(', ') || '(none)');
+      console.error('\nRecovery:');
+      console.error('  1. List all registered teams:');
+      console.error('     npx tsx scripts/monitor.ts');
+      console.error('  2. Check team registry:');
+      console.error('     cat .squad/teams.json');
+      console.error('  3. If team exists but not listed, check git worktrees:');
+      console.error('     git worktree list');
+      console.error('  4. If team doesn\'t exist, onboard it first:');
+      console.error(`     npx tsx scripts/onboard.ts --name ${targets[0]} --domain-id <id> --archetype <name>`);
+      console.error('  5. Verify correct team name (case-sensitive):');
+      console.error(`     Available teams: ${worktrees.map(w => w.domain).join(', ')}`);
       process.exit(1);
     }
     matched.forEach(wt => launchTeam(wt, config, isReset, targetStep, promptSource));

@@ -299,6 +299,17 @@ function syncSkillsToBranch(
     return result;
   } catch (err: any) {
     conflicts.push(`Temp worktree failed: ${err.message}`);
+    console.error('\nRecovery:');
+    console.error('  1. Check if git is in a clean state:');
+    console.error('     git status');
+    console.error('  2. Remove stale temp worktrees:');
+    console.error(`     rm -rf ${REPO_ROOT}/.squad/temp-worktrees/*`);
+    console.error('     git worktree prune');
+    console.error('  3. Verify branch exists:');
+    console.error(`     git branch --list "${branch}"`);
+    console.error('  4. Check disk space:');
+    console.error('     df -h');
+    console.error('  5. Retry sync operation');
 
     // Cleanup
     try {
@@ -365,6 +376,16 @@ function main(): void {
 
   if (domains.length === 0) {
     console.error(`❌ No ${BRANCH_PREFIX}* branches found.`);
+    console.error('\nRecovery:');
+    console.error('  1. Check if federation is configured:');
+    console.error('     cat federate.config.json');
+    console.error('  2. List all git branches:');
+    console.error('     git branch --all');
+    console.error(`  3. Verify branch prefix is correct (expected: ${BRANCH_PREFIX})`);
+    console.error('  4. If no domains exist, onboard a domain first:');
+    console.error('     npx tsx scripts/onboard.ts --name <domain> --domain-id <id> --archetype <name>');
+    console.error('  5. Check git worktrees:');
+    console.error('     git worktree list');
     process.exit(1);
   }
 
@@ -374,6 +395,16 @@ function main(): void {
 
     if (domains.length === 0) {
       console.error(`❌ Domain not found: ${flags.domain}`);
+      console.error('\nRecovery:');
+      console.error('  1. List all available domains:');
+      console.error('     git branch --list "squad/*"');
+      console.error('  2. Or view all teams:');
+      console.error('     npx tsx scripts/monitor.ts');
+      console.error('  3. Verify domain name spelling (case-sensitive)');
+      console.error('  4. If domain should exist, check team registry:');
+      console.error('     cat .squad/teams.json');
+      console.error('  5. To onboard this domain:');
+      console.error(`     npx tsx scripts/onboard.ts --name ${flags.domain} --domain-id <id> --archetype <name>`);
       process.exit(1);
     }
   }
@@ -422,5 +453,20 @@ try {
   main();
 } catch (err: any) {
   console.error('❌ Sync failed:', err.message);
+  console.error('\nRecovery:');
+  console.error('  1. Check git status for conflicts:');
+  console.error('     git status');
+  console.error('  2. If there are uncommitted changes, stash or commit them:');
+  console.error('     git stash');
+  console.error('  3. Ensure main branch is up-to-date:');
+  console.error('     git checkout main && git pull');
+  console.error('  4. Verify skills directory exists on main:');
+  console.error('     ls -la .squad/skills/');
+  console.error('  5. Check if worktree is in a clean state:');
+  console.error('     cd <worktree> && git status');
+  console.error('  6. Try with --dry-run to see what would be synced:');
+  console.error('     npx tsx scripts/sync-skills.ts --dry-run');
+  console.error('  7. If sync conflicts persist, resolve manually:');
+  console.error('     cd <worktree> && git checkout main -- .squad/skills/<skill>');
   process.exit(1);
 }

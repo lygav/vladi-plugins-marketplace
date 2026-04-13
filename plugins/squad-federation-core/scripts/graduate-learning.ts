@@ -264,6 +264,16 @@ function main(): void {
 
   if (branches.length === 0) {
     console.error(`❌ No ${BRANCH_PREFIX}* branches found.`);
+    console.error('\nRecovery:');
+    console.error('  1. Check if federation is configured:');
+    console.error('     cat federate.config.json');
+    console.error('  2. List all git branches:');
+    console.error('     git branch --all');
+    console.error(`  3. Verify branch prefix is correct (expected: ${BRANCH_PREFIX})`);
+    console.error('  4. If no domains exist, onboard a domain first:');
+    console.error('     npx tsx scripts/onboard.ts --name <domain> --domain-id <id> --archetype <name>');
+    console.error('  5. Check git worktrees:');
+    console.error('     git worktree list');
     process.exit(1);
   }
 
@@ -321,6 +331,17 @@ function main(): void {
 
     if (!learning) {
       console.error(`❌ Learning ${flags.id} not found in any domain log`);
+      console.error('\nRecovery:');
+      console.error('  1. List all learnings to find the correct ID:');
+      console.error('     npx tsx scripts/query-learnings.ts');
+      console.error('  2. Sweep learnings to discover patterns:');
+      console.error('     npx tsx scripts/sweep-learnings.ts');
+      console.error('  3. Check learning log directly:');
+      console.error('     cat .worktrees/<domain>/.squad/learnings/log.jsonl | grep <search-term>');
+      console.error('  4. Verify the learning ID format (timestamp-based):');
+      console.error('     Example: 1234567890123');
+      console.error('  5. If learning was recently added, ensure it was committed:');
+      console.error('     cd .worktrees/<domain> && git log --oneline .squad/learnings/');
       process.exit(1);
     }
 
@@ -331,6 +352,16 @@ function main(): void {
     if (!targetSkill) {
       console.error('❌ No target skill specified and learning has no related_skill');
       console.error('   Use --target-skill <skill-name> to specify');
+      console.error('\nRecovery:');
+      console.error('  1. Check what skills exist:');
+      console.error('     ls -la .squad/skills/');
+      console.error('  2. Specify a target skill explicitly:');
+      console.error(`     npx tsx scripts/graduate-learning.ts --id ${flags.id} --target-skill <skill-name>`);
+      console.error('  3. Review the learning to determine appropriate skill:');
+      console.error(`     npx tsx scripts/query-learnings.ts | grep -A 10 "${flags.id}"`);
+      console.error('  4. Create a new skill if needed:');
+      console.error('     mkdir -p .squad/skills/<new-skill>');
+      console.error('     echo "# Skill name" > .squad/skills/<new-skill>/SKILL.md');
       process.exit(1);
     }
 
@@ -360,6 +391,17 @@ function main(): void {
 
     if (!learningId || !skill) {
       console.error('❌ Usage: --mark-graduated <id> --skill <skill-name>');
+      console.error('\nRecovery:');
+      console.error('  1. Provide both required arguments:');
+      console.error('     npx tsx scripts/graduate-learning.ts --mark-graduated <learning-id> --skill <skill-name>');
+      console.error('  2. To find the learning ID:');
+      console.error('     npx tsx scripts/query-learnings.ts');
+      console.error('  3. To list available skills:');
+      console.error('     ls -la .squad/skills/');
+      console.error('  4. Example usage:');
+      console.error('     npx tsx scripts/graduate-learning.ts --mark-graduated 1234567890123 --skill authentication');
+      console.error('\n  Note: Normally you should use --id mode first to create a draft,');
+      console.error('  then use --mark-graduated only after manually updating the skill.');
       process.exit(1);
     }
 
@@ -379,5 +421,22 @@ try {
   main();
 } catch (err: any) {
   console.error('❌ Graduation failed:', err.message);
+  console.error('\nRecovery:');
+  console.error('  1. Check git status for issues:');
+  console.error('     git status');
+  console.error('  2. Ensure branches are accessible:');
+  console.error('     git branch --list "squad/*"');
+  console.error('  3. Verify learning logs are valid:');
+  console.error('     cat .worktrees/<domain>/.squad/learnings/log.jsonl');
+  console.error('  4. If working with specific learning, verify it exists:');
+  console.error('     npx tsx scripts/query-learnings.ts | grep <learning-id>');
+  console.error('  5. Check file permissions:');
+  console.error('     ls -la .squad/skills/');
+  console.error('  6. Try with --candidates to see graduation candidates:');
+  console.error('     npx tsx scripts/graduate-learning.ts --candidates');
+  console.error('  7. If issue persists, check error details above and:');
+  console.error('     - Ensure .squad directory structure is intact');
+  console.error('     - Verify no locks on learning log files');
+  console.error('     - Check disk space with: df -h');
   process.exit(1);
 }
