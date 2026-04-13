@@ -2,28 +2,32 @@
 /**
  * Onboard — Create a new federated domain squad
  *
- * Handles the git mechanics for federation:
- * - Creates domain branch ({prefix}{name})
- * - Sets up persistent git worktree
- * - Seeds template files and signal protocol directories
- * - Runs `squad init` in the worktree to cast the team
- * - Cleans up meta-squad files from domain branch
- * - Makes initial commit
+ * Implements the "start empty, add what's needed" model:
+ * - Creates team workspace via transport abstraction (worktree or directory)
+ * - Seeds ONLY team/ directory from archetype (not entire archetype)
+ * - Registers team in TeamRegistry (replaces git worktree list discovery)
+ * - Initializes minimal .squad/ state (signals, learnings, status)
+ * - Runs `squad init` in the workspace to cast the team
  *
  * Team composition (roles, agents, charters) is handled by Squad's
  * native casting mechanism — this script does NOT prescribe roles.
  *
  * Usage:
  *   npx tsx scripts/onboard.ts --name "my-product" --domain-id "abc-123" --archetype "squad-archetype-deliverable"
- *   npx tsx scripts/onboard.ts --name "my-product" --domain-id "abc-123" --archetype "squad-archetype-deliverable" --base-branch main
+ *   npx tsx scripts/onboard.ts --name "my-product" --domain-id "abc-123" --archetype "squad-archetype-deliverable" --transport directory --path /custom/path
  */
 
 import { execSync } from 'child_process';
 import * as fs from 'fs';
+import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { generateCeremoniesMarkdown } from './lib/ceremonies.js';
 import { loadAndValidateConfig, type FederateConfig } from './lib/config.js';
+import { WorktreeTransport } from './lib/worktree-transport.js';
+import { DirectoryTransport } from './lib/directory-transport.js';
+import { TeamRegistry } from './lib/team-registry.js';
+import type { TeamEntry } from '../sdk/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,19 +37,14 @@ const __dirname = path.dirname(__filename);
 
 // ==================== Types ====================
 
-interface ArchetypeMetadata {
-  name: string;
-  version: string;
-  source: string;
-  installedAt: string;
-}
-
 interface ParsedArgs {
   name: string;
   domainId: string;
   baseBranch: string;
   description?: string;
   archetype: string;
+  transport: 'worktree' | 'directory';
+  path?: string;
 }
 
 // ==================== Argument Parsing ====================
@@ -53,6 +52,7 @@ interface ParsedArgs {
 function parseArgs(args: string[]): ParsedArgs {
   const parsed: Partial<ParsedArgs> = {
     baseBranch: execSync('git branch --show-current', { encoding: 'utf-8' }).trim(),
+    transport: 'worktree', // default transport
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -64,6 +64,15 @@ function parseArgs(args: string[]): ParsedArgs {
       case '--base-branch': parsed.baseBranch = value; i++; break;
       case '--description': parsed.description = value; i++; break;
       case '--archetype': parsed.archetype = value; i++; break;
+      case '--transport': 
+        if (value !== 'worktree' && value !== 'directory') {
+          console.error('Error: --transport must be "worktree" or "directory"');
+          process.exit(1);
+        }
+        parsed.transport = value as 'worktree' | 'directory';
+        i++; 
+        break;
+      case '--path': parsed.path = value; i++; break;
     }
   }
 
@@ -74,7 +83,15 @@ function parseArgs(args: string[]): ParsedArgs {
     console.error('    --domain-id "abc-123" \\');
     console.error('    --archetype "squad-archetype-deliverable" \\');
     console.error('    [--description "What this domain covers"] \\');
+    console.error('    [--transport worktree|directory] \\');
+    console.error('    [--path /custom/path] \\');
     console.error('    [--base-branch main]');
+    process.exit(1);
+  }
+
+  // Validate transport-specific requirements
+  if (parsed.transport === 'directory' && !parsed.path) {
+    console.error('Error: --path is required when --transport is "directory"');
     process.exit(1);
   }
 
@@ -103,76 +120,111 @@ function toTitleCase(str: string): string {
   return str.split(/[-_\s]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
-// ==================== Git Operations ====================
-
-function createBranch(name: string, baseBranch: string, prefix: string): string {
-  const branchName = `${prefix}${name}`;
-  try {
-    exec(`git rev-parse --verify ${branchName}`, { silent: true });
-    console.error(`⚠️  Branch '${branchName}' already exists.`);
-    console.error(`   To re-launch: npx tsx scripts/launch.ts --team ${name}`);
-    process.exit(1);
-  } catch { /* doesn't exist — good */ }
-
-  console.log(`Creating branch: ${branchName} from ${baseBranch}`);
-  exec(`git branch ${branchName} ${baseBranch}`);
-  return branchName;
-}
-
-function createWorktree(branchName: string, repoRoot: string, prefix: string, worktreeDir: string): string {
-  const name = branchName.replace(prefix, '');
-  const repoName = path.basename(repoRoot).replace(/_/g, '-');
-
-  let worktreePath: string;
-  if (worktreeDir === 'parallel') {
-    // Sibling to project: ../project-name-team-name/
-    worktreePath = path.join(path.dirname(repoRoot), `${repoName}-${name}`);
-  } else if (worktreeDir === 'inside') {
-    // Inside project: .worktrees/team-name/
-    worktreePath = path.join(repoRoot, '.worktrees', name);
-  } else {
-    // Custom path: resolve relative to repo root
-    worktreePath = path.resolve(repoRoot, worktreeDir, name);
-  }
-
-  if (fs.existsSync(worktreePath)) {
-    console.error(`❌ Worktree path already exists: ${worktreePath}`);
-    exec(`git branch -D ${branchName}`);
-    process.exit(1);
-  }
-
-  console.log(`Creating worktree: ${worktreePath}`);
-  exec(`git worktree add ${worktreePath} ${branchName}`);
-  return worktreePath;
-}
-
-// ==================== Template Seeding ====================
-
-function seedTemplates(worktreePath: string, pluginRoot: string): void {
-  console.log('Seeding template files...');
-
-  const templateDir = path.join(pluginRoot, 'templates', 'offering-template');
-  if (fs.existsSync(templateDir)) {
-    for (const file of fs.readdirSync(templateDir)) {
-      const src = path.join(templateDir, file);
-      if (fs.statSync(src).isFile()) {
-        fs.copyFileSync(src, path.join(worktreePath, file));
-        console.log(`  ✓ Seeded ${file}`);
-      }
+/**
+ * Recursively copy directory contents from source to destination.
+ */
+async function copyDirectory(src: string, dest: string): Promise<void> {
+  await fsp.mkdir(dest, { recursive: true });
+  
+  const entries = await fsp.readdir(src, { withFileTypes: true });
+  
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    
+    if (entry.isDirectory()) {
+      await copyDirectory(srcPath, destPath);
+    } else {
+      await fsp.copyFile(srcPath, destPath);
     }
   }
+}
 
-  fs.mkdirSync(path.join(worktreePath, 'raw'), { recursive: true });
-  console.log('✓ Template files seeded');
+// ==================== Transport Creation ====================
+
+/**
+ * Create transport for team workspace based on transport type.
+ */
+async function createTeamTransport(
+  args: ParsedArgs,
+  config: FederateConfig,
+  repoRoot: string
+): Promise<{ transport: WorktreeTransport | DirectoryTransport; location: string; branch?: string }> {
+  if (args.transport === 'worktree') {
+    // Worktree transport: create git branch + worktree
+    const branchName = `${config.branchPrefix}${args.name}`;
+    
+    // Check if branch already exists
+    try {
+      exec(`git rev-parse --verify ${branchName}`, { silent: true });
+      console.error(`⚠️  Branch '${branchName}' already exists.`);
+      console.error(`   To re-launch: npx tsx scripts/launch.ts --team ${args.name}`);
+      process.exit(1);
+    } catch { /* doesn't exist — good */ }
+    
+    console.log(`Creating worktree transport for branch: ${branchName}`);
+    const transport = await WorktreeTransport.create(repoRoot, args.name, args.baseBranch);
+    const location = path.join(repoRoot, '.worktrees', args.name);
+    
+    return { transport, location, branch: branchName };
+  } else {
+    // Directory transport: create directory at specified path
+    const location = path.resolve(repoRoot, args.path!, args.name);
+    
+    if (fs.existsSync(location)) {
+      console.error(`❌ Directory already exists: ${location}`);
+      process.exit(1);
+    }
+    
+    console.log(`Creating directory transport at: ${location}`);
+    await fsp.mkdir(location, { recursive: true });
+    
+    const basePathMap = new Map<string, string>();
+    basePathMap.set(args.name, location);
+    const transport = new DirectoryTransport(basePathMap);
+    
+    return { transport, location };
+  }
+}
+
+// ==================== Team Directory Seeding ====================
+
+/**
+ * Seed team/ directory from archetype plugin.
+ * Copies: skills/, templates/, archetype.json (and anything else in team/)
+ */
+async function seedTeamDirectory(
+  archetypeName: string,
+  teamLocation: string,
+  repoRoot: string
+): Promise<void> {
+  // Locate archetype plugin
+  const archetypePluginPath = path.join(repoRoot, 'plugins', archetypeName);
+  const archetypeTeamPath = path.join(archetypePluginPath, 'team');
+  
+  if (!fs.existsSync(archetypeTeamPath)) {
+    console.warn(`⚠️  Archetype team/ directory not found: ${archetypeTeamPath}`);
+    console.warn(`   Skipping team/ seeding (archetype may not be restructured yet)`);
+    return;
+  }
+  
+  console.log(`Seeding team/ directory from archetype: ${archetypeName}`);
+  await copyDirectory(archetypeTeamPath, teamLocation);
+  console.log('✓ Team directory seeded');
 }
 
 // ==================== Federation Scaffolding ====================
 
-function scaffoldArchetype(worktreePath: string, repoRoot: string, archetypeName: string): void {
-  console.log(`Scaffolding archetype: ${archetypeName}...`);
+function scaffoldFederation(teamLocation: string, repoRoot: string, args: ParsedArgs, config: FederateConfig, archetypeName: string): void {
+  console.log('Scaffolding federation state...');
 
-  const squadDir = path.join(worktreePath, '.squad');
-  const archetypePluginPath = path.join(repoRoot, 'plugins', archetypeName);
+  const squadDir = path.join(teamLocation, '.squad');
+  const signalsDir = path.join(squadDir, 'signals');
+
+  // Signal protocol directories
+  fs.mkdirSync(path.join(signalsDir, 'inbox'), { recursive: true });
+  fs.mkdirSync(path.join(signalsDir, 'outbox'), { recursive: true });
+  fs.mkdirSync(path.join(squadDir, 'learnings'), { recursive: true });
 
   // Try to read version from archetype's plugin.json
   const pluginJsonPath = path.join(repoRoot, 'plugins', archetypeName, 'plugin.json');
@@ -183,7 +235,7 @@ function scaffoldArchetype(worktreePath: string, repoRoot: string, archetypeName
   } catch { /* use fallback */ }
 
   // Write archetype.json
-  const archetypeJson: ArchetypeMetadata = {
+  const archetypeJson = {
     name: archetypeName,
     version,
     source: 'vladi-plugins-marketplace',
@@ -191,52 +243,6 @@ function scaffoldArchetype(worktreePath: string, repoRoot: string, archetypeName
   };
   fs.writeFileSync(path.join(squadDir, 'archetype.json'), JSON.stringify(archetypeJson, null, 2));
   console.log('  ✓ Wrote .squad/archetype.json');
-
-  // If archetype plugin exists, copy templates
-  try {
-    if (fs.existsSync(archetypePluginPath)) {
-      const templateDir = path.join(archetypePluginPath, 'templates');
-      if (fs.existsSync(templateDir)) {
-        // Copy launch-prompt-*.md files
-        for (const file of fs.readdirSync(templateDir)) {
-          if (file.startsWith('launch-prompt-') && file.endsWith('.md')) {
-            const src = path.join(templateDir, file);
-            const dest = path.join(squadDir, file);
-            fs.copyFileSync(src, dest);
-            console.log(`  ✓ Copied ${file}`);
-          }
-        }
-
-        // Copy cleanup-hook.sh if it exists
-        const cleanupHookSrc = path.join(templateDir, 'cleanup-hook.sh');
-        if (fs.existsSync(cleanupHookSrc)) {
-          const cleanupHookDest = path.join(squadDir, 'cleanup-hook.sh');
-          fs.copyFileSync(cleanupHookSrc, cleanupHookDest);
-          fs.chmodSync(cleanupHookDest, 0o755);
-          console.log('  ✓ Copied cleanup-hook.sh');
-        }
-      }
-    } else {
-      console.log(`  ⚠️  Archetype plugin '${archetypeName}' not found in plugins/`);
-      console.log('  ℹ️  archetype.json written, but templates not copied');
-    }
-  } catch (err) {
-    console.warn(`⚠ Template copy failed: ${err}. archetype.json was written but templates may be incomplete.`);
-  }
-
-  console.log('✓ Archetype scaffolding complete');
-}
-
-function scaffoldFederation(worktreePath: string, repoRoot: string, args: ParsedArgs, config: FederateConfig): void {
-  console.log('Scaffolding federation state...');
-
-  const squadDir = path.join(worktreePath, '.squad');
-  const signalsDir = path.join(squadDir, 'signals');
-
-  // Signal protocol directories
-  fs.mkdirSync(path.join(signalsDir, 'inbox'), { recursive: true });
-  fs.mkdirSync(path.join(signalsDir, 'outbox'), { recursive: true });
-  fs.mkdirSync(path.join(squadDir, 'learnings'), { recursive: true });
 
   // Ceremonies
   fs.writeFileSync(path.join(squadDir, 'ceremonies.md'), generateCeremoniesMarkdown());
@@ -295,59 +301,104 @@ function cleanMetaSquadFiles(worktreePath: string): void {
 
 async function main(): Promise<void> {
   const REPO_ROOT = process.cwd();
-  const PLUGIN_ROOT = path.resolve(__dirname, '..');
   const config = loadAndValidateConfig(path.join(REPO_ROOT, 'federate.config.json'));
   const args = parseArgs(process.argv.slice(2));
   const domainTitle = toTitleCase(args.name);
 
   console.log(`\n🏗️  Onboarding domain: ${domainTitle}`);
   console.log(`   Domain ID: ${args.domainId}`);
+  console.log(`   Transport: ${args.transport}`);
   if (args.description) console.log(`   Description: ${args.description}`);
   console.log('');
 
-  // Step 1: Create branch
-  const branch = createBranch(args.name, args.baseBranch, config.branchPrefix);
+  // Step 1: Create team transport (worktree or directory)
+  const { transport, location, branch } = await createTeamTransport(args, config, REPO_ROOT);
+  console.log(`✓ Team workspace created: ${location}`);
 
-  // Step 2: Create worktree
-  const worktreePath = createWorktree(branch, REPO_ROOT, config.branchPrefix, config.worktreeDir);
+  // Step 2: Seed team/ directory from archetype (skills, templates, archetype.json)
+  await seedTeamDirectory(args.archetype, location, REPO_ROOT);
 
-  // Step 3: Seed templates
-  seedTemplates(worktreePath, PLUGIN_ROOT);
+  // Step 3: Scaffold federation state (signals, learnings, ceremonies, telemetry, archetype.json)
+  scaffoldFederation(location, REPO_ROOT, args, config, args.archetype);
 
-  // Step 4: Scaffold federation state (signals, learnings, ceremonies, telemetry)
-  scaffoldFederation(worktreePath, REPO_ROOT, args, config);
+  // Step 4: Write DOMAIN_CONTEXT.md
+  const contextMd = `# ${domainTitle} Domain
 
-  // Step 5: Let Squad handle team casting
-  // Run `squad init` in the worktree — Squad's casting mechanism handles
-  // team composition, agent names, roles, charters, and histories.
+**Domain ID:** ${args.domainId}
+${args.description ? `**Description:** ${args.description}\n` : ''}
+**Archetype:** ${args.archetype}
+**Created:** ${new Date().toISOString()}
+
+## Purpose
+
+${args.description || 'This domain squad is responsible for...'}
+
+## Responsibilities
+
+- TODO: Define domain boundaries
+- TODO: List key responsibilities
+- TODO: Document interfaces with other domains
+
+## Dependencies
+
+- TODO: List domains this one depends on
+- TODO: List domains that depend on this one
+`;
+  fs.writeFileSync(path.join(location, 'DOMAIN_CONTEXT.md'), contextMd);
+
+  // Step 5: Clean up meta-squad files for worktree teams
+  if (args.transport === 'worktree') {
+    cleanMetaSquadFiles(location);
+  }
+
+  // Step 6: Let Squad handle team casting
   console.log('Initializing squad (team casting handled by Squad)...');
   try {
-    exec('squad init', { cwd: worktreePath });
+    exec('squad init', { cwd: location });
     console.log('✓ Squad initialized — team will be cast on first session');
   } catch {
     console.log('  ⚠️  squad init not available — team will be cast on first session');
   }
 
-  // Step 6: Clean up meta-squad files from domain branch
-  cleanMetaSquadFiles(worktreePath);
+  // Step 7: Register team in TeamRegistry
+  console.log('Registering team in registry...');
+  const registry = new TeamRegistry(REPO_ROOT);
+  
+  const teamEntry: TeamEntry = {
+    domain: args.name,
+    domainId: args.domainId,
+    transport: args.transport,
+    location: location,
+    createdAt: new Date().toISOString(),
+  };
+  
+  await registry.register(teamEntry);
+  console.log('✓ Team registered');
 
-  // Step 7: Initial commit
-  console.log('Committing initial state...');
-  exec(`git add -A && git commit -m "onboard: ${domainTitle} domain squad
+  // Step 8: Commit for worktree transport
+  if (args.transport === 'worktree') {
+    console.log('Creating initial commit...');
+    exec('git add -A', { cwd: location });
+    exec(`git commit -m "feat: onboard ${args.name} domain
 
-Domain ID: ${args.domainId}
-${args.description ? `Description: ${args.description}\n` : ''}Federation scaffolding: signals, learnings, ceremonies, telemetry.
-Team casting deferred to Squad init on first session."`, { cwd: worktreePath });
+Domain: ${domainTitle}
+Archetype: ${args.archetype}
+Description: ${args.description || 'N/A'}
 
-  console.log(`\n✅ Domain onboarded: ${domainTitle}`);
-  console.log(`   Worktree: ${worktreePath}`);
-  console.log(`   Branch: ${branch}`);
-  console.log(`   Archetype: ${args.archetype}`);
-  console.log(`\nNext: npx tsx scripts/launch.ts --team ${args.name}`);
-  console.log(`The squad will be cast by Squad on the first session.`);
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"`, { cwd: location });
+    console.log('✓ Initial commit created');
+  }
+
+  console.log(`\n✅ Domain onboarded successfully!`);
+  console.log(`   Location: ${location}`);
+  if (branch) console.log(`   Branch: ${branch}`);
+  console.log(`\n📚 Next steps:`);
+  console.log(`   1. Launch the team: npx tsx scripts/launch.ts --team ${args.name}`);
+  console.log(`   2. Monitor progress: npx tsx scripts/monitor.ts`);
+  console.log(`   3. Send directives: npx tsx scripts/directive.ts --team ${args.name} --message "..."`);
 }
 
-main().catch(err => {
-  console.error('❌ Onboarding failed:', err.message);
+main().catch((err) => {
+  console.error(`\n❌ Onboarding failed: ${err.message}`);
   process.exit(1);
 });

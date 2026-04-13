@@ -5,6 +5,8 @@
  * Used by all federation scripts to ensure config health.
  */
 
+import * as fs from 'fs';
+
 export interface FederateConfig {
   /** Brief description of this federation (optional) */
   description?: string;
@@ -205,13 +207,13 @@ export function validateConfig(raw: unknown): FederateConfig {
  * @returns Validated config with defaults applied
  */
 export function loadAndValidateConfig(configPath: string): FederateConfig {
-  if (!require('fs').existsSync(configPath)) {
+  if (!fs.existsSync(configPath)) {
     // No config file — return defaults
     return { ...DEFAULT_CONFIG };
   }
 
   try {
-    const raw = JSON.parse(require('fs').readFileSync(configPath, 'utf-8'));
+    const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     return validateConfig(raw);
   } catch (err) {
     if (err instanceof ConfigValidationError) {
