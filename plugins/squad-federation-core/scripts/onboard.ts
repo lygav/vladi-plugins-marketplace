@@ -14,8 +14,8 @@
  * native casting mechanism — this script does NOT prescribe roles.
  *
  * Usage:
- *   npx tsx scripts/onboard.ts --name "my-product" --domain-id "abc-123"
- *   npx tsx scripts/onboard.ts --name "my-product" --domain-id "abc-123" --base-branch main
+ *   npx tsx scripts/onboard.ts --name "my-product" --domain-id "abc-123" --archetype "squad-archetype-deliverable"
+ *   npx tsx scripts/onboard.ts --name "my-product" --domain-id "abc-123" --archetype "squad-archetype-deliverable" --base-branch main
  */
 
 import { execSync } from 'child_process';
@@ -65,7 +65,7 @@ interface ParsedArgs {
   domainId: string;
   baseBranch: string;
   description?: string;
-  archetype?: string;
+  archetype: string;
 }
 
 // ==================== Argument Parsing ====================
@@ -87,12 +87,12 @@ function parseArgs(args: string[]): ParsedArgs {
     }
   }
 
-  if (!parsed.name || !parsed.domainId) {
+  if (!parsed.name || !parsed.domainId || !parsed.archetype) {
     console.error('Usage:');
     console.error('  npx tsx scripts/onboard.ts \\');
     console.error('    --name "my-product" \\');
     console.error('    --domain-id "abc-123" \\');
-    console.error('    [--archetype "squad-archetype-deliverable"] \\');
+    console.error('    --archetype "squad-archetype-deliverable" \\');
     console.error('    [--description "What this domain covers"] \\');
     console.error('    [--base-branch main]');
     process.exit(1);
@@ -100,7 +100,7 @@ function parseArgs(args: string[]): ParsedArgs {
 
   // Validate archetype name format to prevent path traversal
   const ARCHETYPE_NAME_REGEX = /^[a-z0-9][a-z0-9-]*$/;
-  if (parsed.archetype && !ARCHETYPE_NAME_REGEX.test(parsed.archetype)) {
+  if (!ARCHETYPE_NAME_REGEX.test(parsed.archetype)) {
     console.error('Error: Invalid archetype name. Use lowercase alphanumeric with hyphens only.');
     process.exit(1);
   }
@@ -284,7 +284,7 @@ function scaffoldFederation(worktreePath: string, repoRoot: string, args: Parsed
 **Domain ID:** ${args.domainId}
 ${args.description ? `**Description:** ${args.description}` : ''}
 **Type:** Permanent domain expert squad (federated model)
-${args.archetype ? `**Archetype:** ${args.archetype}` : ''}
+**Archetype:** ${args.archetype}
 
 ## Signal Protocol
 This squad uses the inter-squad signal protocol:
@@ -296,10 +296,8 @@ This squad uses the inter-squad signal protocol:
 
   console.log('✓ Federation state scaffolded');
 
-  // Scaffold archetype if specified
-  if (args.archetype) {
-    scaffoldArchetype(worktreePath, repoRoot, args.archetype);
-  }
+  // Scaffold archetype (always required for federated teams)
+  scaffoldArchetype(worktreePath, repoRoot, args.archetype);
 }
 
 function cleanMetaSquadFiles(worktreePath: string): void {
@@ -364,9 +362,7 @@ Team casting deferred to Squad init on first session."`, { cwd: worktreePath });
   console.log(`\n✅ Domain onboarded: ${domainTitle}`);
   console.log(`   Worktree: ${worktreePath}`);
   console.log(`   Branch: ${branch}`);
-  if (args.archetype) {
-    console.log(`   Archetype: ${args.archetype}`);
-  }
+  console.log(`   Archetype: ${args.archetype}`);
   console.log(`\nNext: npx tsx scripts/launch.ts --team ${args.name}`);
   console.log(`The squad will be cast by Squad on the first session.`);
 }
