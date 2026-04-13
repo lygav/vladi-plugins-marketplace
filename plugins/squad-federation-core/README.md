@@ -129,6 +129,137 @@ Launch → headless session runs autonomously
 Monitor → real-time signals + OTel traces
 ```
 
+Each layer owns its config:
+- **Core** writes `federate.config.json` (4 fields: description, branchPrefix, mcpStack, telemetry)
+- **Archetypes** write `.squad/archetype-config.json` in each team's worktree
+- **Squad** handles all casting
+
+## Creating Teams
+
+The onboard wizard uses natural conversation to understand what you're building. Just describe your goal — the wizard asks guiding questions, then sets up the right structure automatically.
+
+### Example 1: Coding Team (Same Repo)
+
+Most teams work on the same codebase:
+
+```
+> Spin up a payments team
+
+"What's this team's mission?"
+> Build the payment processing module
+
+"Will they be writing code?"
+> Yes
+
+"In this repository, or a different one?"
+> This one
+
+"Should their changes go through pull requests?"
+> Yes
+
+📋 Got it. Setting up:
+   Name: payments
+   Type: coding team
+   Location: branch squad/payments
+   Changes via: pull requests to main
+   
+   Proceed? [Y/n]
+```
+
+**Result:**
+- Git branch: `squad/payments`
+- Location: `.worktrees/payments/`
+- Integration: Team creates PRs → you review → merge to main
+- Isolation: Each team has its own `.squad/` directory, no conflicts
+
+**Why this works:** Same repository means shared dependencies and git history. Each team works independently with git worktrees — no coordination overhead, PRs flow naturally through standard git merge.
+
+---
+
+### Example 2: Research Team
+
+```
+> I need a team to analyze competitor APIs
+
+"Will they be writing code, or producing research/documents?"
+> Research and analysis docs
+
+"Where should their findings live?"
+> In this project, under docs/research
+
+📋 Got it. Setting up:
+   Name: api-research
+   Type: research team
+   Output: docs/research/
+   
+   Proceed? [Y/n]
+```
+
+**Result:** Team produces research documents in `docs/research/`, meta-squad aggregates findings.
+
+---
+
+### Example 3: External Project
+
+```
+> Set up a team for the mobile app
+
+"Will they be working in this repository?"
+> No, it's a separate repo
+
+"Where's the project?"
+> /Users/vladi/devel/mobile-app
+
+"Will they need to coordinate with teams here?"
+> Yes, via signals
+
+📋 Got it. Setting up:
+   Name: mobile-app
+   Type: coding team
+   Location: /Users/vladi/devel/mobile-app
+   Signals: connected to this federation
+   
+   Proceed? [Y/n]
+```
+
+**Result:** Team works in external directory, coordinates with your other teams through the signal protocol.
+
+---
+
+### Example 4: Human Coordination
+
+```
+> I need an architecture review team with humans
+
+"Will humans be actively participating?"
+> Yes, the review board
+
+"How should they communicate — Teams channel or async files?"
+> Teams channel would be great
+
+📋 Got it. Setting up:
+   Name: arch-review
+   Type: coordination team
+   Channel: #arch-review in Teams
+   
+   Proceed? [Y/n]
+```
+
+**Result:** Team coordinates via Teams channel *(v0.2.0 stretch goal)* — AI agents and humans collaborate in the same conversation.
+
+---
+
+### Quick Reference
+
+| Team Type | Example Use Case |
+|-----------|------------------|
+| **Same repo coding** | Frontend team, backend team both working on monorepo |
+| **External project** | Team working on separate mobile app repo |
+| **Research** | Team analyzing competitors, producing design docs |
+| **Coordination** | Architecture review with human participants |
+
+**Bottom line:** Just describe what you're building. The wizard asks questions, infers the right setup, you confirm.
+
 ## Features
 
 | Feature | Description |
