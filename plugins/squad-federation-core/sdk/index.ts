@@ -13,9 +13,9 @@
  *   ScanStatus,
  *   SignalMessage,
  *   ArchetypeManifest,
- *   MonitorCollector,
- *   TriageCollector,
- *   RecoveryAction,
+ *   MonitorBase,
+ *   TriageBase,
+ *   RecoveryBase,
  *   ScanStatusSchema,
  *   SignalMessageSchema,
  *   ArchetypeManifestSchema
@@ -28,3 +28,8 @@ export * from './types.js';
 
 // Export all Zod schemas and inferred types
 export * from './schemas.js';
+
+// Export base classes for archetype implementation
+export * from './monitor-base.js';
+export * from './triage-base.js';
+export * from './recovery-base.js';
