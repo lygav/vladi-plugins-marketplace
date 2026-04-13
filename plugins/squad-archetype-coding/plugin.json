@@ -4,5 +4,12 @@
   "version": "0.1.0",
   "author": { "name": "Vladi Lyga" },
   "keywords": ["squad", "archetype", "coding", "development", "pull-request"],
+  "engines": {
+    "node": ">=20.0.0",
+    "git": ">=2.20.0"
+  },
+  "peerDependencies": {
+    "squad-federation-core": ">=0.1.0"
+  },
   "skills": "skills/"
 }

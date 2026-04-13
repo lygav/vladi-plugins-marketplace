@@ -9,6 +9,13 @@
   "license": "MIT",
   "keywords": ["squad", "federation", "multi-team", "orchestration", "domain-experts", "otel", "knowledge-management"],
   "category": "workflow",
+  "engines": {
+    "node": ">=20.0.0",
+    "git": ">=2.20.0"
+  },
+  "peerDependencies": {
+    "@opentelemetry/api": ">=1.0.0"
+  },
   "agents": "agents/",
   "skills": "skills/",
   "hooks": "hooks.json",
