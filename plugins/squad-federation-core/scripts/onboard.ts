@@ -367,7 +367,6 @@ ${args.description || 'This domain squad is responsible for...'}
   const teamEntry: TeamEntry = {
     domain: args.name,
     domainId: args.domainId,
-    archetypeId: args.archetype,
     transport: args.transport,
     location: location,
     createdAt: new Date().toISOString(),
