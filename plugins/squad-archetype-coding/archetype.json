@@ -1,0 +1,13 @@
+{
+  "name": "squad-archetype-coding",
+  "version": "0.1.0",
+  "description": "Teams that write code and open pull requests",
+  "coreCompatibility": ">=0.2.0",
+  "meta": {
+    "skills": "meta/skills/"
+  },
+  "team": {
+    "skills": "team/skills/",
+    "templates": "team/templates/"
+  }
+}

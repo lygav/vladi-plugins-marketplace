@@ -1,0 +1,18 @@
+{
+  "states": {
+    "lifecycle": [
+      "preparing",
+      "implementing",
+      "testing",
+      "pr-open",
+      "pr-review",
+      "pr-approved",
+      "merged"
+    ],
+    "terminal": [
+      "complete",
+      "failed"
+    ],
+    "pauseable": true
+  }
+}
