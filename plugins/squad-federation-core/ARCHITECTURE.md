@@ -202,7 +202,7 @@ preparing → scanning → distilling → aggregating → reviewing → complete
 
 **Coding Archetype:**
 ```
-preparing → implementing → testing → reviewing → deploying → complete/failed
+preparing → implementing → testing → pr-open → pr-review → pr-approved → merged → complete/failed
 ```
 
 **Pipeline Archetype (ETL):**
@@ -1065,7 +1065,7 @@ Core validates state transitions at runtime but never interprets state semantics
 - Archetypes know their own lifecycle better than core
 - Different work patterns have fundamentally different progression models:
   - Deliverable: scanning → distilling → aggregating
-  - Coding: implementing → testing → deploying
+  - Coding: implementing → testing → pr-open → pr-review → pr-approved → merged
   - ETL Pipeline: extracting → transforming → loading
 - Better monitoring: meta-squad sees "Team Alpha 80% through distilling" instead
   of generic "Team Alpha working at 80%"
