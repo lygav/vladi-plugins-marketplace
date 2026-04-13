@@ -13,15 +13,34 @@ copilot plugin marketplace browse vladi-plugins-marketplace
 
 ### Federation System
 
-A three-layer plugin system for managing multiple permanent AI teams from a single meta-squad.
+**Manage multiple permanent AI teams from a single meta-squad** using a three-layer composition architecture.
 
-| Plugin | Type | Description |
-|--------|------|-------------|
-| [squad-federation-core](plugins/squad-federation-core/) | Core | Worktree lifecycle, signal protocol, knowledge flow, OTel observability, headless launch, monitoring. Archetype-unaware plumbing. |
-| [squad-archetype-deliverable](plugins/squad-archetype-deliverable/) | Archetype | Scatter-gather teams producing file artifacts. Playbook, schema evolution, aggregation, validation. |
-| [squad-archetype-coding](plugins/squad-archetype-coding/) | Archetype | Implementation teams producing pull requests. Playbook, PR coordination, task assignment. |
+#### Three-Layer Architecture
 
-**Quick start:** Install core, describe your goal, the setup wizard handles the rest:
+```
+┌─────────────────────────────────────────────┐
+│  PROJECT LAYER                              │
+│  Domain playbook · schemas · import hooks   │  ← Your expertise
+├─────────────────────────────────────────────┤
+│  ARCHETYPE LAYER                            │
+│  Team playbook · meta-squad skills          │  ← Work pattern (deliverable/coding/research)
+├─────────────────────────────────────────────┤
+│  CORE LAYER                                 │
+│  Worktrees · signals · knowledge · launch   │  ← Infrastructure (archetype-unaware)
+└─────────────────────────────────────────────┘
+```
+
+**Core** provides infrastructure. **Archetypes** define work patterns. **Your project** brings domain expertise.
+
+Each layer installs separately and owns its config:
+
+| Layer | Plugin | What it owns | When you install |
+|-------|--------|--------------|------------------|
+| **Core** | [squad-federation-core](plugins/squad-federation-core/) | `federate.config.json` — worktrees, signal protocol, knowledge flow, OTel monitoring, headless launch | First — setup wizard auto-installs archetype |
+| **Archetype** | [squad-archetype-deliverable](plugins/squad-archetype-deliverable/)<br>[squad-archetype-coding](plugins/squad-archetype-coding/) | `.squad/archetype-config.json` in each team — playbook, state machine, aggregation logic | Auto-installed by core based on work pattern |
+| **Project** | *(your .squad/ dir)* | Domain playbook skills, schemas, import hooks | Never — you write this |
+
+**Quick start:** Install core, describe your goal → setup wizard picks the right archetype:
 
 ```bash
 copilot plugin install squad-federation-core@vladi-plugins-marketplace
@@ -30,7 +49,7 @@ copilot plugin install squad-federation-core@vladi-plugins-marketplace
 > I want to set up a team organization for [your goal]
 ```
 
-Core auto-installs the right archetype. See [squad-federation-core/README.md](plugins/squad-federation-core/README.md) for details.
+See [squad-federation-core/README.md](plugins/squad-federation-core/README.md) for full walkthrough.
 
 ## License
 
