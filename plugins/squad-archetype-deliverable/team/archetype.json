@@ -1,0 +1,7 @@
+{
+  "states": {
+    "lifecycle": ["preparing", "scanning", "distilling", "aggregating"],
+    "terminal": ["complete", "failed"],
+    "pauseable": true
+  }
+}
