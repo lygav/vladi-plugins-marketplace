@@ -33,9 +33,9 @@ The `status.json` file is the heartbeat of each domain squad. The domain writes 
 interface ScanStatus {
   domain: string;         // Domain name (e.g., "payments")
   domain_id: string;      // Unique identifier for the domain
-  state: 'initializing' | 'scanning' | 'distilling' | 'complete' | 'failed' | 'paused';
+  state: 'initializing' | 'working' | 'reviewing' | 'complete' | 'failed' | 'paused';
   step: string;           // Current playbook step (e.g., "analysis")
-  started_at: string;     // ISO 8601 timestamp — when the scan began
+  started_at: string;     // ISO 8601 timestamp — when the work began
   updated_at: string;     // ISO 8601 timestamp — last status write
   completed_at?: string;  // ISO 8601 timestamp — when state became 'complete'
   progress_pct?: number;  // 0-100, optional progress indicator
@@ -47,17 +47,17 @@ interface ScanStatus {
 ### State Machine
 
 ```
-initializing → scanning → distilling → complete
-                  ↓           ↓
-                failed      failed
+initializing → working → reviewing → complete
+                  ↓          ↓
+                failed     failed
                   ↓
-                paused → scanning (resume)
+                paused → working (resume)
 ```
 
-- **initializing**: infrastructure is being set up, templates seeded
-- **scanning**: actively executing playbook steps
-- **distilling**: processing and finalizing outputs
-- **complete**: work is done, outputs written
+- **initializing**: infrastructure is being set up, environment prepared
+- **working**: actively executing work steps (archetype-specific playbook)
+- **reviewing**: validating outputs and performing quality checks
+- **complete**: work is done, outputs finalized
 - **failed**: an unrecoverable error occurred (check `error` field)
 - **paused**: manually paused via directive, awaiting resume
 
@@ -71,7 +71,7 @@ import { writeStatus } from '${CLAUDE_PLUGIN_ROOT}/scripts/lib/signals.js';
 writeStatus(worktreePath, {
   domain: 'my-product',
   domain_id: 'prod-001',
-  state: 'scanning',
+  state: 'working',
   step: 'analysis',
   started_at: '2024-01-15T10:00:00.000Z',
   updated_at: new Date().toISOString(),
