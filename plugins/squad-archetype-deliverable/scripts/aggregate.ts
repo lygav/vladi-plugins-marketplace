@@ -22,50 +22,18 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
+import { loadAndValidateConfig, type FederateConfig } from '../../squad-federation-core/scripts/lib/config.js';
 
 // ==================== Configuration ====================
 
 const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
 const CONFIG_PATH = path.join(REPO_ROOT, 'federate.config.json');
 
-interface FederateConfig {
-  deliverable: string;
-  deliverableSchema?: string;
-  importHook?: string;
-  branchPrefix: string;
-}
+// Config loading now uses validated config from lib/config.ts
+const config = loadAndValidateConfig(CONFIG_PATH);
 
-function loadConfig(): FederateConfig {
-  const defaults: FederateConfig = {
-    deliverable: 'deliverable.json',
-    branchPrefix: 'squad/',
-  };
-
-  // Config file takes precedence
-  if (fs.existsSync(CONFIG_PATH)) {
-    try {
-      const fileConfig = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
-      return { ...defaults, ...fileConfig };
-    } catch (err) {
-      console.warn('⚠️  Failed to parse federate.config.json, using defaults');
-    }
-  }
-
-  // Env var overrides
-  if (process.env.FEDERATE_DELIVERABLE) {
-    defaults.deliverable = process.env.FEDERATE_DELIVERABLE;
-  }
-  if (process.env.FEDERATE_IMPORT_HOOK) {
-    defaults.importHook = process.env.FEDERATE_IMPORT_HOOK;
-  }
-  if (process.env.FEDERATE_BRANCH_PREFIX) {
-    defaults.branchPrefix = process.env.FEDERATE_BRANCH_PREFIX;
-  }
-
-  return defaults;
-}
-
-const config = loadConfig();
+// Ensure deliverable field is set (apply env var fallback if needed)
+const DELIVERABLE = config.deliverable || process.env.FEDERATE_DELIVERABLE || 'deliverable.json';
 const AGGREGATION_DIR = path.join(REPO_ROOT, '.squad', 'aggregation');
 const COLLECTED_DIR = path.join(AGGREGATION_DIR, 'collected');
 const MANIFEST_PATH = path.join(AGGREGATION_DIR, 'manifest.json');
@@ -162,7 +130,7 @@ function discoverBranches(): string[] {
 }
 
 function readDeliverableFromWorktree(worktreePath: string): string | null {
-  const filePath = path.join(worktreePath, config.deliverable);
+  const filePath = path.join(worktreePath, DELIVERABLE);
 
   if (!fs.existsSync(filePath)) return null;
 
@@ -176,7 +144,7 @@ function readDeliverableFromWorktree(worktreePath: string): string | null {
 
 function readDeliverableFromBranch(branch: string): string | null {
   try {
-    return execSync(`git show ${branch}:${config.deliverable}`, {
+    return execSync(`git show ${branch}:${DELIVERABLE}`, {
       cwd: REPO_ROOT,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'ignore'],
@@ -329,7 +297,7 @@ function discoverAllDomains(): DomainBranch[] {
       worktree: worktreePath,
       hasDeliverable: deliverableContent !== null,
       deliverablePath: deliverableContent
-        ? (worktreePath ? path.join(worktreePath, config.deliverable) : undefined)
+        ? (worktreePath ? path.join(worktreePath, DELIVERABLE) : undefined)
         : undefined,
     });
   }
@@ -362,7 +330,7 @@ function collectDeliverables(domains: DomainBranch[]): Map<string, string> {
     }
 
     if (!content) {
-      console.error(`⚠️  Failed to read ${config.deliverable} for ${domain.name}`);
+      console.error(`⚠️  Failed to read ${DELIVERABLE} for ${domain.name}`);
       continue;
     }
 
@@ -431,7 +399,7 @@ function writeManifest(
 
   const manifest: Manifest = {
     aggregated_at: new Date().toISOString(),
-    deliverable: config.deliverable,
+    deliverable: DELIVERABLE,
     domains: manifestEntries,
   };
 
@@ -474,7 +442,7 @@ function printSummaryReport(
 
   console.log('\n📊 Aggregation Report');
   console.log('━'.repeat(50));
-  console.log(`Deliverable file:          ${config.deliverable}`);
+  console.log(`Deliverable file:          ${DELIVERABLE}`);
   console.log(`Import hook:               ${config.importHook || '(none)'}`);
   console.log(`Total domains discovered:  ${total}`);
   console.log(`With deliverable:          ${withDeliverable}`);
@@ -501,7 +469,7 @@ function printSummaryReport(
         );
       }
     } else {
-      console.log(`⚪ ${domain.name.padEnd(30)} (no ${config.deliverable} — scan pending)`);
+      console.log(`⚪ ${domain.name.padEnd(30)} (no ${DELIVERABLE} — scan pending)`);
     }
   }
 
@@ -549,12 +517,12 @@ function main(): void {
   }
 
   // Collect deliverable files
-  console.log(`\n📥 Collecting ${config.deliverable} files...`);
+  console.log(`\n📥 Collecting ${DELIVERABLE} files...`);
   const collectedFiles = collectDeliverables(domains);
   console.log(`✅ Collected ${collectedFiles.size} file(s)`);
 
   if (collectedFiles.size === 0) {
-    console.warn(`⚠️  No ${config.deliverable} files found. Nothing to process.`);
+    console.warn(`⚠️  No ${DELIVERABLE} files found. Nothing to process.`);
     return;
   }
 

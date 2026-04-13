@@ -23,33 +23,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { generateCeremoniesMarkdown } from './lib/ceremonies.js';
+import { loadAndValidateConfig, type FederateConfig } from './lib/config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // ==================== Config ====================
-
-interface FederateConfig {
-  branchPrefix: string;
-  worktreeDir: 'parallel' | 'inside' | string;
-  telemetry: { enabled: boolean };
-}
-
-const DEFAULT_CONFIG: FederateConfig = {
-  branchPrefix: 'squad/',
-  worktreeDir: 'parallel',
-  telemetry: { enabled: true },
-};
-
-function loadConfig(): FederateConfig {
-  const configPath = path.join(process.cwd(), 'federate.config.json');
-  if (fs.existsSync(configPath)) {
-    try {
-      return { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(configPath, 'utf-8')) };
-    } catch { /* fall through */ }
-  }
-  return DEFAULT_CONFIG;
-}
+// Config loading now uses validated config from lib/config.ts
 
 // ==================== Types ====================
 
@@ -316,7 +296,7 @@ function cleanMetaSquadFiles(worktreePath: string): void {
 async function main(): Promise<void> {
   const REPO_ROOT = process.cwd();
   const PLUGIN_ROOT = path.resolve(__dirname, '..');
-  const config = loadConfig();
+  const config = loadAndValidateConfig(path.join(REPO_ROOT, 'federate.config.json'));
   const args = parseArgs(process.argv.slice(2));
   const domainTitle = toTitleCase(args.name);
 
