@@ -540,145 +540,435 @@ Once graduated and synced, every future team starts with that knowledge.
 
 ---
 
-## 9. Adding a Second Team (Non-Homogeneous)
+## 9. Adding More Teams: Mixed Transports
 
-A week later, Alex wants to add blog content. This isn't a coding task — it's research.
+A week later, Alex wants to expand the federation with teams working on different things. This is where transport flexibility shines — each team gets the right infrastructure for its work.
+
+### Team 2: Content Research (Directory Transport)
+
+Alex wants a research team to evaluate blogging platforms, but this isn't code — it's analysis and documentation.
 
 **Alex:**
-I also need a research team to investigate the best blogging platform integration for my React site
+I need a research team to investigate blogging platforms for the React site
+
+> **Copilot** *(federation-orchestration activates):*
+>
+> Got it. Let's spin up a team for that.
+>
+> **What will this team work on?**
+>   1. Features/code in THIS repository
+>   2. A different codebase or external project  
+>   3. Research, analysis, or document creation  ← Copilot recommends this
+>   4. Coordination across teams or with people
+
+**Alex:**
+3 — they'll produce research docs
 
 > **Copilot:**
 >
-> Got it. This is a **research** task, not coding. Let me check the archetype...
+> Perfect. This is analysis work, not code.
 >
-> The coding archetype is already installed, but research is a different work pattern.
+> **Where should outputs be stored?**
+>   a. In a subfolder of this project (Recommended)
+>   b. A separate directory
+
+**Alex:**
+Subfolder is fine
+
+> **Copilot:**
+>
+> 📋 Team Setup Summary:
+>    Name: blog-research
+>    Archetype: squad-archetype-research (will install)
+>    Location: .worktrees/blog-research/ (directory)
+>    Transport: Directory
+>    
+>    The team will produce analysis documents and recommendations.
+>    No git branch — outputs stay in the directory.
+>    
+>    Proceed? [Y/n]
+
+**Alex:**
+Yes
+
+> **Copilot:**
 >
 > ```bash
 > copilot plugin install squad-archetype-research@vladi-plugins-marketplace
 > ```
 >
-> ⚠️ `squad-archetype-research` is not yet published. I'll onboard the team using the core federation scaffolding with a custom prompt. The team will work without an archetype-specific playbook — you can install the research archetype later when it's available.
->
-> 🏗️ Onboarding team: **Blog Research**
+> 🏗️ Creating team workspace...
 >
 > ```
-> Creating branch: squad/blog-research from main
-> Creating worktree: /Users/alex/alex-portfolio-blog-research
-> Scaffolding federation state...
+> Creating directory: .worktrees/blog-research/
+> Scaffolding .squad/ state...
+>   ✓ Signal protocol (inbox/, outbox/, status.json)
+>   ✓ Learning log
+>   ✓ Research templates (from archetype)
+> Initializing Squad...
 > ✓ Squad initialized
 >
-> ✅ Team onboarded: Blog Research
->    Worktree: /Users/alex/alex-portfolio-blog-research
->    Branch: squad/blog-research
+> ✅ Team onboarded: blog-research
+>    Location: .worktrees/blog-research/
+>    Transport: Directory (no git branch)
 > ```
 >
-> 🎬 Team cast for **blog-research**:
+> 🎬 Team cast:
 >
-> | Role | Agent | Specialty |
-> |------|-------|-----------|
+> | Role | Agent | Purpose |
+> |------|-------|---------|
 > | Lead Researcher | **Spock** | Systematic analysis, comparison matrices |
-> | Writer | **Uhura** | Technical writing, documentation |
-> | Reviewer | **Scotty** | Feasibility assessment, integration concerns |
+> | Writer | **Uhura** | Technical documentation |
+> | Reviewer | **Scotty** | Feasibility assessment |
 
-Now the meta-squad manages two teams of different types. The `federate.config.json` stays the same — archetype binding is per-worktree, not per-federation.
+**Why Directory, not Worktree?**
+- Research outputs are documents (markdown, diagrams), not code
+- No need for git branching or PR workflow
+- Directory transport keeps deliverables organized in one place
+- Meta-squad can still track progress via `.squad/status.json`
 
-### Final Filesystem Layout
+---
+
+### Team 3: Frontend Implementation (Worktree Transport)
+
+Now Alex wants a second coding team — one for the blog feature while frontend-redesign wraps up.
+
+**Alex:**
+Spin up a team to implement the blog feature — they'll work on code in this repo
+
+> **Copilot:**
+>
+> **What will this team work on?**
+>   1. Features/code in THIS repository  ← Auto-detected from your request
+
+**Alex:**
+Yes, 1
+
+> **Copilot:**
+>
+> **How should this team's work integrate?**
+>   a. Via pull requests to main (Recommended)
+>   b. Direct commits to a shared branch
+
+**Alex:**
+PRs to main
+
+> **Copilot:**
+>
+> 📋 Team Setup Summary:
+>    Name: blog-feature
+>    Archetype: squad-archetype-coding
+>    Location: .worktrees/blog-feature/ (worktree branch: squad/blog-feature)
+>    Transport: Worktree
+>    
+>    The team will create pull requests to main.
+>    
+>    Proceed? [Y/n]
+
+**Alex:**
+Yes
+
+> **Copilot:**
+>
+> 🏗️ Onboarding team: blog-feature
+>
+> ```
+> Creating branch: squad/blog-feature from main
+> Creating worktree: /Users/alex/alex-portfolio-blog-feature
+> Seeding coding archetype templates...
+> ✓ Squad initialized
+>
+> ✅ Team onboarded: blog-feature
+>    Worktree: /Users/alex/alex-portfolio-blog-feature
+>    Branch: squad/blog-feature
+> ```
+>
+> 🎬 Team cast:
+>
+> | Role | Agent | Purpose |
+> |------|-------|---------|
+> | Developer | **Data** | Implementation, React components |
+> | Tester | **Worf** | Test coverage, validation |
+> | Architect | **Geordi** | Technical design, integration |
+
+---
+
+### Team 4: Architecture Review (Teams Channel — Stretch Goal)
+
+Finally, Alex wants a coordination team that reviews architecture decisions with human approval.
+
+**Alex:**
+I want an architecture review team that needs my approval for major decisions
+
+> **Copilot:**
+>
+> This sounds like a coordination team — you'll be involved in the workflow.
+>
+> **What will this team work on?**
+>   4. Coordination across teams or with people  ← Recommended
+
+**Alex:**
+Correct
+
+> **Copilot:**
+>
+> **How should this team communicate?**
+>   a. Microsoft Teams channel (Recommended if Teams available)
+>   b. Local directory for signal files
+
+**Alex:**
+I have Teams — use a channel
+
+> **Copilot:**
+>
+> 📋 Team Setup Summary:
+>    Name: arch-review
+>    Archetype: squad-archetype-coordination
+>    Location: Teams channel (arch-review)
+>    Transport: TeamsChannel
+>    
+>    The team will post decisions and questions to Teams.
+>    You can respond directly in the channel.
+>    
+>    Proceed? [Y/n]
+
+**Alex:**
+Yes
+
+> **Copilot:**
+>
+> 🏗️ Creating Teams channel...
+>
+> ```
+> ✓ Channel created: arch-review
+> ✓ Signal format configured: [from→to] type: subject
+> ✓ Squad initialized
+>
+> ✅ Team onboarded: arch-review
+>    Location: teams://channel-id-abc-123
+>    Transport: TeamsChannel
+> ```
+>
+> 🎬 Team cast:
+>
+> | Role | Agent | Purpose |
+> |------|-------|---------|
+> | Reviewer | **Picard** | Strategic assessment |
+> | Scribe | **Troi** | Document decisions |
+> | Liaison | **Riker** | Coordinate with Alex |
+
+---
+
+### Final Federation Layout
+
+Now Alex has **4 teams, 3 different transports** — all managed by the same meta-squad:
 
 ```
 /Users/alex/
 ├── alex-portfolio/                          ← main branch (meta-squad)
 │   ├── .squad/
-│   │   ├── team.md                          ← Picard, Scribe, Ralph
-│   │   ├── skills/                          ← authoritative skill copies
+│   │   ├── team.md                          ← Meta-squad: Picard, Scribe, Ralph
+│   │   ├── skills/                          ← Authoritative skill copies
 │   │   └── learnings/
-│   │       └── log.jsonl                    ← graduated learnings
+│   │       └── log.jsonl                    ← Cross-team patterns
+│   ├── .worktrees/
+│   │   └── blog-research/                   ← Directory transport (no git branch)
+│   │       ├── .squad/
+│   │       │   ├── team.md                  ← Spock, Uhura, Scotty
+│   │       │   ├── signals/
+│   │       │   │   ├── status.json          ← state: scanning
+│   │       │   │   ├── inbox/
+│   │       │   │   └── outbox/
+│   │       │   └── learnings/
+│   │       │       └── log.jsonl
+│   │       ├── research/
+│   │       │   ├── cms-comparison.md        ← Research outputs
+│   │       │   └── integration-plan.md
+│   │       └── README.md
 │   ├── federate.config.json
+│   ├── .squad-teams.json                    ← Team registry (all 4 teams)
 │   ├── index.html
-│   ├── styles.css
 │   └── README.md
 │
-├── alex-portfolio-frontend-redesign/        ← squad/frontend-redesign (coding)
+├── alex-portfolio-frontend-redesign/        ← Worktree transport (squad/frontend-redesign)
 │   ├── .squad/
 │   │   ├── team.md                          ← Torres, Troi, Data
-│   │   ├── archetype.json                   ← archetype: coding
-│   │   ├── launch-prompt.md                 ← from coding archetype
-│   │   ├── ceremonies.md
-│   │   ├── telemetry.json
-│   │   ├── skills/
-│   │   ├── learnings/
-│   │   │   └── log.jsonl                    ← 6 entries from the redesign
-│   │   └── signals/
-│   │       ├── status.json                  ← state: complete
-│   │       ├── inbox/
-│   │       │   └── ...-directive-use-tailwind-css-....json
-│   │       └── outbox/
-│   │           └── ...-report-react-redesign-complete.json
-│   ├── DOMAIN_CONTEXT.md
-│   ├── src/                                 ← React app (built by team)
+│   │   ├── signals/
+│   │   │   └── status.json                  ← state: complete
+│   │   └── learnings/
+│   │       └── log.jsonl
+│   ├── src/                                 ← React app
 │   │   ├── App.jsx
-│   │   ├── components/
-│   │   │   ├── Header.jsx
-│   │   │   ├── Hero.jsx
-│   │   │   ├── Projects.jsx
-│   │   │   ├── About.jsx
-│   │   │   └── Contact.jsx
-│   │   ├── pages/
-│   │   │   └── Blog.jsx
-│   │   └── main.jsx
-│   ├── package.json
-│   ├── vite.config.js
-│   ├── tailwind.config.js
-│   └── run-output.log                       ← session transcript
+│   │   └── components/
+│   └── package.json
 │
-└── alex-portfolio-blog-research/            ← squad/blog-research (research)
-    ├── .squad/
-    │   ├── team.md                          ← Spock, Uhura, Scotty
-    │   ├── ceremonies.md
-    │   ├── telemetry.json
-    │   ├── skills/
-    │   ├── learnings/
-    │   │   └── log.jsonl                    ← will fill during research
-    │   └── signals/
-    │       ├── status.json                  ← state: initializing
-    │       ├── inbox/
-    │       └── outbox/
-    ├── DOMAIN_CONTEXT.md
-    └── README.md
+├── alex-portfolio-blog-feature/             ← Worktree transport (squad/blog-feature)
+│   ├── .squad/
+│   │   ├── team.md                          ← Data, Worf, Geordi
+│   │   ├── signals/
+│   │   │   └── status.json                  ← state: implementing
+│   │   └── learnings/
+│   │       └── log.jsonl
+│   ├── src/
+│   │   └── pages/
+│   │       └── Blog.jsx                     ← In progress
+│   └── package.json
+│
+└── [Teams Channel: arch-review]             ← Teams transport (no filesystem)
+    └── Messages serve as signals
+        ├── [meta-squad→arch-review] directive: Review React state strategy
+        └── [arch-review→meta-squad] question: Should we use Redux or Context API?
 ```
 
 Git branch layout:
 
 ```
-main                        ← meta-squad: skills, governance, aggregation
-squad/frontend-redesign     ← permanent, complete (PR open to main)
-squad/blog-research         ← permanent, just onboarded
+main                        ← meta-squad
+squad/frontend-redesign     ← permanent worktree (PR ready)
+squad/blog-feature          ← permanent worktree (active work)
 ```
 
-### Monitoring Both Teams
+**Note:** `blog-research` has NO git branch (directory transport). `arch-review` has NO filesystem presence (Teams transport).
+
+---
+
+### Unified Monitoring Across All Transports
+
+The meta-squad monitors all 4 teams through the **transport abstraction** — it doesn't care whether a team uses worktrees, directories, or Teams channels:
 
 ```
-📊 Domain Scan Status
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🟢 frontend-redesign                 complete     pr: Pull request opened
-   Last update: 6d ago
-   deliverable.json: ✗   log: ✓
-
-🟡 blog-research                     scanning     explore: CMS options
-   Agent: Spock
-   Progress: 20%
-   Last update: 3m ago
-   deliverable.json: ✗   log: ✓
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📝 Recent Learnings:
-
-  [blog-research] [Spock] MDX is the dominant choice for React blog integra...
-  [blog-research] [Spock] Contentlayer provides type-safe content for Next....
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Last updated: 3:15:22 PM
+> how are my teams doing?
 ```
+
+> **Copilot:**
+>
+> 📊 Federation Status
+> ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+> 
+> 🟢 frontend-redesign        complete      [Worktree]
+>    Last update: 7d ago
+>    PR #42 opened (ready for review)
+> 
+> 🟡 blog-research            scanning      [Directory]
+>    Agent: Spock
+>    Progress: 65%
+>    Last update: 2h ago
+>    Deliverable: cms-comparison.md ready
+> 
+> 🟡 blog-feature             implementing  [Worktree]
+>    Agent: Data
+>    Progress: 40%
+>    Last update: 15m ago
+>    Building Blog.jsx component
+> 
+> 🔵 arch-review              waiting       [Teams Channel]
+>    Last update: 1h ago
+>    Pending: Your response to state management question
+> 
+> ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+> 📝 Recent Learnings:
+> 
+>   [blog-research] [Spock] MDX provides best type safety for React blogs
+>   [blog-feature] [Data] Contentlayer integrates cleanly with Next.js
+>   [arch-review] [Picard] Context API sufficient for current scale
+> 
+> ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**Signals flow seamlessly** regardless of transport:
+
+- **Worktree teams** — Meta-squad reads/writes `.squad/signals/` in worktree directories
+- **Directory team** — Meta-squad reads/writes `.squad/signals/` in `.worktrees/blog-research/`
+- **Teams channel** — Meta-squad posts/reads messages via MCP tools
+
+From the meta-squad's perspective, all teams are **TeamTransport** instances. The interface is identical:
+
+```typescript
+// Meta-squad code is transport-agnostic
+for (const team of teams) {
+  const status = await team.readStatus();        // Works for all transports
+  const signals = await team.listSignals('inbox'); // Works for all transports
+  await team.writeSignal('outbox', directive);   // Works for all transports
+}
+```
+
+---
+
+### Sending Directives Across Transports
+
+```
+> tell blog-research to prioritize MDX
+> tell blog-feature to coordinate with blog-research on data structure
+> ask arch-review to approve the state management choice
+```
+
+> **Copilot:**
+>
+> Sending directives...
+>
+> ✓ [meta-squad → blog-research] directive: Prioritize MDX in comparison
+>   → Written to .worktrees/blog-research/.squad/signals/inbox/20260413-directive-mdx.json
+>
+> ✓ [meta-squad → blog-feature] directive: Coordinate with blog-research on data structure
+>   → Written to alex-portfolio-blog-feature/.squad/signals/inbox/20260413-directive-coordinate.json
+>
+> ✓ [meta-squad → arch-review] question: Approve Context API for state management?
+>   → Posted to Teams channel: "arch-review"
+
+**Human can reply directly in Teams:**
+
+Alex opens the Teams channel and sees:
+
+```
+[meta-squad → arch-review] question: Approve Context API for state management?
+
+Current scale: 5 pages, no complex state sharing across routes.
+Picard recommends Context API as sufficient.
+
+Approve? Reply in this thread.
+```
+
+Alex replies: **"Approved — Context API is fine for now. Revisit if we add user accounts."**
+
+Meta-squad sees this as a signal acknowledgment and continues.
+
+---
+
+### Knowledge Flows Across All Teams
+
+When `blog-research` completes its analysis, the learning can flow to both coding teams:
+
+```
+> sync learnings from blog-research to blog-feature and frontend-redesign
+```
+
+> **Copilot:**
+>
+> 🔄 Syncing learnings...
+>
+> From blog-research learning log (directory transport):
+>   - "MDX provides type-safe frontmatter for React blogs" (high confidence)
+>   - "Contentlayer auto-generates types from markdown files" (high confidence)
+>
+> Syncing to:
+>   ✓ blog-feature (worktree transport) — appended to learnings/log.jsonl
+>   ✓ frontend-redesign (worktree transport) — appended to learnings/log.jsonl
+>
+> Teams now have shared context for blog integration.
+
+The transport abstraction makes this seamless — learnings flow through the same interface whether teams use worktrees, directories, or Teams channels.
+
+---
+
+### Why This Matters
+
+Alex's federation has:
+- **2 coding teams** (worktrees) — working on different features, will merge via PRs
+- **1 research team** (directory) — producing analysis docs, no code
+- **1 coordination team** (Teams channel) — involving human approval
+
+**All 4 teams are monitored, directed, and coordinated through the same meta-squad.** The transport layer handles the differences — the meta-squad doesn't care.
+
+This is the power of the transport abstraction: **work determines structure, not the other way around.**
 
 ---
 

@@ -943,6 +943,267 @@ The `watchSignals()` method provides a consistent interface regardless of implem
 
 ---
 
+## 4.3 Onboarding Wizard: Work-Driven Transport Selection
+
+**Design Principle:** Users should never need to understand transport internals. The wizard asks about the team's work, then recommends the right transport automatically.
+
+### Decision Tree
+
+The onboard wizard guides users through a clear, work-first decision tree:
+
+#### Step 1: What will this team work on?
+
+```
+> What will this team work on?
+  1. Features/code in THIS repository
+  2. A different codebase or external project  
+  3. Research, analysis, or document creation
+  4. Coordination across teams or with people
+```
+
+#### Step 2: Based on answer, collect details and auto-select transport
+
+**If 1 (Features/code in this repo):**
+
+```
+> How should this team's work integrate?
+  a. Via pull requests to main (Recommended)
+  b. Direct commits to a shared branch
+```
+
+**→ Transport:** `WorktreeTransport` (auto-selected)  
+**→ Creates:**
+- Git branch: `squad/{team-name}` (or custom prefix)
+- Worktree: `.worktrees/{team-name}/`
+- `.squad/` directory in worktree with isolated state
+- Team can work independently, create PRs, merge back to main
+
+**Why Worktree:**
+- Same repository means shared history, same dependencies
+- Git worktree provides perfect isolation — no coordination overhead
+- PRs flow naturally through git merge
+- Full git audit trail
+- Multiple teams can work on different features in parallel
+
+---
+
+**If 2 (Different codebase or external project):**
+
+```
+> Where is the project?
+  a. Local path: /path/to/project
+  b. Git repo URL: git@github.com:org/repo.git
+```
+
+**If (a) — Existing local checkout:**  
+**→ Transport:** `DirectoryTransport` (pointed at existing directory)  
+**→ Creates:**
+- `.squad/` directory in target location
+- Signal inbox/outbox as JSON files
+- Status tracking in target directory
+- Team works in existing checkout, changes tracked by existing git setup
+
+**If (b) — Remote repository:**  
+**→ Action:** Clone the repository first  
+**→ Transport:** `DirectoryTransport` (pointed at new clone)  
+**→ Creates:**
+- Fresh clone at `../team-name/` or custom location
+- `.squad/` directory in clone
+- Team has independent checkout, can push to origin separately
+
+**Why Directory:**
+- Different codebase means different git history, possibly different organizations
+- Directory transport decouples team workspace from meta-squad's repo
+- Signals still flow through filesystem (meta-squad can reach team's `.squad/` directory)
+- Team can push to its own origin independently
+
+---
+
+**If 3 (Research, analysis, or document creation):**
+
+```
+> Where should outputs be stored?
+  a. In a subfolder of this project (Recommended)
+  b. A separate directory
+```
+
+**→ Transport:** `DirectoryTransport`  
+**→ Creates:**
+- Directory at chosen location (e.g., `.worktrees/research-payments/`)
+- `.squad/` state tracking
+- Archetype templates (e.g., research archetype provides markdown templates, data analysis scripts)
+- Output artifacts stored directly in team directory
+
+**Why Directory:**
+- Non-code work doesn't need git branch isolation
+- Archetype templates guide deliverable format
+- Meta-squad can aggregate outputs by reading team directory
+- Clean separation: deliverables live in team directory, meta-squad tracks progress via `.squad/status.json`
+
+---
+
+**If 4 (Coordination across teams or with people):**
+
+```
+> How should this team communicate?
+  a. Microsoft Teams channel (Recommended if Teams available)
+  b. Local directory for signal files
+```
+
+**If (a) — Teams channel available:**  
+**→ Transport:** `TeamsChannelTransport` (v0.2.0 stretch goal)  
+**→ Creates:**
+- Teams channel for human-readable signal history
+- Meta-squad posts directives as channel messages
+- Team posts status updates and reports back
+- Humans can intervene by posting in structured format
+- Signal format: `[from→to] type: subject` with body
+
+**Why Teams:**
+- Human-in-the-loop coordination requires visibility
+- Built-in notifications (Teams alerts)
+- Works across machines (not filesystem-bound)
+- Meta-squad and humans both see same signal stream
+
+**If (b) — Local directory:**  
+**→ Transport:** `DirectoryTransport`  
+**→ Creates:**
+- Directory with `.squad/signals/` for JSON signal files
+- Works like other directory transports
+
+**Why Directory (fallback):**
+- No Teams access, or team is fully autonomous
+- Filesystem signals still work for coordination
+- Meta-squad can still send directives, read status
+
+---
+
+### Final Confirmation (All Paths)
+
+Before creating the team, show a summary and confirm:
+
+```
+📋 Team Setup Summary:
+   Name: payments
+   Archetype: squad-archetype-coding
+   Location: .worktrees/payments (worktree branch: squad/payments)
+   Transport: Worktree
+   
+   The team will:
+   - Work on code in this repository
+   - Create pull requests to main
+   - Have isolated .squad/ state in its worktree
+   - Accumulate knowledge in learning log
+   
+   Proceed? [Y/n]
+```
+
+If confirmed:
+1. Create transport-specific workspace
+2. Bootstrap `.squad/` directory
+3. Copy archetype `team/` templates
+4. Register in team registry
+5. Initialize signal directories
+6. Cast initial agent team (if archetype provides default)
+7. Commit changes (worktree commits to its branch, directory changes tracked separately)
+
+---
+
+### Wizard Implementation Sketch
+
+```typescript
+// skills/onboard-wizard.ts (pseudo-code)
+
+async function runOnboardWizard() {
+  // Step 1: What will this team work on?
+  const workType = await askMultipleChoice(
+    "What will this team work on?",
+    [
+      "Features/code in THIS repository",
+      "A different codebase or external project",
+      "Research, analysis, or document creation",
+      "Coordination across teams or with people"
+    ]
+  );
+  
+  let transport: TeamTransport;
+  let location: string;
+  
+  // Step 2: Auto-select transport based on work type
+  switch (workType) {
+    case 0: // Same repo
+      const integration = await askMultipleChoice(
+        "How should this team's work integrate?",
+        ["Via pull requests to main (Recommended)", "Direct commits to a shared branch"]
+      );
+      transport = new WorktreeTransport(repoRoot);
+      location = await transport.bootstrap(teamName, archetypeId, { branchPrefix: "squad/" });
+      break;
+      
+    case 1: // Different codebase
+      const projectLocation = await askChoice(
+        "Where is the project?",
+        ["Local path", "Git repo URL"]
+      );
+      if (projectLocation === 0) {
+        const path = await askString("Enter local path:");
+        location = path;
+      } else {
+        const url = await askString("Enter git URL:");
+        location = await cloneRepository(url, `../${teamName}`);
+      }
+      transport = new DirectoryTransport(location);
+      break;
+      
+    case 2: // Research/analysis
+      const outputLocation = await askMultipleChoice(
+        "Where should outputs be stored?",
+        ["In a subfolder of this project (Recommended)", "A separate directory"]
+      );
+      location = outputLocation === 0 
+        ? join(repoRoot, `.worktrees/${teamName}`)
+        : await askString("Enter directory path:");
+      transport = new DirectoryTransport(location);
+      break;
+      
+    case 3: // Coordination
+      const commMethod = await askMultipleChoice(
+        "How should this team communicate?",
+        ["Microsoft Teams channel (Recommended if Teams available)", "Local directory for signal files"]
+      );
+      if (commMethod === 0) {
+        // Create Teams channel
+        const channelId = await createTeamsChannel(teamName);
+        transport = new TeamsChannelTransport(channelId);
+        location = `teams://${channelId}`;
+      } else {
+        location = join(repoRoot, `.worktrees/${teamName}`);
+        transport = new DirectoryTransport(location);
+      }
+      break;
+  }
+  
+  // Show summary and confirm
+  const summary = formatSummary(teamName, archetypeId, location, transport);
+  const confirmed = await askConfirm(summary);
+  
+  if (confirmed) {
+    await onboardTeam(teamName, archetypeId, transport, location);
+  }
+}
+```
+
+### Key Design Decisions
+
+1. **No transport jargon in UI** — Users see "work in this repo" not "choose worktree transport"
+2. **Work-first decision tree** — What the team does determines how it's organized
+3. **Auto-recommendation** — Wizard picks the transport, user just confirms
+4. **Progressive disclosure** — Only ask follow-up questions relevant to the work type
+5. **Summary before commit** — Always show what will be created and why
+6. **Escape hatches** — Expert users can skip wizard and specify transport directly via CLI flag
+
+---
+
 ## 5. Archetype Structure
 
 ### 5.1 Meta vs Team Directory Convention
