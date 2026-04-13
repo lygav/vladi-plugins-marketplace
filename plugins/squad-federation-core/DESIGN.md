@@ -801,6 +801,11 @@ Transport selection happens at team onboard time and is stored in the team regis
 3. Registry entry stores transport type + location
 4. Meta-squad reads through the transport interface — it doesn't care about implementation details
 
+**Onboard Wizard Transport Options (v0.2.0):**
+- **Worktree branch in this repo** (default) — `WorktreeTransport`
+- **Separate directory on filesystem** — `DirectoryTransport`
+- **Microsoft Teams channel** (stretch goal) — `TeamsChannelTransport`
+
 **Helper Utility:**
 
 ```typescript
@@ -828,11 +833,20 @@ export function selectTransport(location: string): TeamTransport {
 
 ---
 
-## 4.2 Future Transport Roadmap
+## 4.2 Transport Roadmap
 
 The transport interface is designed to support multiple backend strategies without protocol changes. This enables federation across diverse deployment environments.
 
-### Planned Transports
+### v0.2.0 Transports
+
+#### DirectoryTransport (v0.2.0) — Standalone Directories (BASE CASE)
+**Status:** Planned  
+**Backend:** Separate directories at any arbitrary path (not git worktrees)  
+**Signals:** Filesystem-based (inbox/outbox as JSON files)  
+**Use Case:** Simple filesystem I/O, base transport class  
+**Pros:** No git dependency, works at any path, foundation for other transports  
+**Cons:** No automatic versioning, manual state management  
+**Inheritance:** Base class — `WorktreeTransport` extends this and adds git operations on top
 
 #### WorktreeTransport (v0.2.0) — Git Worktree Branches
 **Status:** Implemented  
@@ -840,27 +854,30 @@ The transport interface is designed to support multiple backend strategies witho
 **Signals:** Filesystem-based (inbox/outbox as JSON files)  
 **Use Case:** Tightly coupled teams in same repository, full git isolation  
 **Pros:** Zero coordination overhead, permanent state, git-native audit trail  
-**Cons:** Requires all teams in same repo, filesystem-only
+**Cons:** Requires all teams in same repo, filesystem-only  
+**Inheritance:** Extends `DirectoryTransport` — adds git branch/worktree management operations
 
-#### DirectoryTransport (v0.2.0) — Standalone Directories
-**Status:** Planned  
-**Backend:** Separate directories (not git worktrees)  
-**Signals:** Filesystem-based (inbox/outbox as JSON files)  
-**Use Case:** Loosely coupled teams, cross-repo federations  
-**Pros:** No git dependency, works across repositories  
-**Cons:** No automatic versioning, manual state management
-
-#### TeamsChannelTransport (v0.3.0 Vision) — Microsoft Teams Integration
-**Status:** Future Vision  
-**Backend:** Microsoft Teams channel as signal bus  
-**Signals:** Push-based via Teams messages (tagged format: `[from→to] type: subject`)  
+#### TeamsChannelTransport (v0.2.0 STRETCH GOAL) — Microsoft Teams Integration
+**Status:** Stretch Goal for v0.2.0  
+**Backend:** Microsoft Teams channel as signal bus via MCP tools  
+**Signals:** Teams channel messages with tagged format: `[from→to] type: subject`  
 **Use Case:** Distributed teams, human-in-the-loop coordination, cross-machine federations  
 **Pros:**
 - Human-readable signal history
 - Built-in notifications (Teams alerts)
 - Supports manual intervention and approvals
 - Works across machines/clouds
-- Real-time push updates via `watchSignals()`
+- No server infrastructure required — runs locally through MCP
+- Uses existing Teams MCP tools available in Copilot sessions
+
+**MCP Implementation Details:**
+- `writeSignal()` → `PostChannelMessage` with tagged format: `[from→to] type: subject`
+- `readSignals()` / `listSignals()` → `ListChannelMessages` or `SearchTeamMessagesQueryParameters` filtered by tags
+- `writeStatus()` → Update pinned message in channel
+- `readStatus()` → Read pinned message
+- `watchSignals()` → **Poll-based** — calls `ListChannelMessages` every N seconds with time filter (NOT push-based)
+- Incoming webhook can also be used for `writeSignal()` (simpler, no auth needed)
+- Everything runs locally through MCP — no cloud infrastructure required
 
 **Message Format:**
 ```
@@ -877,9 +894,11 @@ Timestamp: 2026-04-13T18:30:00Z
 **Implementation Notes:**
 - Messages are posted to channel with structured tags
 - `listSignals()` queries channel history with filtering
-- `watchSignals()` subscribes to channel events for real-time updates
+- `watchSignals()` polls via MCP every N seconds — the interface abstracts this (consumers don't know if it's polling or push)
 - Acknowledgment via threaded reply or reaction
 - Human operators can intervene by posting messages in same format
+
+### v0.3.0+ Future Vision
 
 #### EventHubTransport (v0.3.0+ Vision) — Azure Event Hub / Pub-Sub
 **Status:** Future Vision  
@@ -909,6 +928,16 @@ This dual approach ensures:
 1. Filesystem transports (worktree, directory) work without modification
 2. Cloud/messaging transports (Teams, EventHub) can provide push notifications
 3. Monitoring and orchestration logic doesn't need to know which transport is in use
+
+**watchSignals() Contract — Transport-Agnostic Interface:**
+
+The `watchSignals()` method provides a consistent interface regardless of implementation strategy:
+
+- **Filesystem transports** — May use `fs.watch()` for native filesystem events OR polling (implementation choice)
+- **TeamsChannelTransport** — Polls via MCP every N seconds (e.g., calls `ListChannelMessages` with time filter)
+- **EventHubTransport (future)** — Real push subscription to event stream
+
+**Key principle:** Consumer code is identical regardless of whether the transport uses native push events, filesystem watchers, or polling. The interface abstracts the mechanism.
 
 **Transport Symmetry:** All transport method names are **non-hierarchical** — they don't imply hub-spoke topology. Methods like `readFile` and `writeFile` are symmetric and work bidirectionally. This supports future mesh architectures where any team can communicate with any other team directly.
 
