@@ -58,6 +58,7 @@ interface ParsedArgs {
   domainId: string;
   baseBranch: string;
   description?: string;
+  archetype?: string;
 }
 
 // ==================== Argument Parsing ====================
@@ -75,6 +76,7 @@ function parseArgs(args: string[]): ParsedArgs {
       case '--domain-id': parsed.domainId = value; i++; break;
       case '--base-branch': parsed.baseBranch = value; i++; break;
       case '--description': parsed.description = value; i++; break;
+      case '--archetype': parsed.archetype = value; i++; break;
     }
   }
 
@@ -83,6 +85,7 @@ function parseArgs(args: string[]): ParsedArgs {
     console.error('  npx tsx scripts/onboard.ts \\');
     console.error('    --name "my-product" \\');
     console.error('    --domain-id "abc-123" \\');
+    console.error('    [--archetype "squad-archetype-deliverable"] \\');
     console.error('    [--description "What this domain covers"] \\');
     console.error('    [--base-branch main]');
     process.exit(1);
@@ -171,7 +174,54 @@ function seedTemplates(worktreePath: string, pluginRoot: string): void {
 
 // ==================== Federation Scaffolding ====================
 
-function scaffoldFederation(worktreePath: string, args: ParsedArgs, config: FederateConfig): void {
+function scaffoldArchetype(worktreePath: string, repoRoot: string, archetypeName: string): void {
+  console.log(`Scaffolding archetype: ${archetypeName}...`);
+
+  const squadDir = path.join(worktreePath, '.squad');
+  const archetypePluginPath = path.join(repoRoot, 'plugins', archetypeName);
+
+  // Write archetype.json
+  const archetypeJson = {
+    name: archetypeName,
+    version: '0.1.0',
+    source: 'vladi-plugins-marketplace',
+    installedAt: new Date().toISOString(),
+  };
+  fs.writeFileSync(path.join(squadDir, 'archetype.json'), JSON.stringify(archetypeJson, null, 2));
+  console.log('  ✓ Wrote .squad/archetype.json');
+
+  // If archetype plugin exists, copy templates
+  if (fs.existsSync(archetypePluginPath)) {
+    const templateDir = path.join(archetypePluginPath, 'templates');
+    if (fs.existsSync(templateDir)) {
+      // Copy launch-prompt-*.md files
+      for (const file of fs.readdirSync(templateDir)) {
+        if (file.startsWith('launch-prompt-') && file.endsWith('.md')) {
+          const src = path.join(templateDir, file);
+          const dest = path.join(squadDir, file);
+          fs.copyFileSync(src, dest);
+          console.log(`  ✓ Copied ${file}`);
+        }
+      }
+
+      // Copy cleanup-hook.sh if it exists
+      const cleanupHookSrc = path.join(templateDir, 'cleanup-hook.sh');
+      if (fs.existsSync(cleanupHookSrc)) {
+        const cleanupHookDest = path.join(squadDir, 'cleanup-hook.sh');
+        fs.copyFileSync(cleanupHookSrc, cleanupHookDest);
+        fs.chmodSync(cleanupHookDest, 0o755);
+        console.log('  ✓ Copied cleanup-hook.sh');
+      }
+    }
+  } else {
+    console.log(`  ⚠️  Archetype plugin '${archetypeName}' not found in plugins/`);
+    console.log('  ℹ️  archetype.json written, but templates not copied');
+  }
+
+  console.log('✓ Archetype scaffolding complete');
+}
+
+function scaffoldFederation(worktreePath: string, repoRoot: string, args: ParsedArgs, config: FederateConfig): void {
   console.log('Scaffolding federation state...');
 
   const squadDir = path.join(worktreePath, '.squad');
@@ -208,6 +258,7 @@ function scaffoldFederation(worktreePath: string, args: ParsedArgs, config: Fede
 **Domain ID:** ${args.domainId}
 ${args.description ? `**Description:** ${args.description}` : ''}
 **Type:** Permanent domain expert squad (federated model)
+${args.archetype ? `**Archetype:** ${args.archetype}` : ''}
 
 ## Signal Protocol
 This squad uses the inter-squad signal protocol:
@@ -218,6 +269,11 @@ This squad uses the inter-squad signal protocol:
   fs.writeFileSync(path.join(worktreePath, 'DOMAIN_CONTEXT.md'), contextMd);
 
   console.log('✓ Federation state scaffolded');
+
+  // Scaffold archetype if specified
+  if (args.archetype) {
+    scaffoldArchetype(worktreePath, repoRoot, args.archetype);
+  }
 }
 
 function cleanMetaSquadFiles(worktreePath: string): void {
@@ -255,7 +311,7 @@ async function main(): Promise<void> {
   seedTemplates(worktreePath, PLUGIN_ROOT);
 
   // Step 4: Scaffold federation state (signals, learnings, ceremonies, telemetry)
-  scaffoldFederation(worktreePath, args, config);
+  scaffoldFederation(worktreePath, REPO_ROOT, args, config);
 
   // Step 5: Let Squad handle team casting
   // Run `squad init` in the worktree — Squad's casting mechanism handles
@@ -282,6 +338,9 @@ Team casting deferred to Squad init on first session."`, { cwd: worktreePath });
   console.log(`\n✅ Domain onboarded: ${domainTitle}`);
   console.log(`   Worktree: ${worktreePath}`);
   console.log(`   Branch: ${branch}`);
+  if (args.archetype) {
+    console.log(`   Archetype: ${args.archetype}`);
+  }
   console.log(`\nNext: npx tsx scripts/launch.ts --team ${args.name}`);
   console.log(`The squad will be cast by Squad on the first session.`);
 }
