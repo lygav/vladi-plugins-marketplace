@@ -181,6 +181,49 @@ Yes, spin off a frontend team for the React redesign
 
 > **Copilot** *(federation-orchestration skill activates):*
 >
+> Great! Let me understand what this team needs.
+>
+> **What's this team's mission?**
+
+**Alex:**
+Build the React redesign — migrate from static HTML to a modern React site
+
+> **Copilot:**
+>
+> Got it. Will they be writing code?
+
+**Alex:**
+Yes
+
+> **Copilot:**
+>
+> In this repository, or a different one?
+
+**Alex:**
+This one
+
+> **Copilot:**
+>
+> Should their changes go through pull requests?
+
+**Alex:**
+Yes
+
+> **Copilot:**
+>
+> 📋 Got it. Setting up:
+>    Name: frontend-redesign
+>    Type: coding team
+>    Location: branch squad/frontend-redesign
+>    Changes via: pull requests to main
+>    
+>    Proceed? [Y/n]
+
+**Alex:**
+Y
+
+> **Copilot:**
+>
 > 🏗️ Onboarding team: **Frontend Redesign**
 >
 > Running `onboard.ts`...
@@ -553,38 +596,33 @@ I need a research team to investigate blogging platforms for the React site
 
 > **Copilot** *(federation-orchestration activates):*
 >
-> Got it. Let's spin up a team for that.
+> Got it. Let me understand what this team needs.
 >
-> **What will this team work on?**
->   1. Features/code in THIS repository
->   2. A different codebase or external project  
->   3. Research, analysis, or document creation  ← Copilot recommends this
->   4. Coordination across teams or with people
+> **What's this team's mission?**
 
 **Alex:**
-3 — they'll produce research docs
+Evaluate blogging platforms and recommend the best one for our React site
 
 > **Copilot:**
 >
-> Perfect. This is analysis work, not code.
->
-> **Where should outputs be stored?**
->   a. In a subfolder of this project (Recommended)
->   b. A separate directory
+> Will they be writing code, or producing research/documents?
 
 **Alex:**
-Subfolder is fine
+Research and analysis docs
 
 > **Copilot:**
 >
-> 📋 Team Setup Summary:
+> Where should their findings live?
+
+**Alex:**
+In this project is fine
+
+> **Copilot:**
+>
+> 📋 Got it. Setting up:
 >    Name: blog-research
->    Archetype: squad-archetype-research (will install)
->    Location: .worktrees/blog-research/ (directory)
->    Transport: Directory
->    
->    The team will produce analysis documents and recommendations.
->    No git branch — outputs stay in the directory.
+>    Type: research team
+>    Output: .worktrees/blog-research/
 >    
 >    Proceed? [Y/n]
 
@@ -610,7 +648,6 @@ Yes
 >
 > ✅ Team onboarded: blog-research
 >    Location: .worktrees/blog-research/
->    Transport: Directory (no git branch)
 > ```
 >
 > 🎬 Team cast:
@@ -621,10 +658,10 @@ Yes
 > | Writer | **Uhura** | Technical documentation |
 > | Reviewer | **Scotty** | Feasibility assessment |
 
-**Why Directory, not Worktree?**
+**Why Directory?**
 - Research outputs are documents (markdown, diagrams), not code
 - No need for git branching or PR workflow
-- Directory transport keeps deliverables organized in one place
+- Directory keeps deliverables organized in one place
 - Meta-squad can still track progress via `.squad/status.json`
 
 ---
@@ -638,30 +675,41 @@ Spin up a team to implement the blog feature — they'll work on code in this re
 
 > **Copilot:**
 >
-> **What will this team work on?**
->   1. Features/code in THIS repository  ← Auto-detected from your request
+> Got it. Let me understand what this team needs.
+>
+> **What's this team's mission?**
 
 **Alex:**
-Yes, 1
+Build the blog feature with article list, detail pages, and markdown rendering
 
 > **Copilot:**
 >
-> **How should this team's work integrate?**
->   a. Via pull requests to main (Recommended)
->   b. Direct commits to a shared branch
+> Will they be writing code?
 
 **Alex:**
-PRs to main
+Yes
 
 > **Copilot:**
 >
-> 📋 Team Setup Summary:
+> In this repository, or a different one?
+
+**Alex:**
+This one
+
+> **Copilot:**
+>
+> Should their changes go through pull requests?
+
+**Alex:**
+Yes
+
+> **Copilot:**
+>
+> 📋 Got it. Setting up:
 >    Name: blog-feature
->    Archetype: squad-archetype-coding
->    Location: .worktrees/blog-feature/ (worktree branch: squad/blog-feature)
->    Transport: Worktree
->    
->    The team will create pull requests to main.
+>    Type: coding team
+>    Location: branch squad/blog-feature
+>    Changes via: pull requests to main
 >    
 >    Proceed? [Y/n]
 
@@ -702,33 +750,33 @@ I want an architecture review team that needs my approval for major decisions
 
 > **Copilot:**
 >
-> This sounds like a coordination team — you'll be involved in the workflow.
+> Got it. Let me understand what this team needs.
 >
-> **What will this team work on?**
->   4. Coordination across teams or with people  ← Recommended
+> **What's this team's mission?**
 
 **Alex:**
-Correct
+Review architecture decisions and get my sign-off before implementation
 
 > **Copilot:**
 >
-> **How should this team communicate?**
->   a. Microsoft Teams channel (Recommended if Teams available)
->   b. Local directory for signal files
+> Will humans be actively participating?
+
+**Alex:**
+Yes, I need to approve decisions
+
+> **Copilot:**
+>
+> How should they communicate — Teams channel or async files?
 
 **Alex:**
 I have Teams — use a channel
 
 > **Copilot:**
 >
-> 📋 Team Setup Summary:
+> 📋 Got it. Setting up:
 >    Name: arch-review
->    Archetype: squad-archetype-coordination
->    Location: Teams channel (arch-review)
->    Transport: TeamsChannel
->    
->    The team will post decisions and questions to Teams.
->    You can respond directly in the channel.
+>    Type: coordination team
+>    Channel: #arch-review in Teams
 >    
 >    Proceed? [Y/n]
 
@@ -746,7 +794,6 @@ Yes
 >
 > ✅ Team onboarded: arch-review
 >    Location: teams://channel-id-abc-123
->    Transport: TeamsChannel
 > ```
 >
 > 🎬 Team cast:

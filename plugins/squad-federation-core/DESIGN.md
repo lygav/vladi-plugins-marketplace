@@ -943,38 +943,44 @@ The `watchSignals()` method provides a consistent interface regardless of implem
 
 ---
 
-## 4.3 Onboarding Wizard: Work-Driven Transport Selection
+## 4.3 Onboarding Wizard: Conversational Discovery
 
-**Design Principle:** Users should never need to understand transport internals. The wizard asks about the team's work, then recommends the right transport automatically.
+**Design Principle:** Users should never need to understand transport internals. The wizard uses natural conversation to reveal intent, then recommends the right transport automatically. Think intake interview, not dropdown menu.
 
-### Decision Tree
+### Conversational Flow
 
-The onboard wizard guides users through a clear, work-first decision tree:
+The onboard wizard discovers team requirements through guiding questions that naturally reveal intent. The first question is always open-ended, follow-ups branch based on the answer.
 
-#### Step 1: What will this team work on?
-
-```
-> What will this team work on?
-  1. Features/code in THIS repository
-  2. A different codebase or external project  
-  3. Research, analysis, or document creation
-  4. Coordination across teams or with people
-```
-
-#### Step 2: Based on answer, collect details and auto-select transport
-
-**If 1 (Features/code in this repo):**
+#### Pattern 1: Coding Team (Same Repo)
 
 ```
-> How should this team's work integrate?
-  a. Via pull requests to main (Recommended)
-  b. Direct commits to a shared branch
+> Spin up a payments team
+
+"What's this team's mission?"
+> Build the payment processing module
+
+"Will they be writing code?"
+> Yes
+
+"In this repository, or a different one?"
+> This one
+
+"Should their changes go through pull requests?"
+> Yes
+
+📋 Got it. Setting up:
+   Name: payments
+   Type: coding team
+   Location: branch squad/payments
+   Changes via: pull requests to main
+   
+   Proceed? [Y/n]
 ```
 
 **→ Transport:** `WorktreeTransport` (auto-selected)  
 **→ Creates:**
-- Git branch: `squad/{team-name}` (or custom prefix)
-- Worktree: `.worktrees/{team-name}/`
+- Git branch: `squad/payments` (or custom prefix)
+- Worktree: `.worktrees/payments/`
 - `.squad/` directory in worktree with isolated state
 - Team can work independently, create PRs, merge back to main
 
@@ -987,51 +993,30 @@ The onboard wizard guides users through a clear, work-first decision tree:
 
 ---
 
-**If 2 (Different codebase or external project):**
+#### Pattern 2: Research Team
 
 ```
-> Where is the project?
-  a. Local path: /path/to/project
-  b. Git repo URL: git@github.com:org/repo.git
-```
+> I need a team to analyze competitor APIs
 
-**If (a) — Existing local checkout:**  
-**→ Transport:** `DirectoryTransport` (pointed at existing directory)  
-**→ Creates:**
-- `.squad/` directory in target location
-- Signal inbox/outbox as JSON files
-- Status tracking in target directory
-- Team works in existing checkout, changes tracked by existing git setup
+"Will they be writing code, or producing research/documents?"
+> Research and analysis docs
 
-**If (b) — Remote repository:**  
-**→ Action:** Clone the repository first  
-**→ Transport:** `DirectoryTransport` (pointed at new clone)  
-**→ Creates:**
-- Fresh clone at `../team-name/` or custom location
-- `.squad/` directory in clone
-- Team has independent checkout, can push to origin separately
+"Where should their findings live?"
+> In this project, under docs/research
 
-**Why Directory:**
-- Different codebase means different git history, possibly different organizations
-- Directory transport decouples team workspace from meta-squad's repo
-- Signals still flow through filesystem (meta-squad can reach team's `.squad/` directory)
-- Team can push to its own origin independently
-
----
-
-**If 3 (Research, analysis, or document creation):**
-
-```
-> Where should outputs be stored?
-  a. In a subfolder of this project (Recommended)
-  b. A separate directory
+📋 Got it. Setting up:
+   Name: api-research
+   Type: research team
+   Output: docs/research/
+   
+   Proceed? [Y/n]
 ```
 
 **→ Transport:** `DirectoryTransport`  
 **→ Creates:**
-- Directory at chosen location (e.g., `.worktrees/research-payments/`)
+- Directory at `docs/research/` (or specified location)
 - `.squad/` state tracking
-- Archetype templates (e.g., research archetype provides markdown templates, data analysis scripts)
+- Archetype templates (markdown templates, data analysis scripts)
 - Output artifacts stored directly in team directory
 
 **Why Directory:**
@@ -1042,15 +1027,63 @@ The onboard wizard guides users through a clear, work-first decision tree:
 
 ---
 
-**If 4 (Coordination across teams or with people):**
+#### Pattern 3: External Project
 
 ```
-> How should this team communicate?
-  a. Microsoft Teams channel (Recommended if Teams available)
-  b. Local directory for signal files
+> Set up a team for the mobile app
+
+"Will they be working in this repository?"
+> No, it's a separate repo
+
+"Where's the project?"
+> /Users/vladi/devel/mobile-app
+
+"Will they need to coordinate with teams here?"
+> Yes, via signals
+
+📋 Got it. Setting up:
+   Name: mobile-app
+   Type: coding team
+   Location: /Users/vladi/devel/mobile-app
+   Signals: connected to this federation
+   
+   Proceed? [Y/n]
 ```
 
-**If (a) — Teams channel available:**  
+**→ Transport:** `DirectoryTransport` (pointed at existing directory)  
+**→ Creates:**
+- `.squad/` directory in target location
+- Signal inbox/outbox as JSON files
+- Status tracking in target directory
+- Team works in existing checkout, changes tracked by existing git setup
+
+**Why Directory:**
+- Different codebase means different git history, possibly different organizations
+- Directory transport decouples team workspace from meta-squad's repo
+- Signals still flow through filesystem (meta-squad can reach team's `.squad/` directory)
+- Team can push to its own origin independently
+
+---
+
+#### Pattern 4: Human Coordination
+
+```
+> I need an architecture review team with humans
+
+"Will humans be actively participating?"
+> Yes, the review board
+
+"How should they communicate — Teams channel or async files?"
+> Teams channel would be great
+
+📋 Got it. Setting up:
+   Name: arch-review
+   Type: coordination team
+   Channel: #arch-review in Teams
+   
+   Proceed? [Y/n]
+```
+
 **→ Transport:** `TeamsChannelTransport` (v0.2.0 stretch goal)  
 **→ Creates:**
 - Teams channel for human-readable signal history
@@ -1065,38 +1098,22 @@ The onboard wizard guides users through a clear, work-first decision tree:
 - Works across machines (not filesystem-bound)
 - Meta-squad and humans both see same signal stream
 
-**If (b) — Local directory:**  
-**→ Transport:** `DirectoryTransport`  
-**→ Creates:**
-- Directory with `.squad/signals/` for JSON signal files
-- Works like other directory transports
-
-**Why Directory (fallback):**
-- No Teams access, or team is fully autonomous
-- Filesystem signals still work for coordination
-- Meta-squad can still send directives, read status
+**Fallback:** If Teams unavailable, automatically falls back to `DirectoryTransport` with local signal files.
 
 ---
 
-### Final Confirmation (All Paths)
+### Branching Logic for Implementers
 
-Before creating the team, show a summary and confirm:
+The conversational flow uses this decision logic:
 
-```
-📋 Team Setup Summary:
-   Name: payments
-   Archetype: squad-archetype-coding
-   Location: .worktrees/payments (worktree branch: squad/payments)
-   Transport: Worktree
-   
-   The team will:
-   - Work on code in this repository
-   - Create pull requests to main
-   - Have isolated .squad/ state in its worktree
-   - Accumulate knowledge in learning log
-   
-   Proceed? [Y/n]
-```
+| First Answer Contains | Follow-up Path |
+|----------------------|----------------|
+| "code", "build", "implement" | Ask: same repo or different? → same: PR or direct? → **WorktreeTransport** or **DirectoryTransport** |
+| "research", "analysis", "document" | Ask: where should outputs live? → **DirectoryTransport** |
+| "coordinate", "humans", "review board" | Ask: Teams channel or files? → **TeamsChannelTransport** or **DirectoryTransport** |
+| repo path, directory path | Infer external project → **DirectoryTransport** |
+
+The system infers transport based on natural language cues. Users never see "WorktreeTransport" or "DirectoryTransport" — they see plain language: "branch", "pull requests", "directory", "channel".
 
 If confirmed:
 1. Create transport-specific workspace

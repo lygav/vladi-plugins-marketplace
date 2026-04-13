@@ -105,110 +105,129 @@ Each layer owns its config:
 
 ## Creating Teams
 
-The onboard wizard asks about the **work**, not the tech. Based on your answers, it auto-selects the right transport and location.
+The onboard wizard uses natural conversation to understand what you're building. Just describe your goal — the wizard asks guiding questions, then sets up the right structure automatically.
 
-### The Happy Path: Code in this repo
+### Example 1: Coding Team (Same Repo)
 
-Most teams work on the same codebase. The wizard asks:
-
-```
-> What will this team work on?
-  1. Features/code in THIS repository  ← Choose this
-
-> How should this team's work integrate?
-  a. Via pull requests to main (Recommended)  ← Choose this
-```
-
-**Result:**
-- **Transport:** Git worktree (automatic choice)
-- **Location:** `.worktrees/{team-name}/` with branch `squad/{team-name}`
-- **Integration:** Team creates PRs → you review → merge to main
-- **Isolation:** Each team has its own `.squad/` directory, no conflicts
-
-**Why worktree:**
-Same repository means shared dependencies and git history. Worktree provides perfect isolation — each team works independently, no coordination overhead. PRs flow through standard git merge.
-
-**Example:**
+Most teams work on the same codebase:
 
 ```
-> @federation spin up a team for payment processing
+> Spin up a payments team
 
-What will this team work on?
-  → Features/code in THIS repository
+"What's this team's mission?"
+> Build the payment processing module
 
-How should this team's work integrate?
-  → Via pull requests to main
+"Will they be writing code?"
+> Yes
 
-📋 Team Setup Summary:
+"In this repository, or a different one?"
+> This one
+
+"Should their changes go through pull requests?"
+> Yes
+
+📋 Got it. Setting up:
    Name: payments
-   Archetype: squad-archetype-coding
-   Location: .worktrees/payments (branch: squad/payments)
-   Transport: Worktree
-   
-   The team will create pull requests to main.
+   Type: coding team
+   Location: branch squad/payments
+   Changes via: pull requests to main
    
    Proceed? [Y/n]
 ```
 
-### Alternative Paths
+**Result:**
+- Git branch: `squad/payments`
+- Location: `.worktrees/payments/`
+- Integration: Team creates PRs → you review → merge to main
+- Isolation: Each team has its own `.squad/` directory, no conflicts
 
-**Different codebase** — Team works on a separate repo (or external project):
-
-```
-> What will this team work on?
-  2. A different codebase or external project
-
-> Where is the project?
-  a. Local path: /Users/alex/other-project
-  OR
-  b. Git repo URL: git@github.com:org/repo.git
-```
-
-→ **Transport:** Directory (points to that location)  
-→ Team works there, meta-squad tracks via `.squad/` in that directory
+**Why this works:** Same repository means shared dependencies and git history. Each team works independently with git worktrees — no coordination overhead, PRs flow naturally through standard git merge.
 
 ---
 
-**Research/analysis** — Team produces documents, not code:
+### Example 2: Research Team
 
 ```
-> What will this team work on?
-  3. Research, analysis, or document creation
+> I need a team to analyze competitor APIs
 
-> Where should outputs be stored?
-  a. In a subfolder of this project (Recommended)
+"Will they be writing code, or producing research/documents?"
+> Research and analysis docs
+
+"Where should their findings live?"
+> In this project, under docs/research
+
+📋 Got it. Setting up:
+   Name: api-research
+   Type: research team
+   Output: docs/research/
+   
+   Proceed? [Y/n]
 ```
 
-→ **Transport:** Directory  
-→ Deliverables stored in team directory, meta-squad aggregates results
+**Result:** Team produces research documents in `docs/research/`, meta-squad aggregates findings.
 
 ---
 
-**Coordination** — Team coordinates with humans or across machines:
+### Example 3: External Project
 
 ```
-> What will this team work on?
-  4. Coordination across teams or with people
+> Set up a team for the mobile app
 
-> How should this team communicate?
-  a. Microsoft Teams channel (Recommended if Teams available)
+"Will they be working in this repository?"
+> No, it's a separate repo
+
+"Where's the project?"
+> /Users/vladi/devel/mobile-app
+
+"Will they need to coordinate with teams here?"
+> Yes, via signals
+
+📋 Got it. Setting up:
+   Name: mobile-app
+   Type: coding team
+   Location: /Users/vladi/devel/mobile-app
+   Signals: connected to this federation
+   
+   Proceed? [Y/n]
 ```
 
-→ **Transport:** Teams channel *(v0.2.0 stretch goal)*  
-→ Signals visible to humans, meta-squad + team + people all see same stream  
-→ Fallback: local directory if Teams unavailable
+**Result:** Team works in external directory, coordinates with your other teams through the signal protocol.
 
 ---
 
-### Transport Comparison
+### Example 4: Human Coordination
 
-| Transport | When to use | Example |
-|-----------|-------------|---------|
-| **Worktree** | Same repo, multiple teams building features | Frontend team, backend team both work on monorepo |
-| **Directory** | Different repo, research, analysis | Team analyzes external project, deliverable team produces JSON output |
-| **Teams Channel** | Human coordination, distributed work | Architecture review team with human approvals |
+```
+> I need an architecture review team with humans
 
-**Bottom line:** The wizard handles transport selection. Just describe the work — it'll set up the right structure.
+"Will humans be actively participating?"
+> Yes, the review board
+
+"How should they communicate — Teams channel or async files?"
+> Teams channel would be great
+
+📋 Got it. Setting up:
+   Name: arch-review
+   Type: coordination team
+   Channel: #arch-review in Teams
+   
+   Proceed? [Y/n]
+```
+
+**Result:** Team coordinates via Teams channel *(v0.2.0 stretch goal)* — AI agents and humans collaborate in the same conversation.
+
+---
+
+### Quick Reference
+
+| Team Type | Example Use Case |
+|-----------|------------------|
+| **Same repo coding** | Frontend team, backend team both working on monorepo |
+| **External project** | Team working on separate mobile app repo |
+| **Research** | Team analyzing competitors, producing design docs |
+| **Coordination** | Architecture review with human participants |
+
+**Bottom line:** Just describe what you're building. The wizard asks questions, infers the right setup, you confirm.
 
 ## Features
 
