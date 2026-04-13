@@ -11,6 +11,6 @@
     "declaration": true,
     "resolveJsonModule": true
   },
-  "include": ["*.ts", "lib/*.ts"],
+  "include": ["*.ts", "lib/*.ts", "sdk/*.ts", "__tests__/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
