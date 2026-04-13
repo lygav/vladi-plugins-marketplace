@@ -16,6 +16,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { LearningLog, LearningEntry } from './lib/learning-log.js';
+import { listSquadBranches } from './lib/discovery.js';
 
 const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
 const BRANCH_PREFIX = process.env.FEDERATE_BRANCH_PREFIX || 'squad/';
@@ -40,17 +41,11 @@ const flags = {
 // ==================== Discovery ====================
 
 function discoverBranches(): string[] {
-  try {
-    const output = execSync(`git branch --list '${BRANCH_PREFIX}*' --format='%(refname:short)'`, {
-      cwd: REPO_ROOT,
-      encoding: 'utf-8',
-    });
-
-    return output.trim().split('\n').filter(b => b.length > 0);
-  } catch (err) {
-    console.error('⚠️  Failed to list branches:', err);
-    return [];
+  const branches = listSquadBranches(REPO_ROOT, BRANCH_PREFIX);
+  if (branches.length === 0) {
+    console.error('⚠️  Failed to list branches');
   }
+  return branches;
 }
 
 // ==================== Collection ====================

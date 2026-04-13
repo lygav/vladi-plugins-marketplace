@@ -14,6 +14,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { LearningLog, LearningEntry } from './lib/learning-log.js';
+import { listSquadBranches, getWorktreeForBranch } from './lib/discovery.js';
 
 const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
 const DECISIONS_INBOX = path.join(REPO_ROOT, '.squad', 'decisions', 'inbox');
@@ -38,17 +39,11 @@ const flags = {
 // ==================== Discovery ====================
 
 function discoverBranches(): string[] {
-  try {
-    const output = execSync(`git branch --list '${BRANCH_PREFIX}*' --format='%(refname:short)'`, {
-      cwd: REPO_ROOT,
-      encoding: 'utf-8',
-    });
-
-    return output.trim().split('\n').filter(b => b.length > 0);
-  } catch (err) {
-    console.error('⚠️  Failed to list branches:', err);
-    return [];
+  const branches = listSquadBranches(REPO_ROOT, BRANCH_PREFIX);
+  if (branches.length === 0) {
+    console.error('⚠️  Failed to list branches');
   }
+  return branches;
 }
 
 function findLearningById(branches: string[], learningId: string): { entry: LearningEntry; domain: string; branch: string } | null {
@@ -231,32 +226,7 @@ function markAsGraduated(branches: string[], learningId: string, skill: string):
 }
 
 function getWorktreePath(branch: string): string | null {
-  try {
-    const output = execSync('git worktree list --porcelain', {
-      cwd: REPO_ROOT,
-      encoding: 'utf-8',
-    });
-
-    const lines = output.trim().split('\n');
-    let currentPath: string | null = null;
-
-    for (const line of lines) {
-      if (line.startsWith('worktree ')) {
-        currentPath = line.substring('worktree '.length);
-      } else if (line.startsWith('branch ')) {
-        const branchName = line.substring('branch refs/heads/'.length);
-        if (branchName === branch && currentPath) {
-          return currentPath;
-        }
-      } else if (line === '') {
-        currentPath = null;
-      }
-    }
-  } catch (err) {
-    console.error('⚠️  Failed to list worktrees:', err);
-  }
-
-  return null;
+  return getWorktreeForBranch(branch, REPO_ROOT);
 }
 
 // ==================== Reporting ====================
