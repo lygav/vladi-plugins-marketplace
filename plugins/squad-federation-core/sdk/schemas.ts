@@ -48,6 +48,7 @@ export const SignalMessageSchema = z.object({
 export const LearningEntrySchema = z.object({
   id: z.string(),
   timestamp: z.string(),
+  version: z.string(),
   type: z.enum(['discovery', 'correction', 'pattern', 'technique', 'gotcha']),
   content: z.string(),
   confidence: z.enum(['low', 'medium', 'high']),

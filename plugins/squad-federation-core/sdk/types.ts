@@ -233,6 +233,17 @@ export interface SignalMessage {
 export interface LearningEntry {
   id: string;
   timestamp: string;
+  /**
+   * Schema version for this learning entry.
+   * 
+   * When the learning log schema evolves (new fields, changed semantics, renamed fields),
+   * bump the version number so readers can distinguish old from new format and apply
+   * migrations as needed.
+   * 
+   * - Version "1.0" — Current baseline schema
+   * - Future versions should document schema changes in the version history
+   */
+  version: string;
   type: 'discovery' | 'correction' | 'pattern' | 'technique' | 'gotcha';
   content: string;
   confidence: 'low' | 'medium' | 'high';

@@ -17,6 +17,12 @@ export type LearningType = 'discovery' | 'correction' | 'pattern' | 'technique' 
 export interface LearningEntry {
   id: string;
   ts: string;
+  /**
+   * Schema version for this learning entry.
+   * Allows readers to distinguish format versions and apply migrations.
+   * Current version: "1.0"
+   */
+  version: string;
   type: LearningType;
   agent: string;
   domain?: string;
@@ -34,6 +40,22 @@ export interface LearningEntry {
 
 // ==================== LearningLog Class ====================
 
+/**
+ * Current learning log format version.
+ */
+const CURRENT_VERSION = '1.0';
+
+/**
+ * Migrate an old entry to the current version format.
+ * Adds version field to entries that don't have one.
+ */
+function migrateEntry(entry: any): LearningEntry {
+  if (!entry.version) {
+    entry.version = CURRENT_VERSION;
+  }
+  return entry as LearningEntry;
+}
+
 export class LearningLog {
   private logPath: string;
 
@@ -45,11 +67,12 @@ export class LearningLog {
     this.logPath = path.join(learningsDir, 'log.jsonl');
   }
 
-  append(entry: Omit<LearningEntry, 'id' | 'ts'>): LearningEntry {
+  append(entry: Omit<LearningEntry, 'id' | 'ts' | 'version'>): LearningEntry {
     const full: LearningEntry = {
       ...entry,
       id: `learn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       ts: new Date().toISOString(),
+      version: CURRENT_VERSION,
     };
     fs.appendFileSync(this.logPath, JSON.stringify(full) + '\n');
     return full;
@@ -67,7 +90,12 @@ export class LearningLog {
 
     const lines = fs.readFileSync(this.logPath, 'utf-8').trim().split('\n').filter(Boolean);
     let entries: LearningEntry[] = lines.map(line => {
-      try { return JSON.parse(line); } catch { return null; }
+      try {
+        const parsed = JSON.parse(line);
+        return migrateEntry(parsed);
+      } catch {
+        return null;
+      }
     }).filter((e): e is LearningEntry => e !== null);
 
     if (filters) {
@@ -101,7 +129,12 @@ export class LearningLog {
         { cwd: root, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
       );
       return content.trim().split('\n').filter(Boolean).map(line => {
-        try { return JSON.parse(line); } catch { return null; }
+        try {
+          const parsed = JSON.parse(line);
+          return migrateEntry(parsed);
+        } catch {
+          return null;
+        }
       }).filter((e): e is LearningEntry => e !== null);
     } catch {
       return [];
