@@ -160,6 +160,59 @@ async function exportOtlp(path: string, data: any): Promise<void> {
   }
 }
 
+// ==================== Graceful Shutdown ====================
+
+let isShuttingDown = false;
+
+async function flushAllActiveSpans(): Promise<void> {
+  if (activeSpans.size === 0) return;
+
+  console.error(`[OTel MCP] Flushing ${activeSpans.size} active span(s)...`);
+  const flushPromises: Promise<void>[] = [];
+
+  for (const [name, spanData] of activeSpans.entries()) {
+    const promise = exportOtlp('/v1/traces', formatOTLPTrace({
+      name, traceId: generateTraceId(), spanId: generateSpanId(),
+      startTime: spanData.startTime, endTime: nanoTime(),
+      status: 'ok', attributes: spanData.attributes,
+    }));
+    flushPromises.push(promise);
+  }
+
+  await Promise.all(flushPromises);
+  activeSpans.clear();
+}
+
+async function gracefulShutdown(signal: string): Promise<void> {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
+  console.error(`[OTel MCP] Received ${signal}, shutting down gracefully...`);
+
+  // Stop accepting new requests
+  process.stdin.pause();
+
+  // Flush pending spans with timeout
+  const FLUSH_TIMEOUT_MS = 2000;
+  try {
+    await Promise.race([
+      flushAllActiveSpans(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Flush timeout')), FLUSH_TIMEOUT_MS)
+      ),
+    ]);
+    console.error('[OTel MCP] All spans flushed successfully');
+  } catch (err) {
+    console.error('[OTel MCP] Flush failed or timed out:', err instanceof Error ? err.message : String(err));
+  }
+
+  console.error('[OTel MCP] Shutdown complete');
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => { gracefulShutdown('SIGTERM'); });
+process.on('SIGINT', () => { gracefulShutdown('SIGINT'); });
+
 // ==================== MCP Tool Handlers ====================
 
 const SEVERITY_MAP: Record<string, { text: string; number: number }> = {
@@ -285,6 +338,12 @@ function respond(id: string | number | undefined, result?: any, error?: { code: 
 
 async function handleRequest(msg: JsonRpcRequest): Promise<void> {
   const { method, params, id } = msg;
+
+  // Reject new requests during shutdown
+  if (isShuttingDown) {
+    respond(id, undefined, { code: -32000, message: 'Server is shutting down' });
+    return;
+  }
 
   if (method === 'initialize') {
     respond(id, {
