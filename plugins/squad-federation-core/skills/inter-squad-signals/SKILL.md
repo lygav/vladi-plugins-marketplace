@@ -33,11 +33,13 @@ The `status.json` file is the heartbeat of each domain squad. The domain writes 
 interface ScanStatus {
   domain: string;         // Domain name (e.g., "payments")
   domain_id: string;      // Unique identifier for the domain
-  state: 'initializing' | 'working' | 'reviewing' | 'complete' | 'failed' | 'paused';
+  state: string;          // Current state — runtime-validated against archetype.json states
+                          // Generic defaults: 'preparing' | 'working' | 'complete' | 'failed' | 'paused' | 'waiting for feedback' | 'finished'
+                          // Actual states defined by archetype plugin via archetype.json
   step: string;           // Current playbook step (e.g., "analysis")
   started_at: string;     // ISO 8601 timestamp — when the work began
   updated_at: string;     // ISO 8601 timestamp — last status write
-  completed_at?: string;  // ISO 8601 timestamp — when state became 'complete'
+  completed_at?: string;  // ISO 8601 timestamp — when state became 'complete' or 'finished'
   progress_pct?: number;  // 0-100, optional progress indicator
   error?: string;         // Error message when state is 'failed'
   agent_active?: string;  // Name of the currently active agent
@@ -46,20 +48,27 @@ interface ScanStatus {
 
 ### State Machine
 
+**Note:** These are generic default states for reference. Archetype plugins define their actual lifecycle states via the `states` field in `archetype.json` — core validates at runtime.
+
+Generic default progression:
 ```
-initializing → working → reviewing → complete
-                  ↓          ↓
-                failed     failed
-                  ↓
-                paused → working (resume)
+preparing → working → waiting for feedback → finished
+               ↓              ↓
+            failed         failed
+               ↓
+            paused → working (resume)
 ```
 
-- **initializing**: infrastructure is being set up, environment prepared
+Generic default states:
+- **preparing**: infrastructure is being set up, environment prepared
 - **working**: actively executing work steps (archetype-specific playbook)
-- **reviewing**: validating outputs and performing quality checks
-- **complete**: work is done, outputs finalized
+- **waiting for feedback**: awaiting input, review, or approval before proceeding
+- **complete**: work phase complete (archetype-specific milestone reached)
+- **finished**: all work done, outputs finalized
 - **failed**: an unrecoverable error occurred (check `error` field)
 - **paused**: manually paused via directive, awaiting resume
+
+Archetype plugins may define additional states or use a different state machine. Always refer to the archetype's `archetype.json` for the authoritative state definitions.
 
 ### Writing Status
 
@@ -71,7 +80,7 @@ import { writeStatus } from '${CLAUDE_PLUGIN_ROOT}/scripts/lib/signals.js';
 writeStatus(worktreePath, {
   domain: 'my-product',
   domain_id: 'prod-001',
-  state: 'working',
+  state: 'working',  // Must match a state defined in archetype.json
   step: 'analysis',
   started_at: '2024-01-15T10:00:00.000Z',
   updated_at: new Date().toISOString(),

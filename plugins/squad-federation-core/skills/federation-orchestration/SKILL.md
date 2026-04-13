@@ -69,7 +69,7 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/launch.ts --team payments --reset
 ```
 
 Modes:
-- **First scan** (no flags): starts from the beginning of the playbook. Initializes signals, sets state to `initializing`.
+- **First scan** (no flags): starts from the beginning of the playbook. Initializes signals, sets state to `preparing`.
 - **Step targeting** (`--step <name>`): resumes or jumps to a specific playbook step. Useful when a domain squad stalled or needs to redo a phase.
 - **Reset** (`--reset`): wipes outputs and signals, restarts from scratch. Use when a domain's data is stale or fundamentally wrong.
 - **All** (`--all`): launches every onboarded domain in parallel. Each gets its own detached session.

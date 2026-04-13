@@ -74,7 +74,7 @@ otel_metric name="output.size_bytes" value=15234 attributes={"squad.domain": "pa
 
 Use events to mark significant points in time. Events are like log entries but structured and correlated with the trace.
 
-**When to use:** At milestone transitions — step changes, state transitions, important decisions, external interactions.
+**When to use:** At milestone transitions — step changes, state transitions (including `waiting for feedback`, `finished`), important decisions, external interactions.
 
 ```
 otel_event name="step.transition" attributes={"squad.domain": "payments", "from_step": "discovery", "to_step": "analysis"}
@@ -232,7 +232,7 @@ otel_metric name="learnings.recorded" value=1 attributes={"learning.type": "patt
 ```
 otel_metric name="scan.duration_seconds" value=N
 otel_metric name="scan.findings_count" value=N
-otel_event name="scan.completed" attributes={"squad.domain": "...", "scan.state": "complete"}
+otel_event name="scan.completed" attributes={"squad.domain": "...", "scan.state": "finished"}
 otel_span end name="scan.full" status="ok"
 ```
 
