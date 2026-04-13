@@ -33,7 +33,7 @@ const CONFIG_PATH = path.join(REPO_ROOT, 'federate.config.json');
 const config = loadAndValidateConfig(CONFIG_PATH);
 
 // Ensure deliverable field is set (apply env var fallback if needed)
-const DELIVERABLE = DELIVERABLE || process.env.FEDERATE_DELIVERABLE || 'deliverable.json';
+const DELIVERABLE = config.deliverable || process.env.FEDERATE_DELIVERABLE || 'deliverable.json';
 const AGGREGATION_DIR = path.join(REPO_ROOT, '.squad', 'aggregation');
 const COLLECTED_DIR = path.join(AGGREGATION_DIR, 'collected');
 const MANIFEST_PATH = path.join(AGGREGATION_DIR, 'manifest.json');
@@ -528,7 +528,7 @@ function main(): void {
 
   // Validate deliverables against schema if --validate or deliverableSchema configured
   const validationResults = new Map<string, { valid: boolean; errors: string[] }>();
-  const schemaPath = DELIVERABLESchema;
+  const schemaPath = config.deliverableSchema;
 
   if (flags.validate || schemaPath) {
     if (!schemaPath) {
