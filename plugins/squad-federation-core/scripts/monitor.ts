@@ -25,6 +25,7 @@ import {
   SignalMessage,
   DomainWorktree,
 } from './lib/signals.js';
+import { loadAndValidateConfig } from './lib/config.js';
 
 // ==================== Configuration ====================
 
@@ -96,15 +97,9 @@ function readRecentLearnings(worktreePath: string, limit: number = 3): string[] 
 }
 
 function getDeliverableFilename(): string {
-  // Check for config-based deliverable name
-  const configPath = path.join(REPO_ROOT, 'federate.config.json');
-  if (fs.existsSync(configPath)) {
-    try {
-      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      if (config.deliverable) return config.deliverable;
-    } catch { /* fall through */ }
-  }
-  return process.env.FEDERATE_DELIVERABLE || 'deliverable.json';
+  // Use validated config
+  const config = loadAndValidateConfig(path.join(REPO_ROOT, 'federate.config.json'));
+  return config.deliverable || process.env.FEDERATE_DELIVERABLE || 'deliverable.json';
 }
 
 function gatherStatus(): DomainStatus[] {
