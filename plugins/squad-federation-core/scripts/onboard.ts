@@ -14,8 +14,8 @@
  * native casting mechanism — this script does NOT prescribe roles.
  *
  * Usage:
- *   npx tsx scripts/onboard.ts --name "my-product" --domain-id "abc-123"
- *   npx tsx scripts/onboard.ts --name "my-product" --domain-id "abc-123" --base-branch main
+ *   npx tsx scripts/onboard.ts --name "my-product" --domain-id "abc-123" --archetype "squad-archetype-deliverable"
+ *   npx tsx scripts/onboard.ts --name "my-product" --domain-id "abc-123" --archetype "squad-archetype-deliverable" --base-branch main
  */
 
 import { execSync } from 'child_process';
@@ -53,11 +53,19 @@ function loadConfig(): FederateConfig {
 
 // ==================== Types ====================
 
+interface ArchetypeMetadata {
+  name: string;
+  version: string;
+  source: string;
+  installedAt: string;
+}
+
 interface ParsedArgs {
   name: string;
   domainId: string;
   baseBranch: string;
   description?: string;
+  archetype: string;
 }
 
 // ==================== Argument Parsing ====================
@@ -75,16 +83,25 @@ function parseArgs(args: string[]): ParsedArgs {
       case '--domain-id': parsed.domainId = value; i++; break;
       case '--base-branch': parsed.baseBranch = value; i++; break;
       case '--description': parsed.description = value; i++; break;
+      case '--archetype': parsed.archetype = value; i++; break;
     }
   }
 
-  if (!parsed.name || !parsed.domainId) {
+  if (!parsed.name || !parsed.domainId || !parsed.archetype) {
     console.error('Usage:');
     console.error('  npx tsx scripts/onboard.ts \\');
     console.error('    --name "my-product" \\');
     console.error('    --domain-id "abc-123" \\');
+    console.error('    --archetype "squad-archetype-deliverable" \\');
     console.error('    [--description "What this domain covers"] \\');
     console.error('    [--base-branch main]');
+    process.exit(1);
+  }
+
+  // Validate archetype name format to prevent path traversal
+  const ARCHETYPE_NAME_REGEX = /^[a-z0-9][a-z0-9-]*$/;
+  if (!ARCHETYPE_NAME_REGEX.test(parsed.archetype)) {
+    console.error('Error: Invalid archetype name. Use lowercase alphanumeric with hyphens only.');
     process.exit(1);
   }
 
@@ -171,7 +188,66 @@ function seedTemplates(worktreePath: string, pluginRoot: string): void {
 
 // ==================== Federation Scaffolding ====================
 
-function scaffoldFederation(worktreePath: string, args: ParsedArgs, config: FederateConfig): void {
+function scaffoldArchetype(worktreePath: string, repoRoot: string, archetypeName: string): void {
+  console.log(`Scaffolding archetype: ${archetypeName}...`);
+
+  const squadDir = path.join(worktreePath, '.squad');
+  const archetypePluginPath = path.join(repoRoot, 'plugins', archetypeName);
+
+  // Try to read version from archetype's plugin.json
+  const pluginJsonPath = path.join(repoRoot, 'plugins', archetypeName, 'plugin.json');
+  let version = '0.1.0'; // fallback
+  try {
+    const pluginJson = JSON.parse(fs.readFileSync(pluginJsonPath, 'utf-8'));
+    version = pluginJson.version || '0.1.0';
+  } catch { /* use fallback */ }
+
+  // Write archetype.json
+  const archetypeJson: ArchetypeMetadata = {
+    name: archetypeName,
+    version,
+    source: 'vladi-plugins-marketplace',
+    installedAt: new Date().toISOString(),
+  };
+  fs.writeFileSync(path.join(squadDir, 'archetype.json'), JSON.stringify(archetypeJson, null, 2));
+  console.log('  ✓ Wrote .squad/archetype.json');
+
+  // If archetype plugin exists, copy templates
+  try {
+    if (fs.existsSync(archetypePluginPath)) {
+      const templateDir = path.join(archetypePluginPath, 'templates');
+      if (fs.existsSync(templateDir)) {
+        // Copy launch-prompt-*.md files
+        for (const file of fs.readdirSync(templateDir)) {
+          if (file.startsWith('launch-prompt-') && file.endsWith('.md')) {
+            const src = path.join(templateDir, file);
+            const dest = path.join(squadDir, file);
+            fs.copyFileSync(src, dest);
+            console.log(`  ✓ Copied ${file}`);
+          }
+        }
+
+        // Copy cleanup-hook.sh if it exists
+        const cleanupHookSrc = path.join(templateDir, 'cleanup-hook.sh');
+        if (fs.existsSync(cleanupHookSrc)) {
+          const cleanupHookDest = path.join(squadDir, 'cleanup-hook.sh');
+          fs.copyFileSync(cleanupHookSrc, cleanupHookDest);
+          fs.chmodSync(cleanupHookDest, 0o755);
+          console.log('  ✓ Copied cleanup-hook.sh');
+        }
+      }
+    } else {
+      console.log(`  ⚠️  Archetype plugin '${archetypeName}' not found in plugins/`);
+      console.log('  ℹ️  archetype.json written, but templates not copied');
+    }
+  } catch (err) {
+    console.warn(`⚠ Template copy failed: ${err}. archetype.json was written but templates may be incomplete.`);
+  }
+
+  console.log('✓ Archetype scaffolding complete');
+}
+
+function scaffoldFederation(worktreePath: string, repoRoot: string, args: ParsedArgs, config: FederateConfig): void {
   console.log('Scaffolding federation state...');
 
   const squadDir = path.join(worktreePath, '.squad');
@@ -208,6 +284,7 @@ function scaffoldFederation(worktreePath: string, args: ParsedArgs, config: Fede
 **Domain ID:** ${args.domainId}
 ${args.description ? `**Description:** ${args.description}` : ''}
 **Type:** Permanent domain expert squad (federated model)
+**Archetype:** ${args.archetype}
 
 ## Signal Protocol
 This squad uses the inter-squad signal protocol:
@@ -218,6 +295,9 @@ This squad uses the inter-squad signal protocol:
   fs.writeFileSync(path.join(worktreePath, 'DOMAIN_CONTEXT.md'), contextMd);
 
   console.log('✓ Federation state scaffolded');
+
+  // Scaffold archetype (always required for federated teams)
+  scaffoldArchetype(worktreePath, repoRoot, args.archetype);
 }
 
 function cleanMetaSquadFiles(worktreePath: string): void {
@@ -255,7 +335,7 @@ async function main(): Promise<void> {
   seedTemplates(worktreePath, PLUGIN_ROOT);
 
   // Step 4: Scaffold federation state (signals, learnings, ceremonies, telemetry)
-  scaffoldFederation(worktreePath, args, config);
+  scaffoldFederation(worktreePath, REPO_ROOT, args, config);
 
   // Step 5: Let Squad handle team casting
   // Run `squad init` in the worktree — Squad's casting mechanism handles
@@ -282,6 +362,7 @@ Team casting deferred to Squad init on first session."`, { cwd: worktreePath });
   console.log(`\n✅ Domain onboarded: ${domainTitle}`);
   console.log(`   Worktree: ${worktreePath}`);
   console.log(`   Branch: ${branch}`);
+  console.log(`   Archetype: ${args.archetype}`);
   console.log(`\nNext: npx tsx scripts/launch.ts --team ${args.name}`);
   console.log(`The squad will be cast by Squad on the first session.`);
 }
