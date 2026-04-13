@@ -56,7 +56,7 @@ describe('MockTransport', () => {
       const status = createTestStatus({
         domain: 'team-alpha',
         state: 'scanning',
-        message: 'In progress',
+        step: 'analysis',
       });
       
       await transport.writeFile('team-alpha', '.squad/status.json', JSON.stringify(status));
@@ -165,6 +165,53 @@ describe('MockTransport', () => {
       expect(teams).toContain('team-alpha');
       expect(teams).toContain('team-beta');
       expect(teams).toContain('team-gamma');
+    });
+  });
+  
+  describe('workspace operations', () => {
+    it('should check workspace existence', async () => {
+      expect(await transport.workspaceExists('team-alpha')).toBe(false);
+      
+      await transport.writeFile('team-alpha', 'test.txt', 'content');
+      
+      expect(await transport.workspaceExists('team-alpha')).toBe(true);
+    });
+    
+    it('should get workspace location', async () => {
+      const location = await transport.getLocation('team-alpha');
+      expect(location).toBe('/mock/workspace/team-alpha');
+    });
+    
+    it('should list all files in workspace', async () => {
+      await transport.writeFile('team-alpha', 'file1.txt', 'content1');
+      await transport.writeFile('team-alpha', 'dir/file2.txt', 'content2');
+      await transport.writeFile('team-alpha', 'dir/file3.txt', 'content3');
+      
+      const allFiles = await transport.listFiles('team-alpha');
+      expect(allFiles).toHaveLength(3);
+      expect(allFiles).toContain('file1.txt');
+      expect(allFiles).toContain('dir/file2.txt');
+      
+      const dirFiles = await transport.listFiles('team-alpha', 'dir');
+      expect(dirFiles).toHaveLength(2);
+      expect(dirFiles.every(f => f.startsWith('dir/'))).toBe(true);
+    });
+    
+    it('should bootstrap a team workspace', async () => {
+      await transport.bootstrap('team-alpha', 'deliverable', { 
+        owner: 'test-user',
+        priority: 'high' 
+      });
+      
+      expect(await transport.workspaceExists('team-alpha')).toBe(true);
+      
+      const configContent = await transport.readFile('team-alpha', '.squad/config.json');
+      expect(configContent).not.toBeNull();
+      
+      const config = JSON.parse(configContent!);
+      expect(config.archetypeId).toBe('deliverable');
+      expect(config.owner).toBe('test-user');
+      expect(config.priority).toBe('high');
     });
   });
 });

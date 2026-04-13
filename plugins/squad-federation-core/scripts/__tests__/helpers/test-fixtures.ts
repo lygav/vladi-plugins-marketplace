@@ -11,11 +11,13 @@ import type { ScanStatus, SignalMessage, LearningEntry } from './mock-transport.
 export function createTestSignal(overrides?: Partial<SignalMessage>): SignalMessage {
   const defaults: SignalMessage = {
     id: `signal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    timestamp: new Date().toISOString(),
     from: 'meta',
     to: 'team-alpha',
     type: 'directive',
-    payload: { action: 'scan', priority: 'normal' },
-    timestamp: new Date().toISOString(),
+    subject: 'Test directive',
+    body: 'Test message body',
+    protocol: 'v1',
   };
   
   return { ...defaults, ...overrides };
@@ -27,8 +29,12 @@ export function createTestSignal(overrides?: Partial<SignalMessage>): SignalMess
 export function createTestStatus(overrides?: Partial<ScanStatus>): ScanStatus {
   const defaults: ScanStatus = {
     domain: 'team-alpha',
+    domain_id: 'alpha',
     state: 'idle',
+    step: 'init',
+    started_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
+    archetype_id: 'deliverable',
   };
   
   return { ...defaults, ...overrides };
@@ -41,9 +47,9 @@ export function createTestLearning(overrides?: Partial<LearningEntry>): Learning
   const defaults: LearningEntry = {
     id: `learning-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     timestamp: new Date().toISOString(),
-    domain: 'team-alpha',
-    category: 'pattern',
+    type: 'pattern',
     content: 'Test learning content',
+    confidence: 'medium',
   };
   
   return { ...defaults, ...overrides };
@@ -120,28 +126,18 @@ export function createTeamSeed(teamId: string, state: ScanStatus['state'] = 'idl
 }
 
 /**
- * Create signal message payloads for common directive types.
+ * Create signal message bodies for common directive types.
  */
-export const signalPayloads = {
-  scan: (priority: 'low' | 'normal' | 'high' = 'normal') => ({
-    action: 'scan',
-    priority,
-  }),
+export const signalBodies = {
+  scan: (priority: 'low' | 'normal' | 'high' = 'normal') => 
+    `Start scanning with ${priority} priority`,
   
-  report: (summary: string, metrics?: Record<string, unknown>) => ({
-    action: 'report',
-    summary,
-    metrics,
-  }),
+  report: (summary: string, metrics?: Record<string, unknown>) => 
+    `Report: ${summary}${metrics ? '\n' + JSON.stringify(metrics) : ''}`,
   
-  ack: (originalSignalId: string, status: 'received' | 'processing' | 'completed' | 'failed') => ({
-    action: 'ack',
-    originalSignalId,
-    status,
-  }),
+  ack: (originalSignalId: string, status: 'received' | 'processing' | 'completed' | 'failed') => 
+    `Acknowledgment for ${originalSignalId}: ${status}`,
   
-  query: (question: string) => ({
-    action: 'query',
-    question,
-  }),
+  query: (question: string) => 
+    `Query: ${question}`,
 };

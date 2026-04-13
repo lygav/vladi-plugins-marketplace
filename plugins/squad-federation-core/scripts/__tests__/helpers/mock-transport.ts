@@ -3,34 +3,48 @@
  * Implements the TeamTransport interface from DESIGN.md spec.
  */
 
-// Temporary types until SDK is created in #27
+// Types from SDK (PR #39)
 export interface ScanStatus {
   domain: string;
-  state: 'idle' | 'scanning' | 'waiting' | 'blocked' | 'done';
+  domain_id: string;
+  state: string;
+  step: string;
+  started_at: string;
   updated_at: string;
-  message?: string;
+  completed_at?: string;
+  progress_pct?: number;
+  error?: string;
+  agent_active?: string;
+  archetype_id: string;
 }
 
 export interface SignalMessage {
   id: string;
+  timestamp: string;
   from: string;
   to: string;
-  type: 'directive' | 'ack' | 'report' | 'query';
-  payload: Record<string, unknown>;
-  timestamp: string;
+  type: 'directive' | 'question' | 'report' | 'alert';
+  subject: string;
+  body: string;
+  protocol: string;
+  acknowledged?: boolean;
+  acknowledged_at?: string;
 }
 
 export interface LearningEntry {
   id: string;
   timestamp: string;
-  domain: string;
-  category: string;
+  type: 'discovery' | 'correction' | 'pattern' | 'technique' | 'gotcha';
   content: string;
+  confidence: 'low' | 'medium' | 'high';
   tags?: string[];
+  graduated?: boolean;
+  graduated_to?: string;
+  supersedes?: string;
 }
 
 /**
- * TeamTransport interface from DESIGN.md Section 2.3.1
+ * TeamTransport interface from SDK (PR #39)
  * Mock implementation using in-memory storage
  */
 export interface TeamTransport {
@@ -47,8 +61,17 @@ export interface TeamTransport {
   listSignals(
     teamId: string,
     direction: 'inbox' | 'outbox',
-    filter?: { type?: string; from?: string; to?: string }
+    filter?: { type?: string; since?: string; from?: string }
   ): Promise<SignalMessage[]>;
+  watchSignals?(
+    teamId: string,
+    direction: 'inbox' | 'outbox',
+    callback: (signal: SignalMessage) => void
+  ): () => void;
+  workspaceExists(teamId: string): Promise<boolean>;
+  getLocation(teamId: string): Promise<string>;
+  listFiles(teamId: string, directory?: string): Promise<string[]>;
+  bootstrap(teamId: string, archetypeId: string, config: Record<string, unknown>): Promise<void>;
 }
 
 /**
@@ -130,7 +153,7 @@ export class MockTransport implements TeamTransport {
   async listSignals(
     teamId: string,
     direction: 'inbox' | 'outbox',
-    filter?: { type?: string; from?: string; to?: string }
+    filter?: { type?: string; since?: string; from?: string }
   ): Promise<SignalMessage[]> {
     const signals = await this.readSignals(teamId, direction);
     
@@ -139,9 +162,47 @@ export class MockTransport implements TeamTransport {
     return signals.filter(signal => {
       if (filter.type && signal.type !== filter.type) return false;
       if (filter.from && signal.from !== filter.from) return false;
-      if (filter.to && signal.to !== filter.to) return false;
+      if (filter.since && signal.timestamp < filter.since) return false;
       return true;
     });
+  }
+  
+  async workspaceExists(teamId: string): Promise<boolean> {
+    return this.files.has(teamId);
+  }
+  
+  async getLocation(teamId: string): Promise<string> {
+    // Return a mock location for testing
+    return `/mock/workspace/${teamId}`;
+  }
+  
+  async listFiles(teamId: string, directory?: string): Promise<string[]> {
+    const teamFiles = this.files.get(teamId);
+    if (!teamFiles) return [];
+    
+    const prefix = directory ? `${directory}/` : '';
+    const files: string[] = [];
+    
+    for (const path of teamFiles.keys()) {
+      if (!directory || path.startsWith(prefix)) {
+        files.push(path);
+      }
+    }
+    
+    return files;
+  }
+  
+  async bootstrap(teamId: string, archetypeId: string, config: Record<string, unknown>): Promise<void> {
+    // Create a basic team workspace structure
+    if (!this.files.has(teamId)) {
+      this.files.set(teamId, new Map());
+    }
+    
+    // Initialize with basic structure
+    await this.writeFile(teamId, '.squad/config.json', JSON.stringify({ 
+      archetypeId, 
+      ...config 
+    }, null, 2));
   }
   
   /**
