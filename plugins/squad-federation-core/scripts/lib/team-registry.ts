@@ -23,8 +23,6 @@ export interface TeamEntry {
   domain: string;
   /** Unique team identifier (UUID or slug) */
   domainId: string;
-  /** Archetype identifier (e.g., "codebase-scanner", "api-reviewer") */
-  archetypeId: string;
   /** Transport type for team workspace access */
   transport: 'worktree' | 'directory' | 'remote';
   /** Absolute path to team workspace or remote URL */
@@ -58,7 +56,6 @@ interface RegistryFile {
 const TeamEntrySchema = z.object({
   domain: z.string().min(1),
   domainId: z.string().min(1),
-  archetypeId: z.string().min(1),
   transport: z.enum(['worktree', 'directory', 'remote']),
   location: z.string().min(1),
   createdAt: z.string().datetime(),
@@ -91,7 +88,6 @@ const RegistryFileSchema = z.object({
  * await registry.register({
  *   domain: 'frontend',
  *   domainId: 'frontend-123',
- *   archetypeId: 'codebase-scanner',
  *   transport: 'worktree',
  *   location: '/path/to/.worktrees/frontend',
  *   createdAt: new Date().toISOString(),
@@ -267,7 +263,6 @@ export class TeamRegistry {
         await this.register({
           domain: wt.domain,
           domainId: wt.domain, // Use domain as ID for v0.1.0 compatibility
-          archetypeId: metadata.archetypeId || 'unknown',
           transport: 'worktree',
           location: wt.path,
           createdAt: new Date().toISOString(),
@@ -474,7 +469,6 @@ export class TeamRegistry {
    * Parse team.md frontmatter to extract metadata.
    */
   private parseTeamMd(content: string): {
-    archetypeId?: string;
     federation?: TeamEntry['federation'];
   } {
     const result: ReturnType<TeamRegistry['parseTeamMd']> = {};
@@ -484,12 +478,6 @@ export class TeamRegistry {
     if (!frontmatterMatch) return result;
     
     const frontmatter = frontmatterMatch[1];
-    
-    // Extract archetype
-    const archetypeMatch = frontmatter.match(/archetype:\s*(.+)/);
-    if (archetypeMatch) {
-      result.archetypeId = archetypeMatch[1].trim();
-    }
     
     // Extract federation metadata
     const parentMatch = frontmatter.match(/parent:\s*(.+)/);
