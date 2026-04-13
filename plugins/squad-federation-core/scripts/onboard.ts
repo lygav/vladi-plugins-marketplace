@@ -53,6 +53,13 @@ function loadConfig(): FederateConfig {
 
 // ==================== Types ====================
 
+interface ArchetypeMetadata {
+  name: string;
+  version: string;
+  source: string;
+  installedAt: string;
+}
+
 interface ParsedArgs {
   name: string;
   domainId: string;
@@ -88,6 +95,13 @@ function parseArgs(args: string[]): ParsedArgs {
     console.error('    [--archetype "squad-archetype-deliverable"] \\');
     console.error('    [--description "What this domain covers"] \\');
     console.error('    [--base-branch main]');
+    process.exit(1);
+  }
+
+  // Validate archetype name format to prevent path traversal
+  const ARCHETYPE_NAME_REGEX = /^[a-z0-9][a-z0-9-]*$/;
+  if (parsed.archetype && !ARCHETYPE_NAME_REGEX.test(parsed.archetype)) {
+    console.error('Error: Invalid archetype name. Use lowercase alphanumeric with hyphens only.');
     process.exit(1);
   }
 
@@ -180,10 +194,18 @@ function scaffoldArchetype(worktreePath: string, repoRoot: string, archetypeName
   const squadDir = path.join(worktreePath, '.squad');
   const archetypePluginPath = path.join(repoRoot, 'plugins', archetypeName);
 
+  // Try to read version from archetype's plugin.json
+  const pluginJsonPath = path.join(repoRoot, 'plugins', archetypeName, 'plugin.json');
+  let version = '0.1.0'; // fallback
+  try {
+    const pluginJson = JSON.parse(fs.readFileSync(pluginJsonPath, 'utf-8'));
+    version = pluginJson.version || '0.1.0';
+  } catch { /* use fallback */ }
+
   // Write archetype.json
-  const archetypeJson = {
+  const archetypeJson: ArchetypeMetadata = {
     name: archetypeName,
-    version: '0.1.0',
+    version,
     source: 'vladi-plugins-marketplace',
     installedAt: new Date().toISOString(),
   };
@@ -191,31 +213,35 @@ function scaffoldArchetype(worktreePath: string, repoRoot: string, archetypeName
   console.log('  ✓ Wrote .squad/archetype.json');
 
   // If archetype plugin exists, copy templates
-  if (fs.existsSync(archetypePluginPath)) {
-    const templateDir = path.join(archetypePluginPath, 'templates');
-    if (fs.existsSync(templateDir)) {
-      // Copy launch-prompt-*.md files
-      for (const file of fs.readdirSync(templateDir)) {
-        if (file.startsWith('launch-prompt-') && file.endsWith('.md')) {
-          const src = path.join(templateDir, file);
-          const dest = path.join(squadDir, file);
-          fs.copyFileSync(src, dest);
-          console.log(`  ✓ Copied ${file}`);
+  try {
+    if (fs.existsSync(archetypePluginPath)) {
+      const templateDir = path.join(archetypePluginPath, 'templates');
+      if (fs.existsSync(templateDir)) {
+        // Copy launch-prompt-*.md files
+        for (const file of fs.readdirSync(templateDir)) {
+          if (file.startsWith('launch-prompt-') && file.endsWith('.md')) {
+            const src = path.join(templateDir, file);
+            const dest = path.join(squadDir, file);
+            fs.copyFileSync(src, dest);
+            console.log(`  ✓ Copied ${file}`);
+          }
+        }
+
+        // Copy cleanup-hook.sh if it exists
+        const cleanupHookSrc = path.join(templateDir, 'cleanup-hook.sh');
+        if (fs.existsSync(cleanupHookSrc)) {
+          const cleanupHookDest = path.join(squadDir, 'cleanup-hook.sh');
+          fs.copyFileSync(cleanupHookSrc, cleanupHookDest);
+          fs.chmodSync(cleanupHookDest, 0o755);
+          console.log('  ✓ Copied cleanup-hook.sh');
         }
       }
-
-      // Copy cleanup-hook.sh if it exists
-      const cleanupHookSrc = path.join(templateDir, 'cleanup-hook.sh');
-      if (fs.existsSync(cleanupHookSrc)) {
-        const cleanupHookDest = path.join(squadDir, 'cleanup-hook.sh');
-        fs.copyFileSync(cleanupHookSrc, cleanupHookDest);
-        fs.chmodSync(cleanupHookDest, 0o755);
-        console.log('  ✓ Copied cleanup-hook.sh');
-      }
+    } else {
+      console.log(`  ⚠️  Archetype plugin '${archetypeName}' not found in plugins/`);
+      console.log('  ℹ️  archetype.json written, but templates not copied');
     }
-  } else {
-    console.log(`  ⚠️  Archetype plugin '${archetypeName}' not found in plugins/`);
-    console.log('  ℹ️  archetype.json written, but templates not copied');
+  } catch (err) {
+    console.warn(`⚠ Template copy failed: ${err}. archetype.json was written but templates may be incomplete.`);
   }
 
   console.log('✓ Archetype scaffolding complete');
