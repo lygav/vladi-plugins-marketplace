@@ -367,22 +367,13 @@ ${args.description || 'This domain squad is responsible for...'}
   const teamEntry: TeamEntry = {
     domain: args.name,
     domainId: args.domainId,
-    description: args.description,
-    archetype: args.archetype,
+    archetypeId: args.archetype,
     transport: args.transport,
     location: location,
-    federation: {
-      lastScan: null,
-      signalsEnabled: true,
-      learningsEnabled: true,
-    },
+    createdAt: new Date().toISOString(),
   };
   
-  if (branch) {
-    teamEntry.branch = branch;
-  }
-  
-  await registry.register(args.name, teamEntry);
+  await registry.register(teamEntry);
   console.log('✓ Team registered');
 
   // Step 8: Commit for worktree transport
