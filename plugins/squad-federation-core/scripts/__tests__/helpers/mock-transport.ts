@@ -134,6 +134,11 @@ export class MockTransport implements TeamTransport {
     return this.readSignals(teamId, 'outbox');
   }
   
+  async writeOutboxSignal(teamId: string, signal: SignalMessage): Promise<void> {
+    const fileName = `.squad/outbox/${signal.id}.json`;
+    await this.writeFile(teamId, fileName, JSON.stringify(signal, null, 2));
+  }
+  
   async readLearningLog(teamId: string): Promise<LearningEntry[]> {
     const content = await this.readFile(teamId, '.squad/learning.jsonl');
     if (!content) return [];
