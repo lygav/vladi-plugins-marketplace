@@ -140,7 +140,15 @@ Confirm it's running: "✅ Monitoring dashboard live at http://localhost:18888. 
 
 No endpoint, port, or service name in config. The runtime uses sensible defaults. The OTel MCP server auto-starts with each team session via the plugin's `.mcp.json`.
 
-### Step 3: Generate config
+### Step 3: Communication Type
+
+**Context:** All teams in a federation use the same communication protocol. Communication transport is federation-scoped, not team-scoped.
+
+**For v0.4.0:** This is automatically set to `file-signal` — the only supported option. v0.5.0 will add `teams-channel` as an alternative.
+
+**No user interaction needed.** The setup automatically writes `"communicationType": "file-signal"` to the config.
+
+### Step 4: Generate config
 
 Assemble `federate.config.json` at the repository root with **only** core fields:
 
@@ -149,13 +157,15 @@ Assemble `federate.config.json` at the repository root with **only** core fields
   "description": "...",
   "telemetry": {
     "enabled": true
-  }
+  },
+  "communicationType": "file-signal"
 }
 ```
 
 **Rules for this config:**
 - `description` — from Step 1, verbatim
 - `telemetry.enabled` — from Step 2
+- `communicationType` — always `"file-signal"` for v0.4.0 (v0.5.0 will add `teams-channel` option)
 
 **Nothing else goes in this file.** No deliverable, no schema, no universe, no importHook, no steps, no roles, no team definitions. Those are archetype or team-level concerns. MCP servers are configured via `.mcp.json` at the project level and teams inherit automatically.
 
@@ -171,12 +181,13 @@ cat > federate.config.json << 'EOF'
   "description": "...",
   "telemetry": {
     "enabled": true
-  }
+  },
+  "communicationType": "file-signal"
 }
 EOF
 ```
 
-### Step 4: Cast the meta-squad
+### Step 5: Cast the meta-squad
 
 Check if the meta-squad actually has members:
 
@@ -195,9 +206,9 @@ Use the user's description from Step 1 to inform the casting proposal. The meta-
 
 **If team.md doesn't exist:** Run `squad init` first, then cast.
 
-Don't prescribe specific roles. Let Squad's casting handle composition. But ensure casting COMPLETES — verify at least one member appears in the Members table before moving to Step 5.
+Don't prescribe specific roles. Let Squad's casting handle composition. But ensure casting COMPLETES — verify at least one member appears in the Members table before moving to Step 6.
 
-### Step 5: Onboard first team
+### Step 6: Onboard first team
 
 **Ask:** "Ready to spin up your first team? What should it work on?"
 
@@ -251,6 +262,9 @@ interface FederateConfig {
   telemetry: {
     enabled: boolean;
   };
+
+  /** Communication type for team signaling (v0.4.0: file-signal only) */
+  communicationType: 'file-signal';
 }
 ```
 
@@ -263,7 +277,8 @@ No other fields in core config. Archetype-specific settings live in the team's w
   "description": "Inventory all Azure services across the organization",
   "telemetry": {
     "enabled": true
-  }
+  },
+  "communicationType": "file-signal"
 }
 ```
 
