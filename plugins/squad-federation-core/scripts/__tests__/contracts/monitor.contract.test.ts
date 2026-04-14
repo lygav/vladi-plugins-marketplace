@@ -4,10 +4,11 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { MockTransport } from '../helpers/mock-transport.js';
+import { MockPlacement } from '../helpers/mock-placement.js';
+import { MockCommunication } from '../helpers/mock-communication.js';
 import { createTestStatus, createTestTeamEntry } from '../helpers/test-fixtures.js';
 import { MonitorBase } from '../../../sdk/monitor-base.js';
-import type { ScanStatus, DashboardEntry } from '../../../sdk/types.js';
+import type { ScanStatus, DashboardEntry, TeamPlacement, TeamCommunication } from '../../../sdk/types.js';
 
 // Mock monitor implementation for testing
 class TestMonitor extends MonitorBase<{ testData: string }> {
@@ -15,7 +16,11 @@ class TestMonitor extends MonitorBase<{ testData: string }> {
     return 'test-archetype';
   }
 
-  async collectArchetypeData(transport: any, status: ScanStatus) {
+  async collectArchetypeData(
+    placement: TeamPlacement,
+    communication: TeamCommunication,
+    status: ScanStatus
+  ) {
     return { testData: `data-for-${status.domain}` };
   }
 
@@ -26,15 +31,17 @@ class TestMonitor extends MonitorBase<{ testData: string }> {
 
 describe('monitor.contract.test.ts', () => {
   describe('MonitorBase contract compliance', () => {
-    let transport: MockTransport;
-    let transportMap: Map<string, any>;
+    let placement: MockPlacement;
+    let communication: MockCommunication;
+    let contextMap: Map<string, { placement: TeamPlacement; communication: TeamCommunication }>;
     let monitor: TestMonitor;
 
     beforeEach(() => {
-      transport = new MockTransport();
-      transportMap = new Map();
-      transportMap.set('test-domain', transport);
-      monitor = new TestMonitor(transportMap);
+      placement = new MockPlacement();
+      communication = new MockCommunication();
+      contextMap = new Map();
+      contextMap.set('test-domain', { placement, communication });
+      monitor = new TestMonitor(contextMap);
     });
 
     it('should extend MonitorBase', () => {
@@ -52,7 +59,7 @@ describe('monitor.contract.test.ts', () => {
       expect(typeof monitor.collectArchetypeData).toBe('function');
 
       const status = createTestStatus({ domain: 'test-domain' });
-      const result = await monitor.collectArchetypeData(transport, status);
+      const result = await monitor.collectArchetypeData(placement, communication, status);
 
       expect(result).toBeDefined();
       expect(result).toHaveProperty('testData');

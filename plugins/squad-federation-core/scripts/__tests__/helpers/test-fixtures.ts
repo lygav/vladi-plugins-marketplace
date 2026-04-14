@@ -3,7 +3,7 @@
  * Based on DESIGN.md specifications.
  */
 
-import type { ScanStatus, SignalMessage, LearningEntry } from './mock-transport.js';
+import type { ScanStatus, SignalMessage, LearningEntry } from '../../../sdk/types.js';
 
 /**
  * Create a test SignalMessage with optional overrides.

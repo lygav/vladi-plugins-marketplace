@@ -3,22 +3,22 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { MockTransport } from '../helpers/mock-transport.js';
+import { MockCommunication } from '../helpers/mock-communication.js';
 import { createTestLearning } from '../helpers/test-fixtures.js';
 
 describe('learning-log.ts', () => {
-  let transport: MockTransport;
+  let communication: MockTransport;
 
   beforeEach(() => {
-    transport = new MockTransport();
+    communication = new MockCommunication();
   });
 
   describe('append operations', () => {
     it('should append single learning entry', async () => {
       const entry = createTestLearning({ content: 'Test learning' });
 
-      await transport.appendLearning('team-alpha', entry);
-      const entries = await transport.readLearningLog('team-alpha');
+      await communication.appendLearning('team-alpha', entry);
+      const entries = await communication.readLearningLog('team-alpha');
 
       expect(entries).toHaveLength(1);
       expect(entries[0]).toEqual(entry);
@@ -32,10 +32,10 @@ describe('learning-log.ts', () => {
       ];
 
       for (const entry of entries) {
-        await transport.appendLearning('team-alpha', entry);
+        await communication.appendLearning('team-alpha', entry);
       }
 
-      const result = await transport.readLearningLog('team-alpha');
+      const result = await communication.readLearningLog('team-alpha');
       expect(result).toHaveLength(3);
       expect(result.map((e) => e.id)).toEqual(['entry-1', 'entry-2', 'entry-3']);
     });
@@ -49,8 +49,8 @@ describe('learning-log.ts', () => {
         graduated_to: 'shared-skills',
       });
 
-      await transport.appendLearning('team-alpha', entry);
-      const result = await transport.readLearningLog('team-alpha');
+      await communication.appendLearning('team-alpha', entry);
+      const result = await communication.readLearningLog('team-alpha');
 
       expect(result[0].type).toBe('pattern');
       expect(result[0].confidence).toBe('high');
@@ -62,7 +62,7 @@ describe('learning-log.ts', () => {
 
   describe('read operations', () => {
     it('should return empty array for new log', async () => {
-      const entries = await transport.readLearningLog('team-alpha');
+      const entries = await communication.readLearningLog('team-alpha');
       expect(entries).toEqual([]);
     });
 
@@ -74,10 +74,10 @@ describe('learning-log.ts', () => {
       ];
 
       for (const entry of testEntries) {
-        await transport.appendLearning('team-alpha', entry);
+        await communication.appendLearning('team-alpha', entry);
       }
 
-      const result = await transport.readLearningLog('team-alpha');
+      const result = await communication.readLearningLog('team-alpha');
       expect(result).toHaveLength(3);
     });
 
@@ -88,10 +88,10 @@ describe('learning-log.ts', () => {
       ];
 
       for (const entry of entries) {
-        await transport.appendLearning('team-alpha', entry);
+        await communication.appendLearning('team-alpha', entry);
       }
 
-      const result = await transport.readLearningLog('team-alpha');
+      const result = await communication.readLearningLog('team-alpha');
       expect(result.every((e) => typeof e === 'object')).toBe(true);
       expect(result.every((e) => e.hasOwnProperty('id'))).toBe(true);
       expect(result.every((e) => e.hasOwnProperty('content'))).toBe(true);
@@ -111,8 +111,8 @@ describe('learning-log.ts', () => {
       it(`should support ${type} learning type`, async () => {
         const entry = createTestLearning({ type, content: `Test ${type}` });
 
-        await transport.appendLearning('team-alpha', entry);
-        const result = await transport.readLearningLog('team-alpha');
+        await communication.appendLearning('team-alpha', entry);
+        const result = await communication.readLearningLog('team-alpha');
 
         expect(result[0].type).toBe(type);
       });
@@ -120,10 +120,10 @@ describe('learning-log.ts', () => {
 
     it('should handle mixed learning types', async () => {
       for (const type of types) {
-        await transport.appendLearning('team-alpha', createTestLearning({ type }));
+        await communication.appendLearning('team-alpha', createTestLearning({ type }));
       }
 
-      const result = await transport.readLearningLog('team-alpha');
+      const result = await communication.readLearningLog('team-alpha');
       const resultTypes = new Set(result.map((e) => e.type));
       expect(resultTypes).toEqual(new Set(types));
     });
@@ -136,8 +136,8 @@ describe('learning-log.ts', () => {
       it(`should support ${confidence} confidence level`, async () => {
         const entry = createTestLearning({ confidence });
 
-        await transport.appendLearning('team-alpha', entry);
-        const result = await transport.readLearningLog('team-alpha');
+        await communication.appendLearning('team-alpha', entry);
+        const result = await communication.readLearningLog('team-alpha');
 
         expect(result[0].confidence).toBe(confidence);
       });
@@ -145,10 +145,10 @@ describe('learning-log.ts', () => {
 
     it('should track confidence across entries', async () => {
       for (const confidence of levels) {
-        await transport.appendLearning('team-alpha', createTestLearning({ confidence }));
+        await communication.appendLearning('team-alpha', createTestLearning({ confidence }));
       }
 
-      const result = await transport.readLearningLog('team-alpha');
+      const result = await communication.readLearningLog('team-alpha');
       expect(result.map((e) => e.confidence)).toEqual(levels);
     });
   });
@@ -161,8 +161,8 @@ describe('learning-log.ts', () => {
         graduated_to: 'shared-skills',
       });
 
-      await transport.appendLearning('team-alpha', entry);
-      const result = await transport.readLearningLog('team-alpha');
+      await communication.appendLearning('team-alpha', entry);
+      const result = await communication.readLearningLog('team-alpha');
 
       expect(result[0].graduated).toBe(true);
       expect(result[0].graduated_to).toBe('shared-skills');
@@ -180,10 +180,10 @@ describe('learning-log.ts', () => {
         supersedes: 'old-pattern',
       });
 
-      await transport.appendLearning('team-alpha', oldEntry);
-      await transport.appendLearning('team-alpha', newEntry);
+      await communication.appendLearning('team-alpha', oldEntry);
+      await communication.appendLearning('team-alpha', newEntry);
 
-      const result = await transport.readLearningLog('team-alpha');
+      const result = await communication.readLearningLog('team-alpha');
       const improved = result.find((e) => e.id === 'new-pattern');
       expect(improved?.supersedes).toBe('old-pattern');
     });
@@ -194,8 +194,8 @@ describe('learning-log.ts', () => {
         graduated: true,
       });
 
-      await transport.appendLearning('team-alpha', entry);
-      const result = await transport.readLearningLog('team-alpha');
+      await communication.appendLearning('team-alpha', entry);
+      const result = await communication.readLearningLog('team-alpha');
 
       expect(result[0].graduated).toBe(true);
       expect(result[0].graduated_to).toBeUndefined();
@@ -209,8 +209,8 @@ describe('learning-log.ts', () => {
         tags: ['tag1', 'tag2', 'tag3'],
       });
 
-      await transport.appendLearning('team-alpha', entry);
-      const result = await transport.readLearningLog('team-alpha');
+      await communication.appendLearning('team-alpha', entry);
+      const result = await communication.readLearningLog('team-alpha');
 
       expect(result[0].tags).toEqual(['tag1', 'tag2', 'tag3']);
     });
@@ -218,8 +218,8 @@ describe('learning-log.ts', () => {
     it('should handle entries without tags', async () => {
       const entry = createTestLearning({ content: 'Untagged' });
 
-      await transport.appendLearning('team-alpha', entry);
-      const result = await transport.readLearningLog('team-alpha');
+      await communication.appendLearning('team-alpha', entry);
+      const result = await communication.readLearningLog('team-alpha');
 
       expect(result[0].tags).toBeUndefined();
     });
@@ -230,8 +230,8 @@ describe('learning-log.ts', () => {
         tags: [],
       });
 
-      await transport.appendLearning('team-alpha', entry);
-      const result = await transport.readLearningLog('team-alpha');
+      await communication.appendLearning('team-alpha', entry);
+      const result = await communication.readLearningLog('team-alpha');
 
       expect(result[0].tags).toEqual([]);
     });
@@ -239,11 +239,11 @@ describe('learning-log.ts', () => {
 
   describe('cross-team isolation', () => {
     it('should isolate logs between teams', async () => {
-      await transport.appendLearning('team-alpha', createTestLearning({ content: 'Alpha learning' }));
-      await transport.appendLearning('team-beta', createTestLearning({ content: 'Beta learning' }));
+      await communication.appendLearning('team-alpha', createTestLearning({ content: 'Alpha learning' }));
+      await communication.appendLearning('team-beta', createTestLearning({ content: 'Beta learning' }));
 
-      const alphaLog = await transport.readLearningLog('team-alpha');
-      const betaLog = await transport.readLearningLog('team-beta');
+      const alphaLog = await communication.readLearningLog('team-alpha');
+      const betaLog = await communication.readLearningLog('team-beta');
 
       expect(alphaLog).toHaveLength(1);
       expect(betaLog).toHaveLength(1);
@@ -252,9 +252,9 @@ describe('learning-log.ts', () => {
     });
 
     it('should not share entries across teams', async () => {
-      await transport.appendLearning('team-alpha', createTestLearning({ content: 'Private' }));
+      await communication.appendLearning('team-alpha', createTestLearning({ content: 'Private' }));
 
-      const betaLog = await transport.readLearningLog('team-beta');
+      const betaLog = await communication.readLearningLog('team-beta');
       expect(betaLog).toEqual([]);
     });
   });
@@ -263,8 +263,8 @@ describe('learning-log.ts', () => {
     it('should handle single-line entries', async () => {
       const entry = createTestLearning({ content: 'Single line' });
 
-      await transport.appendLearning('team-alpha', entry);
-      const raw = await transport.readFile('team-alpha', '.squad/learning.jsonl');
+      await communication.appendLearning('team-alpha', entry);
+      const raw = await communication.readFile('team-alpha', '.squad/learning.jsonl');
 
       expect(raw).not.toBeNull();
       expect(raw?.split('\n').filter((l) => l.trim()).length).toBe(1);
@@ -275,8 +275,8 @@ describe('learning-log.ts', () => {
         content: 'Line 1\nLine 2\nLine 3',
       });
 
-      await transport.appendLearning('team-alpha', entry);
-      const result = await transport.readLearningLog('team-alpha');
+      await communication.appendLearning('team-alpha', entry);
+      const result = await communication.readLearningLog('team-alpha');
 
       expect(result[0].content).toBe('Line 1\nLine 2\nLine 3');
     });
@@ -289,10 +289,10 @@ describe('learning-log.ts', () => {
       ];
 
       for (const entry of entries) {
-        await transport.appendLearning('team-alpha', entry);
+        await communication.appendLearning('team-alpha', entry);
       }
 
-      const result = await transport.readLearningLog('team-alpha');
+      const result = await communication.readLearningLog('team-alpha');
       expect(result.map((e) => e.id)).toEqual(['1', '2', '3']);
     });
   });
