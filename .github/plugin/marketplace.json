@@ -5,47 +5,60 @@
   },
   "metadata": {
     "description": "Personal Copilot CLI plugin marketplace — reusable plugins for AI-assisted development workflows",
-    "version": "1.0.0"
+    "version": "2.0.0"
   },
   "plugins": [
     {
       "name": "squad-federation-core",
-      "description": "Federated squad model — permanent per-domain expert squads with orchestration, knowledge lifecycle, OTel observability, and headless scan automation",
-      "version": "0.1.0",
+      "description": "Federated squad model — transport-agnostic team orchestration with SDK, knowledge lifecycle, OTel observability, and headless automation",
+      "version": "0.2.0",
       "source": "plugins/squad-federation-core",
       "author": {
         "name": "Vladi Lyga"
       },
       "license": "MIT",
-      "keywords": ["squad", "federation", "multi-team", "orchestration", "domain-experts", "otel"],
+      "keywords": ["squad", "federation", "multi-team", "orchestration", "transport", "sdk", "otel"],
       "category": "workflow",
-      "tags": ["squad", "federation", "multi-agent", "knowledge-management"]
+      "tags": ["squad", "federation", "multi-agent", "knowledge-management", "sdk"]
     },
     {
       "name": "squad-archetype-deliverable",
-      "description": "Deliverable archetype for squad-federation-core — scatter-gather pattern producing file artifacts",
-      "version": "0.1.0",
+      "description": "Deliverable archetype — iterative teams that scan unstructured sources, distill structured artifacts, and learn from feedback",
+      "version": "0.2.0",
       "source": "plugins/squad-archetype-deliverable",
       "author": {
         "name": "Vladi Lyga"
       },
       "license": "MIT",
-      "keywords": ["squad", "archetype", "deliverable", "scatter-gather"],
+      "keywords": ["squad", "archetype", "deliverable", "scatter-gather", "iterative"],
       "category": "archetype",
       "tags": ["squad", "archetype", "deliverable", "scatter-gather"]
     },
     {
       "name": "squad-archetype-coding",
-      "description": "Coding archetype for squad-federation-core — implementation teams that produce pull requests",
-      "version": "0.1.0",
+      "description": "Coding archetype — implementation teams that write code, open PRs, and follow full SDLC with review cycles",
+      "version": "0.2.0",
       "source": "plugins/squad-archetype-coding",
       "author": {
         "name": "Vladi Lyga"
       },
       "license": "MIT",
-      "keywords": ["squad", "archetype", "coding", "development", "pull-request"],
+      "keywords": ["squad", "archetype", "coding", "development", "pull-request", "sdlc"],
       "category": "archetype",
       "tags": ["squad", "archetype", "coding", "implementation"]
+    },
+    {
+      "name": "squad-archetype-consultant",
+      "description": "Consultant archetype — domain expert teams that index codebases and answer questions on demand as a persistent knowledge service",
+      "version": "0.1.0",
+      "source": "plugins/squad-archetype-consultant",
+      "author": {
+        "name": "Vladi Lyga"
+      },
+      "license": "MIT",
+      "keywords": ["squad", "archetype", "consultant", "domain-expert", "knowledge", "qa"],
+      "category": "archetype",
+      "tags": ["squad", "archetype", "consultant", "knowledge-service"]
     }
   ]
 }
