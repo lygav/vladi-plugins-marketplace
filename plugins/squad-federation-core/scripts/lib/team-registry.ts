@@ -24,8 +24,12 @@ export interface TeamEntry {
   domain: string;
   /** Unique team identifier (UUID or slug) */
   domainId: string;
+  /** Archetype identifier */
+  archetypeId?: string;
   /** Transport type for team workspace access */
   transport: 'worktree' | 'directory' | 'remote';
+  /** Placement type (where files live) */
+  placementType?: 'worktree' | 'directory';
   /** Absolute path to team workspace or remote URL */
   location: string;
   /** ISO 8601 timestamp when team was registered */
@@ -57,7 +61,9 @@ interface RegistryFile {
 const TeamEntrySchema = z.object({
   domain: z.string().min(1),
   domainId: z.string().min(1),
+  archetypeId: z.string().min(1).optional(),
   transport: z.enum(['worktree', 'directory', 'remote']),
+  placementType: z.enum(['worktree', 'directory']).optional(),
   location: z.string().min(1),
   createdAt: z.string().datetime(),
   federation: z.object({
