@@ -16,10 +16,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { LearningLog, LearningEntry } from './lib/knowledge/learning-log.js';
-import { listSquadBranches } from './lib/registry/worktree-utils.js';
+import { TeamRegistry, TeamEntry } from './lib/registry/team-registry.js';
 
 const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
-const BRANCH_PREFIX = process.env.FEDERATE_BRANCH_PREFIX || 'squad/';
 
 interface Pattern {
   topic: string;
@@ -40,23 +39,25 @@ const flags = {
 
 // ==================== Discovery ====================
 
-function discoverBranches(): string[] {
-  const branches = listSquadBranches(REPO_ROOT, BRANCH_PREFIX);
-  if (branches.length === 0) {
-    console.error('⚠️  Failed to list branches');
+async function discoverTeams(): Promise<TeamEntry[]> {
+  const registry = new TeamRegistry(REPO_ROOT);
+  const teams = await registry.list();
+  if (teams.length === 0) {
+    console.error('⚠️  No teams found in TeamRegistry');
   }
-  return branches;
+  return teams;
 }
 
 // ==================== Collection ====================
 
-function collectGeneralizableLearnings(branches: string[]): Map<string, LearningEntry[]> {
+async function collectGeneralizableLearnings(): Promise<Map<string, LearningEntry[]>> {
   const learningsByDomain = new Map<string, LearningEntry[]>();
+  const teams = await discoverTeams();
 
-  for (const branch of branches) {
-    const domainName = branch.substring(BRANCH_PREFIX.length);
-    console.log(`📖 Reading ${domainName}...`);
+  for (const team of teams) {
+    console.log(`📖 Reading ${team.domain}...`);
 
+    const branch = `squad/${team.domain}`;
     const entries = LearningLog.readFromBranch(branch, REPO_ROOT);
 
     // Filter for generalizable, non-graduated entries
@@ -74,10 +75,10 @@ function collectGeneralizableLearnings(branches: string[]): Map<string, Learning
       );
 
       if (filtered.length > 0) {
-        learningsByDomain.set(domainName, filtered);
+        learningsByDomain.set(team.domain, filtered);
       }
     } else if (generalizable.length > 0) {
-      learningsByDomain.set(domainName, generalizable);
+      learningsByDomain.set(team.domain, generalizable);
     }
   }
 
@@ -375,32 +376,31 @@ function printConsoleReport(
 
 // ==================== Main ====================
 
-function main(): void {
+async function main(): Promise<void> {
   console.log('🔍 Discovering domains...');
 
-  const branches = discoverBranches();
+  const teams = await discoverTeams();
 
-  if (branches.length === 0) {
-    console.error(`❌ No ${BRANCH_PREFIX}* branches found.`);
+  if (teams.length === 0) {
+    console.error(`❌ No teams found in TeamRegistry.`);
     console.error('\nRecovery:');
     console.error('  1. Check if federation is configured:');
     console.error('     cat federate.config.json');
-    console.error('  2. List all git branches:');
-    console.error('     git branch --all');
-    console.error(`  3. Verify branch prefix is correct (expected: ${BRANCH_PREFIX})`);
-    console.error('  4. If no domains exist, onboard a domain first:');
+    console.error('  2. Check team registry:');
+    console.error('     cat .squad/teams.json');
+    console.error('  3. If no teams exist, onboard a team first:');
     console.error('     npx tsx scripts/onboard.ts --name <domain> --domain-id <id> --archetype <name>');
-    console.error('  5. Check git worktrees:');
+    console.error('  4. Check git worktrees:');
     console.error('     git worktree list');
     process.exit(1);
   }
 
-  console.log(`✅ Found ${branches.length} domain(s)`);
+  console.log(`✅ Found ${teams.length} team(s)`);
 
   // Collect generalizable learnings
   console.log('\n📖 Reading learning logs...\n');
 
-  const learningsByDomain = collectGeneralizableLearnings(branches);
+  const learningsByDomain = await collectGeneralizableLearnings();
 
   if (learningsByDomain.size === 0) {
     console.log('⚪ No generalizable learnings found.');

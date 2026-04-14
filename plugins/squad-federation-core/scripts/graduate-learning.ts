@@ -14,16 +14,15 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { LearningLog, LearningEntry } from './lib/knowledge/learning-log.js';
-import { listSquadBranches, getWorktreeForBranch } from './lib/registry/worktree-utils.js';
+import { TeamRegistry, TeamEntry } from './lib/registry/team-registry.js';
 
 const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
 const DECISIONS_INBOX = path.join(REPO_ROOT, '.squad', 'decisions', 'inbox');
-const BRANCH_PREFIX = process.env.FEDERATE_BRANCH_PREFIX || 'squad/';
 
 interface GraduationCandidate {
   entry: LearningEntry;
   domain: string;
-  branch: string;
+  teamId: string;
   score: number;
 }
 
@@ -38,23 +37,26 @@ const flags = {
 
 // ==================== Discovery ====================
 
-function discoverBranches(): string[] {
-  const branches = listSquadBranches(REPO_ROOT, BRANCH_PREFIX);
-  if (branches.length === 0) {
-    console.error('⚠️  Failed to list branches');
+async function discoverTeams(): Promise<TeamEntry[]> {
+  const registry = new TeamRegistry(REPO_ROOT);
+  const teams = await registry.list();
+  if (teams.length === 0) {
+    console.error('⚠️  No teams found in TeamRegistry');
   }
-  return branches;
+  return teams;
 }
 
-function findLearningById(branches: string[], learningId: string): { entry: LearningEntry; domain: string; branch: string } | null {
-  for (const branch of branches) {
-    const domainName = branch.substring(BRANCH_PREFIX.length);
+async function findLearningById(learningId: string): Promise<{ entry: LearningEntry; domain: string; teamId: string } | null> {
+  const teams = await discoverTeams();
+  
+  for (const team of teams) {
+    const branch = `squad/${team.domain}`;
     const entries = LearningLog.readFromBranch(branch, REPO_ROOT);
 
     const entry = entries.find(e => e.id === learningId);
 
     if (entry) {
-      return { entry, domain: domainName, branch };
+      return { entry, domain: team.domain, teamId: team.domainId };
     }
   }
 
@@ -63,11 +65,12 @@ function findLearningById(branches: string[], learningId: string): { entry: Lear
 
 // ==================== Candidate Selection ====================
 
-function findGraduationCandidates(branches: string[]): GraduationCandidate[] {
+async function findGraduationCandidates(): Promise<GraduationCandidate[]> {
   const candidates: GraduationCandidate[] = [];
+  const teams = await discoverTeams();
 
-  for (const branch of branches) {
-    const domainName = branch.substring(BRANCH_PREFIX.length);
+  for (const team of teams) {
+    const branch = `squad/${team.domain}`;
     const entries = LearningLog.readFromBranch(branch, REPO_ROOT);
 
     for (const entry of entries) {
@@ -86,8 +89,8 @@ function findGraduationCandidates(branches: string[]): GraduationCandidate[] {
 
         candidates.push({
           entry,
-          domain: domainName,
-          branch,
+          domain: team.domain,
+          teamId: team.domainId,
           score,
         });
       }
@@ -198,18 +201,26 @@ function writeGraduationDraft(entry: LearningEntry, domain: string, targetSkill?
   return draftPath;
 }
 
-function markAsGraduated(branches: string[], learningId: string, skill: string): void {
-  const learning = findLearningById(branches, learningId);
+async function markAsGraduated(learningId: string, skill: string): Promise<void> {
+  const learning = await findLearningById(learningId);
 
   if (!learning) {
     console.error(`❌ Learning ${learningId} not found`);
     return;
   }
 
-  const worktreePath = getWorktreePath(learning.branch);
+  const registry = new TeamRegistry(REPO_ROOT);
+  const team = await registry.get(learning.teamId);
+  
+  if (!team) {
+    console.error(`❌ Team ${learning.teamId} not found in registry`);
+    return;
+  }
 
-  if (!worktreePath) {
-    console.log(`⚠️  Branch ${learning.branch} has no worktree — graduation recorded but not applied to log`);
+  const worktreePath = team.location;
+
+  if (!worktreePath || !fs.existsSync(worktreePath)) {
+    console.log(`⚠️  Team ${learning.domain} worktree not found — graduation recorded but not applied to log`);
     console.log(`    The domain squad will see the graduation on their next pull/sync`);
     return;
   }
@@ -223,10 +234,6 @@ function markAsGraduated(branches: string[], learningId: string, skill: string):
   } catch (err: any) {
     console.error(`❌ Failed to mark as graduated: ${err.message}`);
   }
-}
-
-function getWorktreePath(branch: string): string | null {
-  return getWorktreeForBranch(branch, REPO_ROOT);
 }
 
 // ==================== Reporting ====================
@@ -259,20 +266,19 @@ function printCandidates(candidates: GraduationCandidate[]): void {
 
 // ==================== Main ====================
 
-function main(): void {
-  const branches = discoverBranches();
+async function main(): Promise<void> {
+  const teams = await discoverTeams();
 
-  if (branches.length === 0) {
-    console.error(`❌ No ${BRANCH_PREFIX}* branches found.`);
+  if (teams.length === 0) {
+    console.error(`❌ No teams found in TeamRegistry.`);
     console.error('\nRecovery:');
     console.error('  1. Check if federation is configured:');
     console.error('     cat federate.config.json');
-    console.error('  2. List all git branches:');
-    console.error('     git branch --all');
-    console.error(`  3. Verify branch prefix is correct (expected: ${BRANCH_PREFIX})`);
-    console.error('  4. If no domains exist, onboard a domain first:');
+    console.error('  2. Check team registry:');
+    console.error('     cat .squad/teams.json');
+    console.error('  3. If no teams exist, onboard a team first:');
     console.error('     npx tsx scripts/onboard.ts --name <domain> --domain-id <id> --archetype <name>');
-    console.error('  5. Check git worktrees:');
+    console.error('  4. Check git worktrees:');
     console.error('     git worktree list');
     process.exit(1);
   }
@@ -280,7 +286,7 @@ function main(): void {
   // --candidates mode
   if (flags.candidates) {
     console.log('🔍 Finding graduation candidates...');
-    const candidates = findGraduationCandidates(branches);
+    const candidates = await findGraduationCandidates();
 
     if (candidates.length === 0) {
       console.log('⚪ No graduation candidates found.');
@@ -309,7 +315,7 @@ function main(): void {
     console.log(`✅ Found ${patterns.length} patterns to graduate`);
 
     for (const pattern of patterns) {
-      const learning = findLearningById(branches, pattern.learningId);
+      const learning = await findLearningById(pattern.learningId);
 
       if (!learning) {
         console.log(`⚠️  Learning ${pattern.learningId} not found, skipping...`);
@@ -327,7 +333,7 @@ function main(): void {
   if (flags.id) {
     console.log(`🔍 Finding learning ${flags.id}...`);
 
-    const learning = findLearningById(branches, flags.id);
+    const learning = await findLearningById(flags.id);
 
     if (!learning) {
       console.error(`❌ Learning ${flags.id} not found in any domain log`);
@@ -405,7 +411,7 @@ function main(): void {
       process.exit(1);
     }
 
-    markAsGraduated(branches, learningId, skill);
+    await markAsGraduated(learningId, skill);
     return;
   }
 
