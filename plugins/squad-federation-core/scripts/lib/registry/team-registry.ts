@@ -10,7 +10,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { z } from 'zod';
-import { OTelEmitter } from '../../sdk/otel-emitter.js';
+import { OTelEmitter } from '../../../sdk/otel-emitter.js';
 
 // ==================== Types & Schema ====================
 
