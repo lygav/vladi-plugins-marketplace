@@ -1,6 +1,6 @@
 ---
 name: "team-onboarding"
-description: "Interactive wizard for onboarding a new team to the federation. Asks mission, discovers archetype, selects transport, then executes mechanical setup autonomously."
+description: "Interactive wizard for onboarding a new team to the federation. Asks mission, discovers archetype, selects placement, then executes mechanical setup autonomously."
 version: "0.1.0"
 ---
 
@@ -121,7 +121,7 @@ copilot plugin list | grep squad-archetype-deliverable
 
 ### Step 4: Team Placement
 
-**Note:** This step determines WHERE the team's workspace lives. Communication transport (how teams coordinate) is a separate concern — for now, all teams use file-based signals regardless of placement.
+**Note:** This step determines WHERE the team's workspace lives. Communication type is inherited from `federate.config.json` and is not asked during onboarding.
 
 **Ask:** "Where should this team's workspace live?"
 
@@ -143,7 +143,7 @@ copilot plugin list | grep squad-archetype-deliverable
 
 **If user chooses "sibling directory":** Ask for the base path (e.g., `../` to place sibling to repo, or custom path). The team name will be appended to this path.
 
-**If user chooses directory transport, ask:** "Where should the directory be created? (provide a path, or I'll use `.teams/NAME`)"
+**If user chooses directory placement, ask:** "Where should the directory be created? (provide a path, or I'll use `.teams/NAME`)"
 
 **Store as:**
 - Placement type: `worktree` or `directory`
@@ -161,6 +161,7 @@ Present a summary of all collected parameters:
    Archetype: deliverable
    Placement: worktree (inside repo)
    Location: .worktrees/payments
+   Communication: file-signal (from federate.config.json)
    Branch: squad/payments
 
 Ready to create this team? [Y/n]
@@ -183,7 +184,7 @@ The onboard script is located at `scripts/onboard.ts` relative to the plugin roo
 - If worktree should be in a **sibling directory**: Pass `--worktree-dir` with the base path (e.g., `--worktree-dir ../` or custom path)
 
 **For directory placement:**
-- Add `--path` parameter with the full directory path
+- Add `--placement directory --path` with the full directory path
 
 **Monitor the script output for errors.** The script runs autonomously and requires NO user interaction — all parameters are passed via CLI flags.
 

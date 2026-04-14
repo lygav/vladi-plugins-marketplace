@@ -3,7 +3,7 @@
  * Onboard — Create a new federated domain squad
  *
  * Implements the "start empty, add what's needed" model:
- * - Creates team workspace via transport abstraction (worktree or directory)
+ * - Creates team workspace via placement abstraction (worktree or directory)
  * - Seeds ONLY team/ directory from archetype (not entire archetype)
  * - Registers team in TeamRegistry (replaces git worktree list discovery)
  * - Initializes minimal .squad/ state (signals, learnings, status)
@@ -19,8 +19,8 @@
  *   # Worktree in sibling directory:
  *   npx tsx scripts/onboard.ts --name "my-product" --domain-id "abc-123" --archetype "squad-archetype-deliverable" --worktree-dir ../
  *   
- *   # Directory transport:
- *   npx tsx scripts/onboard.ts --name "my-product" --domain-id "abc-123" --archetype "squad-archetype-deliverable" --transport directory --path /custom/path
+ *   # Directory placement:
+ *   npx tsx scripts/onboard.ts --name "my-product" --domain-id "abc-123" --archetype "squad-archetype-deliverable" --placement directory --path /custom/path
  */
 
 import { execSync } from 'child_process';
@@ -30,8 +30,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { generateCeremoniesMarkdown } from './lib/ceremonies.js';
 import { loadAndValidateConfig, type FederateConfig } from './lib/config.js';
-import { WorktreePlacement } from './lib/worktree-placement.js';
-import { DirectoryPlacement } from './lib/directory-placement.js';
+import { createTeamContext } from './lib/team-context.js';
 import { TeamRegistry } from './lib/team-registry.js';
 import type { TeamEntry } from '../sdk/types.js';
 
@@ -41,7 +40,7 @@ const __dirname = path.dirname(__filename);
 // ==================== Config ====================
 // Config loading now uses validated config from lib/config.ts
 
-// Branch prefix for team worktrees (transport-level concern, not federation config)
+// Branch prefix for team worktrees (placement-level concern, not federation config)
 const BRANCH_PREFIX = 'squad/';
 
 // ==================== Types ====================
@@ -52,7 +51,7 @@ interface ParsedArgs {
   baseBranch: string;
   description?: string;
   archetype: string;
-  transport: 'worktree' | 'directory';
+  placement: 'worktree' | 'directory';
   path?: string;
   worktreeDir?: string; // Base directory for worktree placement (defaults to .worktrees)
 }
@@ -62,7 +61,7 @@ interface ParsedArgs {
 function parseArgs(args: string[]): ParsedArgs {
   const parsed: Partial<ParsedArgs> = {
     baseBranch: execSync('git branch --show-current', { encoding: 'utf-8' }).trim(),
-    transport: 'worktree', // default transport
+    placement: 'worktree', // default placement
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -74,20 +73,21 @@ function parseArgs(args: string[]): ParsedArgs {
       case '--base-branch': parsed.baseBranch = value; i++; break;
       case '--description': parsed.description = value; i++; break;
       case '--archetype': parsed.archetype = value; i++; break;
-      case '--transport': 
+      case '--placement':
+      case '--transport':
         if (value !== 'worktree' && value !== 'directory') {
-          console.error('Error: --transport must be "worktree" or "directory"');
+          console.error('Error: --placement must be "worktree" or "directory"');
           console.error(`  Received: "${value}"`);
           console.error('\nRecovery:');
           console.error('  1. Use "worktree" for git-based teams (recommended):');
           console.error('     npx tsx scripts/onboard.ts --name my-domain --domain-id abc-123 \\');
-          console.error('       --archetype squad-archetype-deliverable --transport worktree');
+          console.error('       --archetype squad-archetype-deliverable --placement worktree');
           console.error('  2. Use "directory" for standalone teams without git:');
           console.error('     npx tsx scripts/onboard.ts --name my-domain --domain-id abc-123 \\');
-          console.error('       --archetype squad-archetype-deliverable --transport directory --path /path/to/dir');
+          console.error('       --archetype squad-archetype-deliverable --placement directory --path /path/to/dir');
           process.exit(1);
         }
-        parsed.transport = value as 'worktree' | 'directory';
+        parsed.placement = value as 'worktree' | 'directory';
         i++; 
         break;
       case '--path': parsed.path = value; i++; break;
@@ -102,23 +102,23 @@ function parseArgs(args: string[]): ParsedArgs {
     console.error('    --domain-id "abc-123" \\');
     console.error('    --archetype "squad-archetype-deliverable" \\');
     console.error('    [--description "What this domain covers"] \\');
-    console.error('    [--transport worktree|directory] \\');
+    console.error('    [--placement worktree|directory] \\');
     console.error('    [--worktree-dir .worktrees] \\');
     console.error('    [--path /custom/path] \\');
     console.error('    [--base-branch main]');
     process.exit(1);
   }
 
-  // Validate transport-specific requirements
-  if (parsed.transport === 'directory' && !parsed.path) {
-    console.error('Error: --path is required when --transport is "directory"');
+  // Validate placement-specific requirements
+  if (parsed.placement === 'directory' && !parsed.path) {
+    console.error('Error: --path is required when --placement is "directory"');
     console.error('\nRecovery:');
     console.error('  1. Add --path to specify the directory location:');
     console.error('     npx tsx scripts/onboard.ts --name my-domain --domain-id abc-123 \\');
-    console.error('       --archetype squad-archetype-deliverable --transport directory --path /path/to/base');
-    console.error('  2. Or switch to worktree transport (no --path needed):');
+    console.error('       --archetype squad-archetype-deliverable --placement directory --path /path/to/base');
+    console.error('  2. Or switch to worktree placement (no --path needed):');
     console.error('     npx tsx scripts/onboard.ts --name my-domain --domain-id abc-123 \\');
-    console.error('       --archetype squad-archetype-deliverable --transport worktree');
+    console.error('       --archetype squad-archetype-deliverable --placement worktree');
     process.exit(1);
   }
 
@@ -178,80 +178,122 @@ async function copyDirectory(src: string, dest: string): Promise<void> {
   }
 }
 
-// ==================== Transport Creation ====================
+// ==================== Workspace Creation ====================
 
 /**
- * Create transport for team workspace based on transport type.
+ * Create workspace for team based on placement type.
  */
-async function createTeamTransport(
+async function createTeamWorkspace(
   args: ParsedArgs,
+  repoRoot: string,
   config: FederateConfig,
-  repoRoot: string
-): Promise<{ transport: WorktreePlacement | DirectoryPlacement; location: string; branch?: string }> {
-  if (args.transport === 'worktree') {
-    // Worktree transport: create git branch + worktree
-    const branchName = `${BRANCH_PREFIX}${args.name}`;
-    
-    // Check if branch already exists
-    try {
-      exec(`git rev-parse --verify ${branchName}`, { silent: true });
-      console.error(`⚠️  Branch '${branchName}' already exists.`);
-      console.error(`   Domain '${args.name}' appears to be already onboarded.`);
-      console.error('\nRecovery:');
-      console.error('  1. If team is already set up, launch it instead:');
-      console.error(`     npx tsx scripts/launch.ts --team ${args.name}`);
-      console.error('  2. If you want to re-onboard with a clean state:');
-      console.error(`     a. Check if worktree exists: git worktree list | grep ${args.name}`);
-      console.error(`     b. Remove worktree: git worktree remove .worktrees/${args.name} --force`);
-      console.error(`     c. Prune stale references: git worktree prune`);
-      console.error(`     d. Delete branch: git branch -D ${branchName}`);
-      console.error(`     e. Retry onboarding: npx tsx scripts/onboard.ts --name ${args.name} ...`);
-      console.error('  3. If you want to use a different name, pick a unique domain name.');
-      process.exit(1);
-    } catch { /* doesn't exist — good */ }
-    
-    console.log(`Creating worktree transport for branch: ${branchName}`);
-    const transport = await WorktreePlacement.create(
-      repoRoot, 
-      args.name, 
-      args.baseBranch,
-      args.worktreeDir  // Optional worktree base directory
-    );
-    
-    // Calculate actual location based on worktreeDir
-    const baseDir = args.worktreeDir || '.worktrees';
-    const location = path.isAbsolute(baseDir) || baseDir.startsWith('../')
-      ? path.join(baseDir, args.name)
-      : path.join(repoRoot, baseDir, args.name);
-    
-    return { transport, location, branch: branchName };
-  } else {
-    // Directory transport: create directory at specified path
-    const location = path.resolve(repoRoot, args.path!, args.name);
-    
-    if (fs.existsSync(location)) {
-      console.error(`❌ Directory already exists: ${location}`);
-      console.error('\nRecovery:');
-      console.error('  1. Remove existing directory (WARNING: data will be lost):');
-      console.error(`     rm -rf "${location}"`);
-      console.error('  2. Or choose a different path:');
-      console.error(`     npx tsx scripts/onboard.ts --name ${args.name} --domain-id ${args.domainId} \\`);
-      console.error(`       --archetype ${args.archetype} --transport directory --path /different/path`);
-      console.error('  3. Or use worktree transport instead (creates .worktrees subdirectory):');
-      console.error(`     npx tsx scripts/onboard.ts --name ${args.name} --domain-id ${args.domainId} \\`);
-      console.error(`       --archetype ${args.archetype} --transport worktree`);
-      process.exit(1);
+  domainTitle: string
+): Promise<{ location: string; branch?: string; worktreeDir?: string }> {
+  let location: string | undefined;
+  let branchName: string | undefined;
+  let baseDir: string | undefined;
+
+  switch (args.placement) {
+    case 'worktree': {
+      // Worktree placement: create git branch + worktree
+      branchName = `${BRANCH_PREFIX}${args.name}`;
+
+      // Check if branch already exists
+      try {
+        exec(`git rev-parse --verify ${branchName}`, { silent: true });
+        console.error(`⚠️  Branch '${branchName}' already exists.`);
+        console.error(`   Domain '${args.name}' appears to be already onboarded.`);
+        console.error('\nRecovery:');
+        console.error('  1. If team is already set up, launch it instead:');
+        console.error(`     npx tsx scripts/launch.ts --team ${args.name}`);
+        console.error('  2. If you want to re-onboard with a clean state:');
+        console.error(`     a. Check if worktree exists: git worktree list | grep ${args.name}`);
+        console.error(`     b. Remove worktree: git worktree remove .worktrees/${args.name} --force`);
+        console.error(`     c. Prune stale references: git worktree prune`);
+        console.error(`     d. Delete branch: git branch -D ${branchName}`);
+        console.error(`     e. Retry onboarding: npx tsx scripts/onboard.ts --name ${args.name} ...`);
+        console.error('  3. If you want to use a different name, pick a unique domain name.');
+        process.exit(1);
+      } catch { /* doesn't exist — good */ }
+
+      // Calculate actual location based on worktreeDir
+      baseDir = args.worktreeDir || '.worktrees';
+      location = path.isAbsolute(baseDir) || baseDir.startsWith('../')
+        ? path.join(baseDir, args.name)
+        : path.join(repoRoot, baseDir, args.name);
+
+      console.log(`Creating worktree placement for branch: ${branchName}`);
+      exec(`git worktree add "${location}" -b "${branchName}" "${args.baseBranch}"`, {
+        cwd: repoRoot,
+        silent: true
+      });
+      break;
     }
-    
-    console.log(`Creating directory transport at: ${location}`);
-    await fsp.mkdir(location, { recursive: true });
-    
-    const basePathMap = new Map<string, string>();
-    basePathMap.set(args.name, location);
-    const transport = new DirectoryPlacement(basePathMap);
-    
-    return { transport, location };
+    case 'directory': {
+      if (!args.path) {
+        throw new Error('Directory placement requires --path. Available: worktree, directory');
+      }
+      // Directory placement: create directory at specified path
+      location = path.resolve(repoRoot, args.path, args.name);
+
+      if (fs.existsSync(location)) {
+        console.error(`❌ Directory already exists: ${location}`);
+        console.error('\nRecovery:');
+        console.error('  1. Remove existing directory (WARNING: data will be lost):');
+        console.error(`     rm -rf "${location}"`);
+        console.error('  2. Or choose a different path:');
+        console.error(`     npx tsx scripts/onboard.ts --name ${args.name} --domain-id ${args.domainId} \\`);
+        console.error(`       --archetype ${args.archetype} --placement directory --path /different/path`);
+        console.error('  3. Or use worktree placement instead (creates .worktrees subdirectory):');
+        console.error(`     npx tsx scripts/onboard.ts --name ${args.name} --domain-id ${args.domainId} \\`);
+        console.error(`       --archetype ${args.archetype} --placement worktree`);
+        process.exit(1);
+      }
+
+      console.log(`Creating directory placement at: ${location}`);
+      await fsp.mkdir(location, { recursive: true });
+      break;
+    }
+    default:
+      throw new Error(`Unknown placement type: ${args.placement}. Available: worktree, directory`);
   }
+
+  if (!location) {
+    throw new Error('Workspace location was not created.');
+  }
+
+  const teamLocation = location;
+  await seedTeamDirectory(args.archetype, teamLocation, repoRoot);
+  scaffoldFederation(teamLocation, repoRoot, args, config, args.archetype);
+  writeDomainContext(teamLocation, args, domainTitle);
+
+  return { location, branch: branchName, worktreeDir: baseDir };
+}
+
+function writeDomainContext(teamLocation: string, args: ParsedArgs, domainTitle: string): void {
+  const contextMd = `# ${domainTitle} Domain
+
+**Domain ID:** ${args.domainId}
+${args.description ? `**Description:** ${args.description}\n` : ''}
+**Archetype:** ${args.archetype}
+**Created:** ${new Date().toISOString()}
+
+## Purpose
+
+${args.description || 'This domain squad is responsible for...'}
+
+## Responsibilities
+
+- TODO: Define domain boundaries
+- TODO: List key responsibilities
+- TODO: Document interfaces with other domains
+
+## Dependencies
+
+- TODO: List domains this one depends on
+- TODO: List domains that depend on this one
+`;
+  fs.writeFileSync(path.join(teamLocation, 'DOMAIN_CONTEXT.md'), contextMd);
 }
 
 // ==================== Team Directory Seeding ====================
@@ -345,12 +387,12 @@ This squad uses the inter-squad signal protocol:
 - Write progress to .squad/signals/status.json
 - Report blockers/findings to .squad/signals/outbox/
 `;
-  fs.writeFileSync(path.join(worktreePath, 'DOMAIN_CONTEXT.md'), contextMd);
+  fs.writeFileSync(path.join(teamLocation, 'DOMAIN_CONTEXT.md'), contextMd);
 
   console.log('✓ Federation state scaffolded');
 
   // Scaffold archetype (always required for federated teams)
-  scaffoldArchetype(worktreePath, repoRoot, args.archetype);
+  scaffoldArchetype(teamLocation, repoRoot, args.archetype);
 }
 
 function cleanMetaSquadFiles(worktreePath: string): void {
@@ -374,54 +416,47 @@ async function main(): Promise<void> {
 
   console.log(`\n🏗️  Onboarding domain: ${domainTitle}`);
   console.log(`   Domain ID: ${args.domainId}`);
-  console.log(`   Transport: ${args.transport}`);
+  console.log(`   Placement: ${args.placement}`);
+  console.log(`   Communication: ${config.communicationType}`);
   if (args.description) console.log(`   Description: ${args.description}`);
   console.log('');
 
-  // Step 1: Create team transport (worktree or directory)
-  const { transport, location, branch } = await createTeamTransport(args, config, REPO_ROOT);
+  // Step 1: Create team workspace (worktree or directory)
+  const { location, branch, worktreeDir } = await createTeamWorkspace(args, REPO_ROOT, config, domainTitle);
   console.log(`✓ Team workspace created: ${location}`);
 
-  // Step 2: Seed team/ directory from archetype (skills, templates, archetype.json)
-  await seedTeamDirectory(args.archetype, location, REPO_ROOT);
+  const metadata: Record<string, unknown> = {};
+  if (args.placement === 'worktree') {
+    metadata.branch = branch;
+    metadata.worktreeDir = worktreeDir;
+    metadata.baseBranch = args.baseBranch;
+  } else if (args.path) {
+    metadata.basePath = args.path;
+  }
 
-  // Step 3: Scaffold federation state (signals, learnings, ceremonies, telemetry, archetype.json)
-  scaffoldFederation(location, REPO_ROOT, args, config, args.archetype);
+  const teamEntry: TeamEntry = {
+    domain: args.name,
+    domainId: args.domainId,
+    archetypeId: args.archetype,
+    transport: args.placement,
+    placementType: args.placement,
+    location,
+    createdAt: new Date().toISOString(),
+    metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+  };
 
-  // Step 4: Write DOMAIN_CONTEXT.md
-  const contextMd = `# ${domainTitle} Domain
-
-**Domain ID:** ${args.domainId}
-${args.description ? `**Description:** ${args.description}\n` : ''}
-**Archetype:** ${args.archetype}
-**Created:** ${new Date().toISOString()}
-
-## Purpose
-
-${args.description || 'This domain squad is responsible for...'}
-
-## Responsibilities
-
-- TODO: Define domain boundaries
-- TODO: List key responsibilities
-- TODO: Document interfaces with other domains
-
-## Dependencies
-
-- TODO: List domains this one depends on
-- TODO: List domains that depend on this one
-`;
-  fs.writeFileSync(path.join(location, 'DOMAIN_CONTEXT.md'), contextMd);
+  const teamContext = createTeamContext(teamEntry, config, REPO_ROOT);
+  const teamLocation = teamContext.location;
 
   // Step 5: Clean up meta-squad files for worktree teams
-  if (args.transport === 'worktree') {
-    cleanMetaSquadFiles(location);
+  if (args.placement === 'worktree') {
+    cleanMetaSquadFiles(teamLocation);
   }
 
   // Step 6: Let Squad handle team casting
   console.log('Initializing squad (team casting handled by Squad)...');
   try {
-    exec('squad init', { cwd: location });
+    exec('squad init', { cwd: teamLocation });
     console.log('✓ Squad initialized — team will be cast on first session');
   } catch {
     console.log('  ⚠️  squad init not available — team will be cast on first session');
@@ -430,34 +465,25 @@ ${args.description || 'This domain squad is responsible for...'}
   // Step 7: Register team in TeamRegistry
   console.log('Registering team in registry...');
   const registry = new TeamRegistry(REPO_ROOT);
-  
-  const teamEntry: TeamEntry = {
-    domain: args.name,
-    domainId: args.domainId,
-    transport: args.transport,
-    location: location,
-    createdAt: new Date().toISOString(),
-  };
-  
   await registry.register(teamEntry);
   console.log('✓ Team registered');
 
-  // Step 8: Commit for worktree transport
-  if (args.transport === 'worktree') {
+  // Step 8: Commit for worktree placement
+  if (args.placement === 'worktree') {
     console.log('Creating initial commit...');
-    exec('git add -A', { cwd: location });
+    exec('git add -A', { cwd: teamLocation });
     exec(`git commit -m "feat: onboard ${args.name} domain
 
 Domain: ${domainTitle}
 Archetype: ${args.archetype}
 Description: ${args.description || 'N/A'}
 
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"`, { cwd: location });
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"`, { cwd: teamLocation });
     console.log('✓ Initial commit created');
   }
 
   console.log(`\n✅ Domain onboarded successfully!`);
-  console.log(`   Location: ${location}`);
+  console.log(`   Location: ${teamLocation}`);
   if (branch) console.log(`   Branch: ${branch}`);
   console.log(`\n📚 Next steps:`);
   console.log(`   1. Launch the team: npx tsx scripts/launch.ts --team ${args.name}`);
