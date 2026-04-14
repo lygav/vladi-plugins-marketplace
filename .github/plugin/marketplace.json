@@ -4,61 +4,110 @@
     "name": "Vladi Lyga"
   },
   "metadata": {
-    "description": "Personal Copilot CLI plugin marketplace — reusable plugins for AI-assisted development workflows",
-    "version": "2.0.0"
+    "description": "Personal Copilot CLI plugin marketplace \u2014 reusable plugins for AI-assisted development workflows",
+    "version": "3.0.0"
   },
   "plugins": [
     {
       "name": "squad-federation-core",
-      "description": "Federated squad model — transport-agnostic team orchestration with SDK, knowledge lifecycle, OTel observability, and headless automation",
-      "version": "0.2.0",
+      "description": "Federated squad model \u2014 transport-agnostic team orchestration with SDK, knowledge lifecycle, OTel observability, and headless automation",
+      "version": "0.3.0",
       "source": "plugins/squad-federation-core",
       "author": {
         "name": "Vladi Lyga"
       },
       "license": "MIT",
-      "keywords": ["squad", "federation", "multi-team", "orchestration", "transport", "sdk", "otel"],
+      "keywords": [
+        "squad",
+        "federation",
+        "multi-team",
+        "orchestration",
+        "transport",
+        "sdk",
+        "otel"
+      ],
       "category": "workflow",
-      "tags": ["squad", "federation", "multi-agent", "knowledge-management", "sdk"]
+      "tags": [
+        "squad",
+        "federation",
+        "multi-agent",
+        "knowledge-management",
+        "sdk"
+      ]
     },
     {
       "name": "squad-archetype-deliverable",
-      "description": "Deliverable archetype — iterative teams that scan unstructured sources, distill structured artifacts, and learn from feedback",
-      "version": "0.2.0",
+      "description": "Deliverable archetype \u2014 iterative teams that scan unstructured sources, distill structured artifacts, and learn from feedback",
+      "version": "0.3.0",
       "source": "plugins/squad-archetype-deliverable",
       "author": {
         "name": "Vladi Lyga"
       },
       "license": "MIT",
-      "keywords": ["squad", "archetype", "deliverable", "scatter-gather", "iterative"],
+      "keywords": [
+        "squad",
+        "archetype",
+        "deliverable",
+        "scatter-gather",
+        "iterative"
+      ],
       "category": "archetype",
-      "tags": ["squad", "archetype", "deliverable", "scatter-gather"]
+      "tags": [
+        "squad",
+        "archetype",
+        "deliverable",
+        "scatter-gather"
+      ]
     },
     {
       "name": "squad-archetype-coding",
-      "description": "Coding archetype — implementation teams that write code, open PRs, and follow full SDLC with review cycles",
-      "version": "0.2.0",
+      "description": "Coding archetype \u2014 implementation teams that write code, open PRs, and follow full SDLC with review cycles",
+      "version": "0.3.0",
       "source": "plugins/squad-archetype-coding",
       "author": {
         "name": "Vladi Lyga"
       },
       "license": "MIT",
-      "keywords": ["squad", "archetype", "coding", "development", "pull-request", "sdlc"],
+      "keywords": [
+        "squad",
+        "archetype",
+        "coding",
+        "development",
+        "pull-request",
+        "sdlc"
+      ],
       "category": "archetype",
-      "tags": ["squad", "archetype", "coding", "implementation"]
+      "tags": [
+        "squad",
+        "archetype",
+        "coding",
+        "implementation"
+      ]
     },
     {
       "name": "squad-archetype-consultant",
-      "description": "Consultant archetype — domain expert teams that index codebases and answer questions on demand as a persistent knowledge service",
-      "version": "0.1.0",
+      "description": "Consultant archetype \u2014 domain expert teams that index codebases and answer questions on demand as a persistent knowledge service",
+      "version": "0.3.0",
       "source": "plugins/squad-archetype-consultant",
       "author": {
         "name": "Vladi Lyga"
       },
       "license": "MIT",
-      "keywords": ["squad", "archetype", "consultant", "domain-expert", "knowledge", "qa"],
+      "keywords": [
+        "squad",
+        "archetype",
+        "consultant",
+        "domain-expert",
+        "knowledge",
+        "qa"
+      ],
       "category": "archetype",
-      "tags": ["squad", "archetype", "consultant", "knowledge-service"]
+      "tags": [
+        "squad",
+        "archetype",
+        "consultant",
+        "knowledge-service"
+      ]
     }
   ]
 }

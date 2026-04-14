@@ -1,9 +1,16 @@
 {
   "name": "squad-archetype-deliverable",
-  "description": "Deliverable archetype for squad-federation-core — scatter-gather pattern producing file artifacts",
-  "version": "0.2.0",
-  "author": { "name": "Vladi Lyga" },
-  "keywords": ["squad", "archetype", "deliverable", "scatter-gather"],
+  "description": "Deliverable archetype for squad-federation-core \u2014 scatter-gather pattern producing file artifacts",
+  "version": "0.3.0",
+  "author": {
+    "name": "Vladi Lyga"
+  },
+  "keywords": [
+    "squad",
+    "archetype",
+    "deliverable",
+    "scatter-gather"
+  ],
   "engines": {
     "node": ">=20.0.0",
     "git": ">=2.20.0"

@@ -1,13 +1,21 @@
 {
   "name": "squad-federation-core",
-  "description": "Federated squad model — permanent per-domain expert squads with orchestration, knowledge lifecycle, OTel observability, and headless scan automation",
-  "version": "0.1.0",
+  "description": "Federated squad model \u2014 permanent per-domain expert squads with orchestration, knowledge lifecycle, OTel observability, and headless scan automation",
+  "version": "0.3.0",
   "author": {
     "name": "Vladi Lyga"
   },
   "repository": "https://github.com/lygav/vladi-plugins-marketplace",
   "license": "MIT",
-  "keywords": ["squad", "federation", "multi-team", "orchestration", "domain-experts", "otel", "knowledge-management"],
+  "keywords": [
+    "squad",
+    "federation",
+    "multi-team",
+    "orchestration",
+    "domain-experts",
+    "otel",
+    "knowledge-management"
+  ],
   "category": "workflow",
   "engines": {
     "node": ">=20.0.0",
