@@ -50,17 +50,25 @@ artifact using `scripts/aggregate.ts`.
    prior deliverable or raw fragments already present. Map what data sources
    exist before deciding how to analyze them. Write a data source inventory
    to `raw/data-sources.json`.
+   
+   **Knowledge:** Record data source patterns and domain boundaries you discover to `.squad/learnings/log.jsonl`. Log as type "discovery" or "pattern".
 
 2. **Analysis** — Perform a breadth-first survey of all relevant sources within
    the domain. Catalog what exists, flag gaps, and prioritize deep-dive targets.
+   
+   **Knowledge:** As you catalog items, log structural patterns. "Resource type X always has fields Y and Z." "Gap pattern: missing documentation for all pre-2023 items."
 
 3. **Deep-Dives** — Investigate each high-priority area in depth. Produce
    structured findings and write them to `raw/` as intermediate fragments.
    As you produce fragments, observe the natural structure of the data. What
    fields recur? What patterns emerge? This shapes the deliverable schema.
+   
+   **Knowledge:** Log investigation techniques that work. "API endpoint /v2/details provides more complete data than /v1/summary." "YAML configs require manual validation — JSON Schema doesn't catch edge case X." Record gotchas immediately when you hit them.
 
 4. **Validation** — Cross-reference findings against the domain's source of
    truth. Confirm accuracy, resolve conflicts, and discard stale data.
+   
+   **Knowledge:** Log corrections when you find errors. Use `supersedes` field to replace earlier learnings that were wrong. "Initial assumption about field X was incorrect — actually means Y, not Z."
 
 5. **Distillation** — Merge validated fragments into the final
    `deliverable.json` at the worktree root. Produce a human-readable
@@ -69,6 +77,8 @@ artifact using `scripts/aggregate.ts`.
    `deliverable.schema.json`. Validate your deliverable against it. If a
    schema exists, validate your output against it and propose amendments if
    needed.
+   
+   **Knowledge:** After completing distillation, update `.squad/agents/*/history.md` with what you learned about this domain. Update `.squad/identity/wisdom.md` if structural patterns emerged that will apply to future runs. If you developed reusable validation or transformation logic, consider extracting it to `.squad/skills/` for next time.
 
 ## Schema Evolution
 

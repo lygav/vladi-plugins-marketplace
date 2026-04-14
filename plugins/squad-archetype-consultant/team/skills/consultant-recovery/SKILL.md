@@ -169,3 +169,21 @@ Use this decision tree to choose the right recovery action:
    - Check status.json for state change
    - Monitor run-output.log for activity
    - Test with a sample question
+
+5. **Capture learnings** — Record what went wrong and the fix
+   - Log the incident as a "gotcha" learning in `.squad/learnings/log.jsonl`
+   - Update `.squad/decisions.md` if architectural changes were needed
+   - Example learning entry:
+     ```json
+     {
+       "ts": "2025-04-14T15:30:00Z",
+       "type": "gotcha",
+       "agent": "recovery-team",
+       "domain": "local",
+       "tags": ["recovery", "indexing", "permissions"],
+       "title": "Indexing failed due to missing repo access token",
+       "body": "Consultant teams require git credentials with read access. When codebase URL uses HTTPS with auth, ensure credentials are configured before launch. Fixed by updating .git/config with token or switching to SSH.",
+       "confidence": "high"
+     }
+     ```
+   - This helps prevent future teams from hitting the same issue and informs recovery playbooks

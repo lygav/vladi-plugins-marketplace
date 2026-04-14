@@ -69,6 +69,120 @@ Each layer installs separately and owns its config:
 
 **Key principle:** Core doesn't know what teams produce. Archetypes define the work pattern. Projects bring domain expertise.
 
+### The archetype spectrum
+
+Archetypes exist on a spectrum based on team lifecycle and interaction pattern:
+
+```
+Batch ←―――――――――――――― Spectrum ―――――――――――――→ Service
+
+Deliverable        Coding           Consultant
+│                  │                │
+│                  │                │
+One-shot scan     Iterative dev    Always-on Q&A
+Complete → done   PR → feedback    Index → answer loop
+No long-term      State persists   Long-running
+interaction       across PRs       knowledge base
+```
+
+**Batch archetypes** (deliverable, research, analysis):
+- Teams complete a discrete task and reach a terminal state (`complete`, `failed`)
+- Work is comprehensive and delivered all at once
+- Future runs are separate invocations (refresh, reset, or new scope)
+
+**Iterative archetypes** (coding, testing, infrastructure):
+- Teams work in cycles with external feedback loops
+- State persists across iterations (PR feedback, test failures, deployment validation)
+- Work accumulates over time through multiple contributions
+
+**Service archetypes** (consultant, monitoring, validation):
+- Teams run continuously in a steady state
+- Respond to requests or events rather than completing a fixed scope
+- Knowledge base grows indefinitely as questions are answered or events are processed
+
+Choose your archetype position on this spectrum when designing. It affects:
+- Terminal states (batch = complete/failed, service = rarely terminates)
+- Refresh semantics (batch = delta scan, iterative = handle feedback, service = update knowledge)
+- Reset behavior (batch = full re-scan, iterative = clear branches but keep learnings, service = re-index)
+
+### Knowledge Architecture
+
+**CRITICAL:** Every archetype MUST explicitly instruct teams to build knowledge over time. This is not implied — it must be woven into launch prompts, playbook steps, and recovery procedures.
+
+#### The Five Knowledge Channels
+
+All teams — regardless of archetype — use these five channels:
+
+1. **Learning Log** (`.squad/learnings/log.jsonl`)
+   - Append-only JSONL of discoveries, corrections, patterns, techniques, gotchas
+   - Schema: `{id, ts, type, agent, domain, tags, title, body, confidence, source?, supersedes?, graduated_to_skill?}`
+   - Types: `discovery`, `correction`, `pattern`, `technique`, `gotcha`
+   - Domain: `local` (specific to this project) or `generalizable` (applies broadly)
+   - Confidence: `low`, `medium`, `high`
+
+2. **Agent History** (`.squad/agents/*/history.md`)
+   - Personal markdown journal per agent
+   - Updated after each work session
+   - What was learned, what approaches worked, what to remember
+
+3. **Team Decisions** (`.squad/decisions.md`)
+   - Markdown log of significant choices with rationale
+   - "Why we chose X over Y", "What tradeoffs we accepted"
+   - Helps future teams understand intent behind structure
+
+4. **Team Wisdom** (`.squad/identity/wisdom.md`)
+   - Distilled principles that emerge from repeated patterns
+   - Higher-level than individual learnings
+   - "This domain always has X structure", "Approach Y works best for Z"
+
+5. **Reusable Skills** (`.squad/skills/`)
+   - Extracted patterns that proved useful 3+ times
+   - Domain-specific validation logic, transformation patterns, investigation techniques
+   - Codified as markdown skills for reuse
+
+#### Integration Requirements for Archetypes
+
+When creating an archetype, you MUST:
+
+**In launch prompt templates:**
+- Include a dedicated "Knowledge Accumulation" section explaining all five channels
+- Describe when and how to use each channel
+- Make it explicit that "the team gets smarter over time"
+
+**In playbook skills:**
+- Weave knowledge instructions into each workflow phase — not as an afterthought section
+- After discovery/indexing: "Record what you found in the learning log"
+- After receiving feedback: "Capture the feedback as a correction"
+- After completing work: "Update your history with what you learned"
+- When spotting reusable patterns: "Extract to a skill when validated 3+ times"
+
+**In recovery skills (if archetype has them):**
+- After fixing issues: "Record what went wrong and the fix as a 'gotcha' learning"
+- After recovery: "Update decisions.md with why the failure occurred and how to prevent it"
+
+**In setup/scaffolding:**
+- Mention that this team will build knowledge over time in the five channels
+- Emphasize that the longer it runs, the better it gets
+
+#### Archetype-Specific Adaptations
+
+While all five channels apply to all archetypes, emphasis varies:
+
+**Batch archetypes (deliverable, research):**
+- Heavy use of learning log during investigation phases
+- Wisdom captures structural patterns about the domain
+- Skills often focus on data transformation and validation
+
+**Iterative archetypes (coding, testing):**
+- Decisions.md critical for tracking technical choices
+- Learning log captures codebase patterns and review feedback
+- Skills extract refactoring techniques and test patterns
+
+**Service archetypes (consultant, monitoring):**
+- Learning log becomes Q&A knowledge base
+- Wisdom distills architectural understanding
+- Skills codify investigation and diagnostic techniques
+
 ---
 
 ## Quick Start

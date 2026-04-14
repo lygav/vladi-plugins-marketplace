@@ -38,4 +38,25 @@ Log discoveries to `.squad/learnings/log.jsonl` as you read.
 - **consultant-playbook** — Your detailed workflow guide
 - **consultant-recovery** — Recovery procedures if you get stuck again
 
+## Knowledge Accumulation
+
+**Clean slate for knowledge, but informed by experience.** Even with a reset:
+
+1. **Learning Log** — Old learnings may exist but don't assume they're current. Re-index and log fresh discoveries. If something fundamentally changed, log corrections that supersede old entries.
+
+2. **Agent History** — Update with what the reset revealed. Why was it needed? How did your re-indexing differ from the first time?
+
+3. **Team Decisions** — Document indexing strategy for this fresh start. What depth? What priorities?
+
+4. **Team Wisdom** — A reset often clarifies what's truly essential about this codebase. Distill that clarity into wisdom.
+
+5. **Reusable Skills** — Your investigation techniques still work. Use them during re-indexing. If the reset revealed better approaches, evolve the skills.
+
+**During reset:**
+- Re-index systematically but use prior experience to work smarter
+- Log discoveries as if fresh but note when they confirm or contradict old learnings
+- After re-indexing, update wisdom with refined architectural understanding
+
+A reset doesn't mean forgetting — it means re-learning with the benefit of hindsight.
+
 Fresh start! 🆕
