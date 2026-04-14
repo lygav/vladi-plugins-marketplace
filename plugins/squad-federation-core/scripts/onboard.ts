@@ -185,66 +185,115 @@ async function copyDirectory(src: string, dest: string): Promise<void> {
  */
 async function createTeamWorkspace(
   args: ParsedArgs,
-  repoRoot: string
+  repoRoot: string,
+  config: FederateConfig,
+  domainTitle: string
 ): Promise<{ location: string; branch?: string; worktreeDir?: string }> {
-  if (args.placement === 'worktree') {
-    // Worktree placement: create git branch + worktree
-    const branchName = `${BRANCH_PREFIX}${args.name}`;
-    
-    // Check if branch already exists
-    try {
-      exec(`git rev-parse --verify ${branchName}`, { silent: true });
-      console.error(`⚠️  Branch '${branchName}' already exists.`);
-      console.error(`   Domain '${args.name}' appears to be already onboarded.`);
-      console.error('\nRecovery:');
-      console.error('  1. If team is already set up, launch it instead:');
-      console.error(`     npx tsx scripts/launch.ts --team ${args.name}`);
-      console.error('  2. If you want to re-onboard with a clean state:');
-      console.error(`     a. Check if worktree exists: git worktree list | grep ${args.name}`);
-      console.error(`     b. Remove worktree: git worktree remove .worktrees/${args.name} --force`);
-      console.error(`     c. Prune stale references: git worktree prune`);
-      console.error(`     d. Delete branch: git branch -D ${branchName}`);
-      console.error(`     e. Retry onboarding: npx tsx scripts/onboard.ts --name ${args.name} ...`);
-      console.error('  3. If you want to use a different name, pick a unique domain name.');
-      process.exit(1);
-    } catch { /* doesn't exist — good */ }
-    
-    // Calculate actual location based on worktreeDir
-    const baseDir = args.worktreeDir || '.worktrees';
-    const location = path.isAbsolute(baseDir) || baseDir.startsWith('../')
-      ? path.join(baseDir, args.name)
-      : path.join(repoRoot, baseDir, args.name);
-    
-    console.log(`Creating worktree placement for branch: ${branchName}`);
-    exec(`git worktree add "${location}" -b "${branchName}" "${args.baseBranch}"`, {
-      cwd: repoRoot,
-      silent: true
-    });
-    
-    return { location, branch: branchName, worktreeDir: baseDir };
-  } else {
-    // Directory placement: create directory at specified path
-    const location = path.resolve(repoRoot, args.path!, args.name);
-    
-    if (fs.existsSync(location)) {
-      console.error(`❌ Directory already exists: ${location}`);
-      console.error('\nRecovery:');
-      console.error('  1. Remove existing directory (WARNING: data will be lost):');
-      console.error(`     rm -rf "${location}"`);
-      console.error('  2. Or choose a different path:');
-      console.error(`     npx tsx scripts/onboard.ts --name ${args.name} --domain-id ${args.domainId} \\`);
-      console.error(`       --archetype ${args.archetype} --placement directory --path /different/path`);
-      console.error('  3. Or use worktree placement instead (creates .worktrees subdirectory):');
-      console.error(`     npx tsx scripts/onboard.ts --name ${args.name} --domain-id ${args.domainId} \\`);
-      console.error(`       --archetype ${args.archetype} --placement worktree`);
-      process.exit(1);
+  let location: string | undefined;
+  let branchName: string | undefined;
+  let baseDir: string | undefined;
+
+  switch (args.placement) {
+    case 'worktree': {
+      // Worktree placement: create git branch + worktree
+      branchName = `${BRANCH_PREFIX}${args.name}`;
+
+      // Check if branch already exists
+      try {
+        exec(`git rev-parse --verify ${branchName}`, { silent: true });
+        console.error(`⚠️  Branch '${branchName}' already exists.`);
+        console.error(`   Domain '${args.name}' appears to be already onboarded.`);
+        console.error('\nRecovery:');
+        console.error('  1. If team is already set up, launch it instead:');
+        console.error(`     npx tsx scripts/launch.ts --team ${args.name}`);
+        console.error('  2. If you want to re-onboard with a clean state:');
+        console.error(`     a. Check if worktree exists: git worktree list | grep ${args.name}`);
+        console.error(`     b. Remove worktree: git worktree remove .worktrees/${args.name} --force`);
+        console.error(`     c. Prune stale references: git worktree prune`);
+        console.error(`     d. Delete branch: git branch -D ${branchName}`);
+        console.error(`     e. Retry onboarding: npx tsx scripts/onboard.ts --name ${args.name} ...`);
+        console.error('  3. If you want to use a different name, pick a unique domain name.');
+        process.exit(1);
+      } catch { /* doesn't exist — good */ }
+
+      // Calculate actual location based on worktreeDir
+      baseDir = args.worktreeDir || '.worktrees';
+      location = path.isAbsolute(baseDir) || baseDir.startsWith('../')
+        ? path.join(baseDir, args.name)
+        : path.join(repoRoot, baseDir, args.name);
+
+      console.log(`Creating worktree placement for branch: ${branchName}`);
+      exec(`git worktree add "${location}" -b "${branchName}" "${args.baseBranch}"`, {
+        cwd: repoRoot,
+        silent: true
+      });
+      break;
     }
-    
-    console.log(`Creating directory placement at: ${location}`);
-    await fsp.mkdir(location, { recursive: true });
-    
-    return { location };
+    case 'directory': {
+      if (!args.path) {
+        throw new Error('Directory placement requires --path. Available: worktree, directory');
+      }
+      // Directory placement: create directory at specified path
+      location = path.resolve(repoRoot, args.path, args.name);
+
+      if (fs.existsSync(location)) {
+        console.error(`❌ Directory already exists: ${location}`);
+        console.error('\nRecovery:');
+        console.error('  1. Remove existing directory (WARNING: data will be lost):');
+        console.error(`     rm -rf "${location}"`);
+        console.error('  2. Or choose a different path:');
+        console.error(`     npx tsx scripts/onboard.ts --name ${args.name} --domain-id ${args.domainId} \\`);
+        console.error(`       --archetype ${args.archetype} --placement directory --path /different/path`);
+        console.error('  3. Or use worktree placement instead (creates .worktrees subdirectory):');
+        console.error(`     npx tsx scripts/onboard.ts --name ${args.name} --domain-id ${args.domainId} \\`);
+        console.error(`       --archetype ${args.archetype} --placement worktree`);
+        process.exit(1);
+      }
+
+      console.log(`Creating directory placement at: ${location}`);
+      await fsp.mkdir(location, { recursive: true });
+      break;
+    }
+    default:
+      throw new Error(`Unknown placement type: ${args.placement}. Available: worktree, directory`);
   }
+
+  if (!location) {
+    throw new Error('Workspace location was not created.');
+  }
+
+  const teamLocation = location;
+  await seedTeamDirectory(args.archetype, teamLocation, repoRoot);
+  scaffoldFederation(teamLocation, repoRoot, args, config, args.archetype);
+  writeDomainContext(teamLocation, args, domainTitle);
+
+  return { location, branch: branchName, worktreeDir: baseDir };
+}
+
+function writeDomainContext(teamLocation: string, args: ParsedArgs, domainTitle: string): void {
+  const contextMd = `# ${domainTitle} Domain
+
+**Domain ID:** ${args.domainId}
+${args.description ? `**Description:** ${args.description}\n` : ''}
+**Archetype:** ${args.archetype}
+**Created:** ${new Date().toISOString()}
+
+## Purpose
+
+${args.description || 'This domain squad is responsible for...'}
+
+## Responsibilities
+
+- TODO: Define domain boundaries
+- TODO: List key responsibilities
+- TODO: Document interfaces with other domains
+
+## Dependencies
+
+- TODO: List domains this one depends on
+- TODO: List domains that depend on this one
+`;
+  fs.writeFileSync(path.join(teamLocation, 'DOMAIN_CONTEXT.md'), contextMd);
 }
 
 // ==================== Team Directory Seeding ====================
@@ -373,7 +422,7 @@ async function main(): Promise<void> {
   console.log('');
 
   // Step 1: Create team workspace (worktree or directory)
-  const { location, branch, worktreeDir } = await createTeamWorkspace(args, REPO_ROOT);
+  const { location, branch, worktreeDir } = await createTeamWorkspace(args, REPO_ROOT, config, domainTitle);
   console.log(`✓ Team workspace created: ${location}`);
 
   const metadata: Record<string, unknown> = {};
@@ -398,37 +447,6 @@ async function main(): Promise<void> {
 
   const teamContext = createTeamContext(teamEntry, config, REPO_ROOT);
   const teamLocation = teamContext.location;
-
-  // Step 2: Seed team/ directory from archetype (skills, templates, archetype.json)
-  await seedTeamDirectory(args.archetype, teamLocation, REPO_ROOT);
-
-  // Step 3: Scaffold federation state (signals, learnings, ceremonies, telemetry, archetype.json)
-  scaffoldFederation(teamLocation, REPO_ROOT, args, config, args.archetype);
-
-  // Step 4: Write DOMAIN_CONTEXT.md
-  const contextMd = `# ${domainTitle} Domain
-
-**Domain ID:** ${args.domainId}
-${args.description ? `**Description:** ${args.description}\n` : ''}
-**Archetype:** ${args.archetype}
-**Created:** ${new Date().toISOString()}
-
-## Purpose
-
-${args.description || 'This domain squad is responsible for...'}
-
-## Responsibilities
-
-- TODO: Define domain boundaries
-- TODO: List key responsibilities
-- TODO: Document interfaces with other domains
-
-## Dependencies
-
-- TODO: List domains this one depends on
-- TODO: List domains that depend on this one
-`;
-  fs.writeFileSync(path.join(teamLocation, 'DOMAIN_CONTEXT.md'), contextMd);
 
   // Step 5: Clean up meta-squad files for worktree teams
   if (args.placement === 'worktree') {

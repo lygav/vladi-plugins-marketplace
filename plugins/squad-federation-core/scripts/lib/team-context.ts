@@ -147,12 +147,12 @@ function inferPlacementConfig(teamEntry: TeamEntry, repoRoot?: string): Placemen
   const placementType = teamEntry.placementType || teamEntry.transport;
   
   if (placementType === 'worktree') {
-    const metadataBranch = typeof teamEntry.metadata?.branch === 'string'
+    const branchOverride = typeof teamEntry.metadata?.branch === 'string'
       ? teamEntry.metadata.branch
       : undefined;
     // Extract branch name from location path
     // Location format: /path/to/repo/.worktrees/{branch} or ../worktrees/{branch}
-    const branch = metadataBranch || teamEntry.location.split('/').pop() || teamEntry.domain;
+    const branch = branchOverride || teamEntry.location.split('/').pop() || teamEntry.domain;
     
     if (!repoRoot) {
       throw new Error('repoRoot is required for worktree placement');
