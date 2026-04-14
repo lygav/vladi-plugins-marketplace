@@ -42,12 +42,10 @@ Start a Copilot session and say any of these:
 ```
 
 The setup wizard walks you through:
-1. Describe your goal
-2. Pick work pattern for your first team (deliverable, coding, research, task)
-3. Auto-installs the right archetype plugin
-4. Configure MCP stack, telemetry, branch prefix
-5. Cast your meta-squad (leadership team)
-6. Onboard your first team — archetype setup wizard fine-tunes it
+1. Describe your goal (what the federation is for)
+2. Configure MCP stack, telemetry, branch prefix, worktree location
+3. Cast your meta-squad (leadership team)
+4. Optional: Onboard your first team
 
 ### Later: Add more teams
 
@@ -56,7 +54,13 @@ The setup wizard walks you through:
 > @federation onboard a new team
 ```
 
-Each new team picks its own archetype. A coding team and a deliverable team can coexist under the same meta-squad.
+Each team onboarding:
+1. Discovers and selects the right archetype (deliverable, coding, research, task)
+2. Installs the archetype plugin if needed
+3. Runs the archetype's setup wizard for team-specific config
+4. Scaffolds the workspace and casts the team
+
+Each team picks its own archetype. A coding team and a deliverable team can coexist under the same meta-squad.
 
 ### Day-to-day
 

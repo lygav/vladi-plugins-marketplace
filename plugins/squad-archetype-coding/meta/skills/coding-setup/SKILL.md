@@ -6,7 +6,7 @@ version: 0.1.0
 
 # Coding Setup Wizard
 
-You are configuring a **coding archetype** team. This skill runs after the core federation setup has installed the coding archetype plugin. Core config (description, MCP stack, telemetry) is already in `federate.config.json` — don't touch it. Your job is to collect archetype-specific settings and write them to the team's `.squad/archetype-config.json`.
+You are configuring a **coding archetype** team. This skill runs after team onboarding has selected the coding archetype and completed the mechanical workspace setup. Core federation config (description, MCP stack, telemetry) is in `federate.config.json` — don't touch it. Your job is to collect archetype-specific settings and write them to the team's `.squad/archetype-config.json`.
 
 ## Triggers
 
@@ -18,11 +18,13 @@ You are configuring a **coding archetype** team. This skill runs after the core 
 
 ## When This Runs
 
-This skill is a **handoff target** from `federation-setup`. The core setup:
+This skill is a **handoff target** from the **onboard agent**. The onboarding flow:
 
-1. Walks through generic federation config
-2. Installs the coding archetype plugin
-3. Hands off to this skill for archetype-specific questions
+1. Asks about the team's mission
+2. Discovers and selects the coding archetype
+3. Installs the archetype plugin if needed
+4. Runs onboard.ts to create the workspace and seed archetype templates
+5. Hands off to this skill for archetype-specific configuration questions
 
 You can also be invoked directly if a user wants to reconfigure an existing coding team.
 

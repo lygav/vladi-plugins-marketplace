@@ -35,25 +35,34 @@ All scripts live at `${CLAUDE_PLUGIN_ROOT}/scripts/` and are invoked via `npx ts
 
 ### onboard.ts — Create a New Domain Squad
 
-Creates the full infrastructure for a new domain expert squad.
+Creates the full infrastructure for a new domain expert squad. **Archetype selection happens during the conversational onboarding flow** (see the onboard agent), not as a command-line parameter.
 
 ```bash
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/onboard.ts \
   --name "payments" \
   --domain-id "pay-001" \
-  --team-size 5 \
-  --roles "lead,developer,developer,sre,analyst" \
-  --agents "Agent Alpha,Agent Beta,Agent Gamma,Agent Delta,Agent Epsilon"
+  --archetype "squad-archetype-deliverable" \
+  --transport worktree
 ```
 
-What it does:
+The **onboard agent** handles the conversational part:
+1. Asks: "What should this team work on?"
+2. Asks guiding questions: "Will they write code or produce artifacts?"
+3. Discovers and recommends an archetype based on the mission
+4. Installs the archetype plugin if needed
+5. Selects transport (worktree/directory/teams)
+6. Calls onboard.ts with the discovered parameters
+7. Runs the archetype's setup skill for team-specific configuration
+
+The **onboard.ts script** handles the mechanical part:
 1. Creates the `scan/{name}` branch from the current HEAD
-2. Sets up a persistent git worktree at `../worktrees/{name}`
-3. Seeds template files into the worktree
+2. Sets up a persistent git worktree (or directory/teams workspace based on transport)
+3. Seeds the archetype's team/ directory into the workspace
 4. Generates `squad.config.ts` using the Squad SDK builders
 5. Runs `squad build` to produce `.squad/` artifacts (charters, histories, skills)
-6. Cleans meta-squad files out of the domain branch (prevents cross-contamination)
-7. Makes the initial commit on the domain branch
+6. Makes the initial commit on the domain branch
+
+**Key design principle:** Archetype is a team property, chosen during onboarding. Each team can use a different archetype within the same federation.
 
 Use `--base-branch` to specify a different starting point (defaults to current branch).
 
