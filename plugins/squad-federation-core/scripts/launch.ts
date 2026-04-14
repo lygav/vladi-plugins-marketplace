@@ -222,8 +222,10 @@ function buildStepPrompt(
 ): string {
   let base: string;
 
-  if (source.cliPrompt || source.cliPromptFile) {
-    const raw = source.cliPrompt ?? fs.readFileSync(path.resolve(source.cliPromptFile!), 'utf-8');
+  if (source.cliPrompt) {
+    base = `${source.cliPrompt}\n\nRun ONLY the "${step}" step.`;
+  } else if (source.cliPromptFile) {
+    const raw = fs.readFileSync(path.resolve(source.cliPromptFile), 'utf-8');
     base = `${raw}\n\nRun ONLY the "${step}" step.`;
   } else {
     base = `Team ${team}, run ONLY step "${step}" from your ${config.playbookSkill} skill.
@@ -385,13 +387,7 @@ async function main(): Promise<void> {
 
   const config = loadAndValidateConfig(path.join(REPO_ROOT, 'federate.config.json'));
   const registry = new TeamRegistry(REPO_ROOT);
-  let teams = await registry.list();
-  if (teams.length === 0) {
-    const migrated = await registry.migrateFromWorktreeDiscovery(REPO_ROOT);
-    if (migrated > 0) {
-      teams = await registry.list();
-    }
-  }
+  const teams = await registry.list();
   const promptSource: PromptSource = { cliPrompt, cliPromptFile };
 
   if (allMode) {
