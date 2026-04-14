@@ -258,6 +258,25 @@ npx tsx scripts/create-archetype.ts \
   --has-aggregation
 ```
 
+**Output directory:**
+
+By default, archetypes are created in `../../plugins/squad-archetype-{name}/`. Use `--output` to change the location.
+
+### Automatic discovery
+
+**Your archetype is automatically discovered by the federation setup wizard.** No manual registration needed — just install the plugin and it appears in the setup options.
+
+The setup wizard uses dynamic archetype discovery that:
+1. Reads `.github/plugin/marketplace.json` to find plugins with `category: "archetype"`
+2. Falls back to filesystem scan of `plugins/` directory if marketplace.json is missing
+3. Presents all discovered archetypes with their descriptions and lifecycle states
+
+This means:
+- ✅ New archetypes appear immediately in setup wizard after installation
+- ✅ No config files to update or manifests to edit
+- ✅ Third-party archetypes from other marketplaces work automatically
+- ✅ Custom archetypes in development show up for testing
+
 ---
 
 ## Anatomy of an Archetype

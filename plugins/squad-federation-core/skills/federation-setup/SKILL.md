@@ -110,18 +110,49 @@ Walk through each step in order. One question at a time. Provide sensible defaul
 
 Accept whatever the user gives. Don't try to normalize it.
 
-### Step 2: Work pattern for your first team
+### Step 2: Discover available archetypes
+
+**Discover archetypes dynamically** using the archetype discovery library:
+
+```typescript
+import { discoverArchetypes, formatArchetypeChoices } from '${CLAUDE_PLUGIN_ROOT}/scripts/lib/archetype-discovery.js';
+
+const archetypes = discoverArchetypes();
+console.log(formatArchetypeChoices(archetypes));
+```
+
+The discovery function tries two strategies:
+1. Read `.github/plugin/marketplace.json` (fastest, most reliable)
+2. Fall back to filesystem scan of `plugins/` directory
+
+**If no archetypes found**, tell the user:
+
+> "No archetypes installed yet. Archetypes define team work patterns (deliverable, coding, research, etc.). Install one from the marketplace:
+> ```bash
+> copilot plugin marketplace add lygav/vladi-plugins-marketplace
+> copilot plugin install squad-archetype-deliverable@vladi-plugins-marketplace
+> ```
+> Then run federation setup again."
+
+**If archetypes found**, present the discovered list:
 
 **Ask:** "What kind of work will your first team do?"
 
-**Present choices:**
+**Present the formatted archetype list** from `formatArchetypeChoices()`. This shows:
+- Archetype name
+- Description (what the team does)
+- Lifecycle states (the workflow)
 
-| Work pattern | What it means |
-|-----------|---------------|
-| **Deliverable** | Team produces file artifacts — reports, inventories, audit results |
-| **Coding** | Team writes code and opens PRs |
-| **Research** | Team investigates topics and produces documents |
-| **Task** | Team executes discrete work items |
+**Example output:**
+```
+Available archetypes:
+  1. deliverable — Iterative teams that scan sources, distill artifacts, learn from feedback
+     States: preparing → scanning → distilling → aggregating
+  2. coding — Implementation teams that write code and open PRs
+     States: preparing → implementing → testing → pr-open → pr-review → pr-approved → merged
+  3. consultant — Domain expert teams that index codebases and answer questions on demand
+     States: onboarding → indexing → ready → researching → waiting-for-feedback
+```
 
 **Say:** "This installs the archetype for your first team. You can add different types of teams later — each team picks its own archetype when onboarded."
 
@@ -129,9 +160,9 @@ Accept whatever the user gives. Don't try to normalize it.
 
 **Store the selection internally** — it determines which archetype plugin to install. The archetype name does NOT go into core config.
 
-### Step 3: Install archetype
+### Step 3: Install archetype (if not already installed)
 
-Based on the selection, install the corresponding archetype plugin.
+If the selected archetype is not already installed, install it.
 
 **First, check if the marketplace is registered:**
 
@@ -148,14 +179,10 @@ copilot plugin marketplace add lygav/vladi-plugins-marketplace
 **Then install the archetype:**
 
 ```bash
-copilot plugin install squad-archetype-{choice}@vladi-plugins-marketplace
+copilot plugin install {archetype-name}@vladi-plugins-marketplace
 ```
 
-Archetype name mapping:
-- Deliverable → `squad-archetype-deliverable`
-- Coding → `squad-archetype-coding`
-- Research → `squad-archetype-research`
-- Task → `squad-archetype-task`
+Use the full archetype name from the discovery (e.g., `squad-archetype-deliverable`).
 
 **Confirm success** before proceeding. If install fails, show the error and offer to retry or skip.
 
