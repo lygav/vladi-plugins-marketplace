@@ -14,6 +14,7 @@ import type {
   SignalMessage,
   LearningEntry
 } from '../../sdk/types';
+import { OTelEmitter } from '../../sdk/otel-emitter.js';
 
 /**
  * Zod schema for ScanStatus validation.
@@ -70,11 +71,19 @@ const LearningEntrySchema = z.object({
  * WorktreeTransport will extend this class and add git operations.
  */
 export class DirectoryTransport implements TeamTransport {
+  protected readonly emitter: OTelEmitter;
+
   /**
    * Create a new DirectoryTransport.
    * @param basePathMap - Map of teamId to base directory path
+   * @param emitter - Optional OTel emitter for instrumentation
    */
-  constructor(private readonly basePathMap: Map<string, string>) {}
+  constructor(
+    private readonly basePathMap: Map<string, string>,
+    emitter?: OTelEmitter
+  ) {
+    this.emitter = emitter || new OTelEmitter();
+  }
 
   /**
    * Get absolute path for a team's workspace.
@@ -246,52 +255,86 @@ export class DirectoryTransport implements TeamTransport {
    * Read signal messages from specified direction.
    */
   private async readSignals(teamId: string, direction: 'inbox' | 'outbox'): Promise<SignalMessage[]> {
-    try {
-      const signalsDir = `.squad/signals/${direction}`;
-      const fullPath = this.getFilePath(teamId, signalsDir);
+    return await this.emitter.span(
+      'transport.readSignals',
+      async () => {
+        try {
+          const signalsDir = `.squad/signals/${direction}`;
+          const fullPath = this.getFilePath(teamId, signalsDir);
 
-      try {
-        await fs.access(fullPath);
-      } catch {
-        // Directory doesn't exist, return empty array
-        return [];
+          try {
+            await fs.access(fullPath);
+          } catch {
+            // Directory doesn't exist, return empty array
+            return [];
+          }
+
+          const files = await fs.readdir(fullPath);
+          const jsonFiles = files.filter(f => f.endsWith('.json'));
+
+          const signals: SignalMessage[] = [];
+          for (const file of jsonFiles) {
+            const content = await fs.readFile(path.join(fullPath, file), 'utf-8');
+            const parsed = JSON.parse(content);
+            const validated = SignalMessageSchema.parse(parsed);
+            signals.push(validated);
+          }
+
+          // Emit metric for signals read
+          await this.emitter.metric('signals.read', signals.length, {
+            'squad.domain': teamId,
+            'signal.direction': direction
+          });
+
+          return signals;
+        } catch (error) {
+          throw new Error(`Failed to read ${direction} signals for team ${teamId}: ${(error as Error).message}`);
+        }
+      },
+      {
+        'squad.domain': teamId,
+        'signal.direction': direction
       }
-
-      const files = await fs.readdir(fullPath);
-      const jsonFiles = files.filter(f => f.endsWith('.json'));
-
-      const signals: SignalMessage[] = [];
-      for (const file of jsonFiles) {
-        const content = await fs.readFile(path.join(fullPath, file), 'utf-8');
-        const parsed = JSON.parse(content);
-        const validated = SignalMessageSchema.parse(parsed);
-        signals.push(validated);
-      }
-
-      return signals;
-    } catch (error) {
-      throw new Error(`Failed to read ${direction} signals for team ${teamId}: ${(error as Error).message}`);
-    }
+    );
   }
 
   /**
    * Write signal message to specified direction.
    */
   private async writeSignal(teamId: string, direction: 'inbox' | 'outbox', signal: SignalMessage): Promise<void> {
-    try {
-      // Validate signal
-      SignalMessageSchema.parse(signal);
+    await this.emitter.span(
+      'transport.writeSignal',
+      async () => {
+        try {
+          // Validate signal
+          SignalMessageSchema.parse(signal);
 
-      // Generate filename: {timestamp}-{type}-{subject-slug}.json
-      const timestamp = signal.timestamp.replace(/[:.]/g, '-');
-      const subjectSlug = this.slugify(signal.subject);
-      const filename = `${timestamp}-${signal.type}-${subjectSlug}.json`;
+          // Generate filename: {timestamp}-{type}-{subject-slug}.json
+          const timestamp = signal.timestamp.replace(/[:.]/g, '-');
+          const subjectSlug = this.slugify(signal.subject);
+          const filename = `${timestamp}-${signal.type}-${subjectSlug}.json`;
 
-      const signalPath = `.squad/signals/${direction}/${filename}`;
-      await this.writeFile(teamId, signalPath, JSON.stringify(signal, null, 2));
-    } catch (error) {
-      throw new Error(`Failed to write ${direction} signal for team ${teamId}: ${(error as Error).message}`);
-    }
+          const signalPath = `.squad/signals/${direction}/${filename}`;
+          await this.writeFile(teamId, signalPath, JSON.stringify(signal, null, 2));
+
+          // Emit event for signal sent
+          await this.emitter.event('signal.sent', {
+            'squad.domain': teamId,
+            'signal.direction': direction,
+            'signal.type': signal.type,
+            'signal.from': signal.from,
+            'signal.to': signal.to
+          });
+        } catch (error) {
+          throw new Error(`Failed to write ${direction} signal for team ${teamId}: ${(error as Error).message}`);
+        }
+      },
+      {
+        'squad.domain': teamId,
+        'signal.direction': direction,
+        'signal.type': signal.type
+      }
+    );
   }
 
   /**
@@ -469,38 +512,53 @@ export class DirectoryTransport implements TeamTransport {
    * Bootstrap a new team workspace.
    */
   async bootstrap(teamId: string, archetypeId: string, config: Record<string, unknown>): Promise<void> {
-    try {
-      const basePath = this.getTeamPath(teamId);
-      
-      // Create workspace directory
-      await fs.mkdir(basePath, { recursive: true });
+    await this.emitter.span(
+      'transport.bootstrap',
+      async () => {
+        try {
+          const basePath = this.getTeamPath(teamId);
+          
+          // Create workspace directory
+          await fs.mkdir(basePath, { recursive: true });
 
-      // Create .squad directory structure
-      await fs.mkdir(path.join(basePath, '.squad/signals/inbox'), { recursive: true });
-      await fs.mkdir(path.join(basePath, '.squad/signals/outbox'), { recursive: true });
+          // Create .squad directory structure
+          await fs.mkdir(path.join(basePath, '.squad/signals/inbox'), { recursive: true });
+          await fs.mkdir(path.join(basePath, '.squad/signals/outbox'), { recursive: true });
 
-      // Initialize status.json
-      const initialStatus: ScanStatus = {
-        domain: teamId,
-        domain_id: teamId,
-        state: 'initialized',
-        step: 'bootstrap',
-        started_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        archetype_id: archetypeId
-      };
-      
-      await this.writeFile(teamId, '.squad/signals/status.json', JSON.stringify(initialStatus, null, 2));
+          // Initialize status.json
+          const initialStatus: ScanStatus = {
+            domain: teamId,
+            domain_id: teamId,
+            state: 'initialized',
+            step: 'bootstrap',
+            started_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            archetype_id: archetypeId
+          };
+          
+          await this.writeFile(teamId, '.squad/signals/status.json', JSON.stringify(initialStatus, null, 2));
 
-      // Create empty learning log
-      await this.writeFile(teamId, '.squad/learning-log.jsonl', '');
+          // Create empty learning log
+          await this.writeFile(teamId, '.squad/learning-log.jsonl', '');
 
-      // Write config if provided
-      if (Object.keys(config).length > 0) {
-        await this.writeFile(teamId, '.squad/config.json', JSON.stringify(config, null, 2));
+          // Write config if provided
+          if (Object.keys(config).length > 0) {
+            await this.writeFile(teamId, '.squad/config.json', JSON.stringify(config, null, 2));
+          }
+
+          // Emit event for team bootstrapped
+          await this.emitter.event('team.bootstrapped', {
+            'squad.domain': teamId,
+            'archetype.id': archetypeId
+          });
+        } catch (error) {
+          throw new Error(`Failed to bootstrap workspace for team ${teamId}: ${(error as Error).message}`);
+        }
+      },
+      {
+        'squad.domain': teamId,
+        'archetype.id': archetypeId
       }
-    } catch (error) {
-      throw new Error(`Failed to bootstrap workspace for team ${teamId}: ${(error as Error).message}`);
-    }
+    );
   }
 }

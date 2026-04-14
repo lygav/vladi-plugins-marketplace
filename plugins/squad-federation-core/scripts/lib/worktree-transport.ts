@@ -8,6 +8,7 @@
 import { execSync } from 'child_process';
 import * as path from 'path';
 import { DirectoryTransport } from './directory-transport';
+import { OTelEmitter } from '../../sdk/otel-emitter.js';
 
 /**
  * WorktreeInfo — Metadata about a git worktree.
@@ -31,11 +32,13 @@ export class WorktreeTransport extends DirectoryTransport {
    * @param basePath - Base directory path for the worktree
    * @param branch - Git branch name for this worktree
    * @param repoRoot - Repository root directory
+   * @param emitter - Optional OTel emitter for instrumentation
    */
   constructor(
     basePath: string,
     private readonly branch: string,
-    private readonly repoRoot: string
+    private readonly repoRoot: string,
+    emitter?: OTelEmitter
   ) {
     // Create basePathMap with a single team entry for this worktree
     // In federation context, each worktree typically represents one team
@@ -43,7 +46,7 @@ export class WorktreeTransport extends DirectoryTransport {
     const teamId = path.basename(basePath);
     basePathMap.set(teamId, basePath);
     
-    super(basePathMap);
+    super(basePathMap, emitter);
   }
 
   /**
@@ -51,86 +54,127 @@ export class WorktreeTransport extends DirectoryTransport {
    * @param repoRoot - Repository root directory
    * @param branchName - Branch name for the new worktree
    * @param baseBranch - Base branch to fork from (default: current branch)
+   * @param emitter - Optional OTel emitter for instrumentation
    * @returns WorktreeTransport instance for the new worktree
    */
   static async create(
     repoRoot: string,
     branchName: string,
-    baseBranch?: string
+    baseBranch?: string,
+    emitter?: OTelEmitter
   ): Promise<WorktreeTransport> {
-    try {
-      // Generate worktree path: {repoRoot}/.worktrees/{branchName}
-      const worktreePath = path.join(repoRoot, '.worktrees', branchName);
+    const emit = emitter || new OTelEmitter();
+    
+    return await emit.span(
+      'worktree.create',
+      async () => {
+        try {
+          // Generate worktree path: {repoRoot}/.worktrees/{branchName}
+          const worktreePath = path.join(repoRoot, '.worktrees', branchName);
 
-      // Build git worktree add command
-      const baseRef = baseBranch || 'HEAD';
-      const cmd = `git worktree add "${worktreePath}" -b "${branchName}" "${baseRef}"`;
+          // Build git worktree add command
+          const baseRef = baseBranch || 'HEAD';
+          const cmd = `git worktree add "${worktreePath}" -b "${branchName}" "${baseRef}"`;
 
-      // Execute from repo root
-      execSync(cmd, {
-        cwd: repoRoot,
-        stdio: 'pipe',
-        encoding: 'utf-8'
-      });
+          // Execute from repo root
+          execSync(cmd, {
+            cwd: repoRoot,
+            stdio: 'pipe',
+            encoding: 'utf-8'
+          });
 
-      return new WorktreeTransport(worktreePath, branchName, repoRoot);
-    } catch (error) {
-      throw new Error(
-        `Failed to create worktree for branch ${branchName}: ${(error as Error).message}\n` +
-        `Recovery:\n` +
-        `  1. Check if worktree path already exists:\n` +
-        `     ls -la ${worktreePath}\n` +
-        `  2. Check git status:\n` +
-        `     cd ${repoRoot} && git status\n` +
-        `  3. List existing worktrees:\n` +
-        `     git worktree list\n` +
-        `  4. If worktree exists but is stale, remove it:\n` +
-        `     git worktree remove ${worktreePath} --force\n` +
-        `     git worktree prune\n` +
-        `  5. If branch doesn't exist, create it first:\n` +
-        `     git checkout -b ${branchName}\n` +
-        `  6. Check disk space:\n` +
-        `     df -h\n` +
-        `  7. Ensure parent directory is writable:\n` +
-        `     ls -la $(dirname ${worktreePath})`
-      );
-    }
+          // Emit event for worktree created
+          await emit.event('worktree.created', {
+            'git.branch': branchName,
+            'git.base_branch': baseRef,
+            'worktree.path': worktreePath
+          });
+
+          return new WorktreeTransport(worktreePath, branchName, repoRoot, emitter);
+        } catch (error) {
+          throw new Error(
+            `Failed to create worktree for branch ${branchName}: ${(error as Error).message}\n` +
+            `Recovery:\n` +
+            `  1. Check if worktree path already exists:\n` +
+            `     ls -la ${worktreePath}\n` +
+            `  2. Check git status:\n` +
+            `     cd ${repoRoot} && git status\n` +
+            `  3. List existing worktrees:\n` +
+            `     git worktree list\n` +
+            `  4. If worktree exists but is stale, remove it:\n` +
+            `     git worktree remove ${worktreePath} --force\n` +
+            `     git worktree prune\n` +
+            `  5. If branch doesn't exist, create it first:\n` +
+            `     git checkout -b ${branchName}\n` +
+            `  6. Check disk space:\n` +
+            `     df -h\n` +
+            `  7. Ensure parent directory is writable:\n` +
+            `     ls -la $(dirname ${worktreePath})`
+          );
+        }
+      },
+      {
+        'git.branch': branchName,
+        'git.operation': 'create'
+      }
+    );
   }
 
   /**
    * Remove a git worktree.
    * @param repoRoot - Repository root directory
    * @param worktreePath - Path to the worktree to remove
+   * @param emitter - Optional OTel emitter for instrumentation
    */
-  static async remove(repoRoot: string, worktreePath: string): Promise<void> {
-    try {
-      const cmd = `git worktree remove "${worktreePath}" --force`;
-      
-      execSync(cmd, {
-        cwd: repoRoot,
-        stdio: 'pipe',
-        encoding: 'utf-8'
-      });
-    } catch (error) {
-      throw new Error(
-        `Failed to remove worktree at ${worktreePath}: ${(error as Error).message}\n` +
-        `Recovery:\n` +
-        `  1. Check if worktree exists:\n` +
-        `     ls -la ${worktreePath}\n` +
-        `  2. List all worktrees:\n` +
-        `     git worktree list\n` +
-        `  3. If worktree is locked, check for .git/worktrees lock:\n` +
-        `     ls -la ${repoRoot}/.git/worktrees/\n` +
-        `  4. Force cleanup if needed:\n` +
-        `     rm -rf ${worktreePath}\n` +
-        `     git worktree prune\n` +
-        `  5. If worktree has uncommitted changes:\n` +
-        `     cd ${worktreePath} && git status\n` +
-        `     # Commit or stash changes before removal\n` +
-        `  6. Check permissions:\n` +
-        `     ls -la $(dirname ${worktreePath})`
-      );
-    }
+  static async remove(
+    repoRoot: string,
+    worktreePath: string,
+    emitter?: OTelEmitter
+  ): Promise<void> {
+    const emit = emitter || new OTelEmitter();
+    
+    await emit.span(
+      'worktree.remove',
+      async () => {
+        try {
+          const cmd = `git worktree remove "${worktreePath}" --force`;
+          
+          execSync(cmd, {
+            cwd: repoRoot,
+            stdio: 'pipe',
+            encoding: 'utf-8'
+          });
+
+          // Emit event for worktree removed
+          await emit.event('worktree.removed', {
+            'worktree.path': worktreePath
+          });
+        } catch (error) {
+          throw new Error(
+            `Failed to remove worktree at ${worktreePath}: ${(error as Error).message}\n` +
+            `Recovery:\n` +
+            `  1. Check if worktree exists:\n` +
+            `     ls -la ${worktreePath}\n` +
+            `  2. List all worktrees:\n` +
+            `     git worktree list\n` +
+            `  3. If worktree is locked, check for .git/worktrees lock:\n` +
+            `     ls -la ${repoRoot}/.git/worktrees/\n` +
+            `  4. Force cleanup if needed:\n` +
+            `     rm -rf ${worktreePath}\n` +
+            `     git worktree prune\n` +
+            `  5. If worktree has uncommitted changes:\n` +
+            `     cd ${worktreePath} && git status\n` +
+            `     # Commit or stash changes before removal\n` +
+            `  6. Check permissions:\n` +
+            `     ls -la $(dirname ${worktreePath})`
+          );
+        }
+      },
+      {
+        'worktree.path': worktreePath,
+        'git.operation': 'remove'
+      }
+    );
   }
 
   /**
@@ -147,52 +191,68 @@ export class WorktreeTransport extends DirectoryTransport {
    * @param files - Optional array of file paths to stage (default: all changes)
    */
   async commit(message: string, files?: string[]): Promise<void> {
-    try {
-      const worktreePath = await this.getLocation(path.basename(await this.getLocation('')));
+    await this.emitter.span(
+      'git.commit',
+      async () => {
+        try {
+          const worktreePath = await this.getLocation(path.basename(await this.getLocation('')));
 
-      // Stage files
-      if (files && files.length > 0) {
-        const fileArgs = files.map(f => `"${f}"`).join(' ');
-        execSync(`git add ${fileArgs}`, {
-          cwd: worktreePath,
-          stdio: 'pipe',
-          encoding: 'utf-8'
-        });
-      } else {
-        // Stage all changes
-        execSync('git add -A', {
-          cwd: worktreePath,
-          stdio: 'pipe',
-          encoding: 'utf-8'
-        });
+          // Stage files
+          if (files && files.length > 0) {
+            const fileArgs = files.map(f => `"${f}"`).join(' ');
+            execSync(`git add ${fileArgs}`, {
+              cwd: worktreePath,
+              stdio: 'pipe',
+              encoding: 'utf-8'
+            });
+          } else {
+            // Stage all changes
+            execSync('git add -A', {
+              cwd: worktreePath,
+              stdio: 'pipe',
+              encoding: 'utf-8'
+            });
+          }
+
+          // Commit
+          execSync(`git commit -m "${message}"`, {
+            cwd: worktreePath,
+            stdio: 'pipe',
+            encoding: 'utf-8'
+          });
+
+          // Emit event for commit
+          await this.emitter.event('git.committed', {
+            'git.branch': this.branch,
+            'git.operation': 'commit',
+            'files_count': files?.length || -1 // -1 = all changes
+          });
+        } catch (error) {
+          const worktreePath = await this.getLocation(path.basename(await this.getLocation('')));
+          throw new Error(
+            `Failed to commit in worktree: ${(error as Error).message}\n` +
+            `Recovery:\n` +
+            `  1. Check git status:\n` +
+            `     cd ${worktreePath} && git status\n` +
+            `  2. Verify there are changes to commit:\n` +
+            `     cd ${worktreePath} && git diff --cached\n` +
+            `  3. If no changes staged, check working tree:\n` +
+            `     cd ${worktreePath} && git diff\n` +
+            `  4. If commit message has special characters, escape them\n` +
+            `  5. Check for merge conflicts:\n` +
+            `     cd ${worktreePath} && git status | grep conflict\n` +
+            `  6. Ensure git user is configured:\n` +
+            `     git config user.name && git config user.email\n` +
+            `  7. If hooks are failing, check:\n` +
+            `     cd ${worktreePath} && ls -la .git/hooks/`
+          );
+        }
+      },
+      {
+        'git.branch': this.branch,
+        'git.operation': 'commit'
       }
-
-      // Commit
-      execSync(`git commit -m "${message}"`, {
-        cwd: worktreePath,
-        stdio: 'pipe',
-        encoding: 'utf-8'
-      });
-    } catch (error) {
-      const worktreePath = await this.getLocation(path.basename(await this.getLocation('')));
-      throw new Error(
-        `Failed to commit in worktree: ${(error as Error).message}\n` +
-        `Recovery:\n` +
-        `  1. Check git status:\n` +
-        `     cd ${worktreePath} && git status\n` +
-        `  2. Verify there are changes to commit:\n` +
-        `     cd ${worktreePath} && git diff --cached\n` +
-        `  3. If no changes staged, check working tree:\n` +
-        `     cd ${worktreePath} && git diff\n` +
-        `  4. If commit message has special characters, escape them\n` +
-        `  5. Check for merge conflicts:\n` +
-        `     cd ${worktreePath} && git status | grep conflict\n` +
-        `  6. Ensure git user is configured:\n` +
-        `     git config user.name && git config user.email\n` +
-        `  7. If hooks are failing, check:\n` +
-        `     cd ${worktreePath} && ls -la .git/hooks/`
-      );
-    }
+    );
   }
 
   /**
@@ -200,21 +260,31 @@ export class WorktreeTransport extends DirectoryTransport {
    * @param remote - Remote name (default: 'origin')
    */
   async push(remote: string = 'origin'): Promise<void> {
-    try {
-      const worktreePath = await this.getLocation(path.basename(await this.getLocation('')));
+    await this.emitter.span(
+      'git.push',
+      async () => {
+        try {
+          const worktreePath = await this.getLocation(path.basename(await this.getLocation('')));
 
-      const cmd = `git push -u "${remote}" "${this.branch}"`;
-      
-      execSync(cmd, {
-        cwd: worktreePath,
-        stdio: 'pipe',
-        encoding: 'utf-8'
-      });
-    } catch (error) {
-      throw new Error(
-        `Failed to push branch ${this.branch}: ${(error as Error).message}`
-      );
-    }
+          const cmd = `git push -u "${remote}" "${this.branch}"`;
+          
+          execSync(cmd, {
+            cwd: worktreePath,
+            stdio: 'pipe',
+            encoding: 'utf-8'
+          });
+        } catch (error) {
+          throw new Error(
+            `Failed to push branch ${this.branch}: ${(error as Error).message}`
+          );
+        }
+      },
+      {
+        'git.branch': this.branch,
+        'git.remote': remote,
+        'git.operation': 'push'
+      }
+    );
   }
 
   /**
@@ -278,46 +348,65 @@ export class WorktreeTransport extends DirectoryTransport {
    * @returns PR URL
    */
   async createPR(title: string, body: string, base: string = 'main'): Promise<string> {
-    try {
-      const worktreePath = await this.getLocation(path.basename(await this.getLocation('')));
+    return await this.emitter.span(
+      'git.createPR',
+      async () => {
+        try {
+          const worktreePath = await this.getLocation(path.basename(await this.getLocation('')));
 
-      const cmd = `gh pr create --title "${title}" --body "${body}" --base "${base}"`;
-      
-      const output = execSync(cmd, {
-        cwd: worktreePath,
-        stdio: 'pipe',
-        encoding: 'utf-8'
-      });
+          const cmd = `gh pr create --title "${title}" --body "${body}" --base "${base}"`;
+          
+          const output = execSync(cmd, {
+            cwd: worktreePath,
+            stdio: 'pipe',
+            encoding: 'utf-8'
+          });
 
-      // Extract PR URL from gh output
-      const urlMatch = output.match(/https:\/\/[^\s]+/);
-      if (!urlMatch) {
-        throw new Error('Failed to extract PR URL from gh output');
+          // Extract PR URL from gh output
+          const urlMatch = output.match(/https:\/\/[^\s]+/);
+          if (!urlMatch) {
+            throw new Error('Failed to extract PR URL from gh output');
+          }
+
+          const prUrl = urlMatch[0];
+
+          // Emit event for PR created
+          await this.emitter.event('pr.created', {
+            'git.branch': this.branch,
+            'git.base_branch': base,
+            'pr.url': prUrl
+          });
+
+          return prUrl;
+        } catch (error) {
+          const worktreePath = await this.getLocation(path.basename(await this.getLocation('')));
+          throw new Error(
+            `Failed to create PR for branch ${this.branch}: ${(error as Error).message}\n` +
+            `Recovery:\n` +
+            `  1. Ensure branch is pushed to remote:\n` +
+            `     cd ${worktreePath} && git push -u origin ${this.branch}\n` +
+            `  2. Check gh CLI authentication:\n` +
+            `     gh auth status\n` +
+            `  3. If not authenticated:\n` +
+            `     gh auth login\n` +
+            `  4. Verify remote repository:\n` +
+            `     cd ${worktreePath} && git remote -v\n` +
+            `  5. Check if PR already exists:\n` +
+            `     gh pr list --head ${this.branch}\n` +
+            `  6. Try creating PR manually:\n` +
+            `     cd ${worktreePath}\n` +
+            `     gh pr create --title "Your title" --body "Your body" --base ${base}\n` +
+            `  7. Ensure branch has commits:\n` +
+            `     cd ${worktreePath} && git log --oneline -5`
+          );
+        }
+      },
+      {
+        'git.branch': this.branch,
+        'git.base_branch': base,
+        'git.operation': 'create_pr'
       }
-
-      return urlMatch[0];
-    } catch (error) {
-      const worktreePath = await this.getLocation(path.basename(await this.getLocation('')));
-      throw new Error(
-        `Failed to create PR for branch ${this.branch}: ${(error as Error).message}\n` +
-        `Recovery:\n` +
-        `  1. Ensure branch is pushed to remote:\n` +
-        `     cd ${worktreePath} && git push -u origin ${this.branch}\n` +
-        `  2. Check gh CLI authentication:\n` +
-        `     gh auth status\n` +
-        `  3. If not authenticated:\n` +
-        `     gh auth login\n` +
-        `  4. Verify remote repository:\n` +
-        `     cd ${worktreePath} && git remote -v\n` +
-        `  5. Check if PR already exists:\n` +
-        `     gh pr list --head ${this.branch}\n` +
-        `  6. Try creating PR manually:\n` +
-        `     cd ${worktreePath}\n` +
-        `     gh pr create --title "Your title" --body "Your body" --base ${base}\n` +
-        `  7. Ensure branch has commits:\n` +
-        `     cd ${worktreePath} && git log --oneline -5`
-      );
-    }
+    );
   }
 
   /**

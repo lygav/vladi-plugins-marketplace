@@ -33,3 +33,6 @@ export * from './schemas.js';
 export * from './monitor-base.js';
 export * from './triage-base.js';
 export * from './recovery-base.js';
+
+// Export telemetry infrastructure
+export * from './otel-emitter.js';
