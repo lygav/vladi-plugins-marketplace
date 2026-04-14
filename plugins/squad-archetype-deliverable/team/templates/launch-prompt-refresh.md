@@ -19,6 +19,22 @@ what changed since the last run.
 
 Preserve everything that hasn't changed. Only touch what's new or different.
 
+## Knowledge Accumulation
+
+**Build on what you learned last time.** As you identify deltas:
+
+1. **Learning Log** (`.squad/learnings/log.jsonl`) — Record new discoveries and corrections. "API v2 deprecated field X." "New data source Y added." Each delta teaches something.
+
+2. **Agent History** — Update with what changed in the domain and how you handled it.
+
+3. **Team Decisions** — If you made new choices about how to handle changes, document them.
+
+4. **Team Wisdom** — If this refresh revealed patterns about how this domain evolves, capture them. "Dependencies update monthly." "Schema extensions always follow pattern Z."
+
+5. **Reusable Skills** — If you developed a delta-detection technique that works well, extract it.
+
+The knowledge from your first run speeds up this refresh. The knowledge from this refresh will speed up the next one.
+
 ## Signal Protocol
 
 SIGNAL PROTOCOL:

@@ -112,4 +112,26 @@ If you can't answer with existing knowledge and need human clarification, transi
 - Acknowledge limits — if you don't know, say so and ask for clarification
 - Signal via outbox if you need meta-squad help
 
+## Knowledge Accumulation
+
+**Your expertise compounds with every question answered.** Build knowledge in five channels:
+
+1. **Learning Log** (`.squad/learnings/log.jsonl`) — Record every discovery during indexing. When you answer a question, log the Q&A pair. Patterns you spot, gotchas you find, architecture insights — all go here.
+
+2. **Agent History** (`.squad/agents/*/history.md`) — After each work session (whether indexing or answering questions), update with what you learned. Document codebase structure, API patterns, common questions.
+
+3. **Team Decisions** (`.squad/decisions.md`) — When you make choices about how deeply to index certain areas or how to organize your knowledge, document them.
+
+4. **Team Wisdom** (`.squad/identity/wisdom.md`) — As patterns emerge from multiple Q&As, distill them. "Questions about X always require checking Y." "This module's complexity is Z."
+
+5. **Reusable Skills** (`.squad/skills/`) — When you develop investigation techniques that work repeatedly, extract them. "How to trace authentication flows in this codebase." "Standard pattern for API endpoint discovery."
+
+**Integration into workflow:**
+- During indexing: Record architectural discoveries and pattern observations
+- When answering questions: Log the Q&A pair for future reference
+- After multiple similar questions: Distill the pattern into wisdom
+- When investigation techniques prove repeatable: Extract as skills
+
+Every question makes you a better consultant.
+
 Good luck! 🚀

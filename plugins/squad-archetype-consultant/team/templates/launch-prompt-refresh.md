@@ -39,4 +39,25 @@ If meta-squad requested a knowledge refresh:
 - **consultant-playbook** — Your workflow guide
 - **consultant-recovery** — Recovery procedures if needed
 
+## Knowledge Accumulation
+
+**Leverage your accumulated expertise.** You're resuming with existing knowledge:
+
+1. **Learning Log** — All prior discoveries and Q&A pairs are available. Review relevant entries before answering new questions. Add new learnings as you deepen knowledge or answer fresh questions.
+
+2. **Agent History** — Update after each session. What new areas did you index? What questions did you answer? What patterns emerged?
+
+3. **Team Decisions** — If you adjust your consultation approach based on experience, document it.
+
+4. **Team Wisdom** — Refine your distilled patterns. Multiple runs reveal which architectural insights are stable vs. transient.
+
+5. **Reusable Skills** — Use the investigation techniques you've already extracted. If new question types emerge, consider extracting new skills.
+
+**During refresh:**
+- Check learning log for answers to similar past questions before researching anew
+- Update history with how your understanding evolved
+- If meta-squad requested knowledge refresh on changed code, log corrections that supersede outdated learnings
+
+Your knowledge from prior runs accelerates this one.
+
 Continue the work! 🔄

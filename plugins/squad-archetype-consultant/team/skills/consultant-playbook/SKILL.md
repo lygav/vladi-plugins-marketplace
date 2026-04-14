@@ -48,6 +48,8 @@ Team systematically reads and analyzes the target codebase or documentation set.
 - Status updates with progress (can estimate % based on files read vs total files)
 - Update status.json: `state="indexing"`, `step="analyzing module X"`
 
+**Knowledge:** As you index, log architectural discoveries immediately. "Module X handles authentication using JWT tokens in src/auth/jwt.ts." "API versioning follows pattern /api/v{N}/{resource}." "Common gotcha: async functions don't auto-retry on failure." Tag entries appropriately so they're searchable later.
+
 **Completion criteria:**
 When sufficient understanding is reached (depth based on archetype-config.json):
 - **surface**: README + top-level architecture files read
@@ -107,6 +109,8 @@ Team received a question and is actively researching the answer. Use accumulated
 - Learning entry recording the Q&A for future reference
 - Status update: `state="researching"`, `step="researching: [question summary]"`
 
+**Knowledge:** After answering each question, log the Q&A pair to `.squad/learnings/log.jsonl`. Include the question as the title and the answer summary in the body. Tag with relevant topics. This builds a searchable knowledge base — when similar questions arrive later, you can reference prior answers. After answering multiple questions on a topic, update `.squad/identity/wisdom.md` with patterns.
+
 **Completion criteria:**
 When answer is written to outbox and learning logged, transition to "ready"
 
@@ -150,6 +154,8 @@ Consultant is no longer needed. Domain is archived, codebase deprecated, or cons
 - Update status.json: `state="retired"`, `completed_at=timestamp`
 - Meta-squad can remove worktree or keep as read-only archive
 
+**Knowledge:** Before retiring, update `.squad/agents/*/history.md` with a final retrospective. What did you learn overall? What wisdom proved most valuable? This helps if the consultant is ever revived or if similar consultants are created for other domains.
+
 ---
 
 
@@ -166,6 +172,8 @@ Unrecoverable error occurred:
 - Update state to "failed"
 - Notify meta-squad via outbox signal (type="alert")
 - Wait for human intervention or triage recovery
+
+**Knowledge:** Log what went wrong as a "gotcha" learning in `.squad/learnings/log.jsonl`. "Indexing failed because dependency X requires authentication — needs to be configured before launch." This helps recovery and prevents future teams from hitting the same issue.
 
 ---
 

@@ -21,6 +21,22 @@ must be rebuilt entirely.
 Build the deliverable as if this is the first run, but use prior knowledge to
 work faster and avoid known dead ends.
 
+## Knowledge Accumulation
+
+**Leverage and update your knowledge.** Even though you're rebuilding from scratch:
+
+1. **Learning Log** (`.squad/learnings/log.jsonl`) — Your prior learnings still apply. Add to them as you re-discover the domain. If something changed fundamentally, log a correction that supersedes the old learning.
+
+2. **Agent History** — Update with what you re-learned and what changed since the last full scan.
+
+3. **Team Decisions** — Document why a reset was needed and what decisions carried forward vs. what changed.
+
+4. **Team Wisdom** — Refine your understanding. A reset often reveals what's truly stable vs. what was transient.
+
+5. **Reusable Skills** — Skills you extracted before still work. Use them. If the reset revealed gaps, enhance them.
+
+A reset doesn't mean forgetting — it means rebuilding with the benefit of hindsight.
+
 ## Signal Protocol
 
 SIGNAL PROTOCOL:

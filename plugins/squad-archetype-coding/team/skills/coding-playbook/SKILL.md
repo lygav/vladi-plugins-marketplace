@@ -65,6 +65,8 @@ Before designing from scratch, look at the existing codebase:
 
 Write what you discover to `.squad/learnings/log.jsonl` so future runs benefit from your investigation.
 
+**Knowledge:** Log discoveries as type "pattern" or "technique". "Authentication in this codebase uses middleware pattern in src/middleware/auth.ts." "All database queries follow repository pattern — see src/repos/ for examples."
+
 ### Update status
 
 Write to `.squad/signals/status.json`:
@@ -116,12 +118,14 @@ If the task is large, break it into smaller steps. Complete each step fully — 
 As you navigate the codebase, record what you learn in `.squad/learnings/log.jsonl`:
 
 ```json
-{"ts": "<ISO-8601>", "type": "codebase_pattern", "content": "Authentication middleware is in src/middleware/auth.ts — all protected routes use withAuth() wrapper."}
-{"ts": "<ISO-8601>", "type": "convention", "content": "Database queries use the repository pattern — see src/repos/ for examples."}
-{"ts": "<ISO-8601>", "type": "gotcha", "content": "The config loader caches values at import time — changing env vars after startup has no effect."}
+{"ts": "<ISO-8601>", "type": "pattern", "agent": "your-name", "domain": "generalizable", "tags": ["auth"], "title": "Authentication middleware pattern", "body": "All protected routes use withAuth() wrapper from src/middleware/auth.ts", "confidence": "high"}
+{"ts": "<ISO-8601>", "type": "technique", "agent": "your-name", "domain": "generalizable", "tags": ["database"], "title": "Repository pattern for DB queries", "body": "Database queries use the repository pattern — see src/repos/ for examples. Each entity has a dedicated repository class.", "confidence": "high"}
+{"ts": "<ISO-8601>", "type": "gotcha", "agent": "your-name", "domain": "local", "tags": ["config"], "title": "Config loader caches at import time", "body": "The config loader caches values at import time — changing env vars after startup has no effect. Must restart to pick up config changes.", "confidence": "high"}
 ```
 
 These entries help you on future runs and help other teams understand the codebase.
+
+**Knowledge:** Log immediately when you discover something. Don't wait until the end. Pattern = reusable approach. Technique = how-to. Gotcha = trap to avoid.
 
 ### Update status
 
@@ -203,6 +207,8 @@ Write to `.squad/signals/outbox/`:
 }
 ```
 
+**Knowledge:** After completing your PR, update `.squad/agents/*/history.md` with what this implementation taught you. Update `.squad/decisions.md` with significant technical choices you made. If patterns emerged that will apply to future work, capture them in `.squad/identity/wisdom.md`.
+
 ### Update status
 
 ```json
@@ -233,6 +239,8 @@ If you find code review comments or feedback in your inbox:
 2. Address each comment — fix the code, or document why you disagree.
 3. Update your PR with the fixes.
 4. Write a response summary to your outbox.
+
+**Knowledge:** Code review feedback is valuable learning. Log feedback-driven corrections to `.squad/learnings/log.jsonl` as type "correction". "Reviewer taught us that approach X is preferred because Y." Update wisdom when feedback reveals deeper code quality principles. If a review-validated pattern proves repeatable, extract it as a skill.
 
 ## Headless Execution
 

@@ -800,10 +800,19 @@ How teams work through the {{name}} lifecycle.
 
 - **Stay focused** — Complete one phase before moving to the next
 - **Update status** — Keep status.json current so meta-squad can monitor
-- **Log learnings** — Capture insights in learning-log.jsonl
+- **Log learnings as you work** — Don't wait until the end:
+  - After discovery/investigation: Log "discovery" or "pattern" entries
+  - When correcting mistakes: Log "correction" with supersedes field
+  - After figuring out techniques: Log "technique" entries
+  - When hitting gotchas: Log "gotcha" to warn future teams
+  - Update agent history after each work session
+  - Record significant choices in decisions.md
 - **Signal when stuck** — Use outbox to request help from meta-squad
+- **Extract reusable patterns** — After validating a technique 3+ times, extract to .squad/skills/
+
+**Knowledge Integration:** Each phase description above should include a "**Knowledge:**" callout explaining what to log and when. Update this playbook skill with phase-specific knowledge capture instructions.
 `;
-}
+}}
 
 function getRecoverySkillTemplate(): string {
   return `---
@@ -867,6 +876,23 @@ Use this decision tree to choose the right recovery action:
 2. **Assess impact** — Can the team resume or must it restart?
 3. **Choose action** — Automated recovery or manual intervention?
 4. **Validate** — Confirm recovery succeeded before resuming
+5. **Capture learnings** — Record what went wrong and the fix:
+   - Log the incident as a "gotcha" learning in \`.squad/learnings/log.jsonl\`
+   - Update \`.squad/decisions.md\` if architectural changes were needed
+   - Example learning entry:
+     \`\`\`json
+     {
+       "ts": "2025-04-14T15:30:00Z",
+       "type": "gotcha",
+       "agent": "recovery-team",
+       "domain": "local",
+       "tags": ["recovery", "{{name}}"],
+       "title": "{{Name}} failed due to [specific issue]",
+       "body": "Detailed explanation of what went wrong and how to fix it. Include preventive measures for future teams.",
+       "confidence": "high"
+     }
+     \`\`\`
+   - This helps prevent future teams from hitting the same issue
 `;
 }
 
@@ -878,6 +904,34 @@ You are the **{team}** domain squad, working on **{{name}}** tasks.
 ## Your Mission
 
 {{description}}
+
+## Knowledge Accumulation
+
+**This team builds knowledge over time through five channels:**
+
+1. **Learning Log** (\`.squad/learnings/log.jsonl\`)
+   - Append-only JSONL of discoveries, patterns, techniques, gotchas
+   - Required fields: id, ts, type, agent, domain, tags, title, body, confidence
+   - Types: discovery, correction, pattern, technique, gotcha
+   - Domain: local (project-specific) or generalizable (broadly applicable)
+
+2. **Agent History** (\`.squad/agents/*/history.md\`)
+   - Personal markdown journal per agent
+   - Update after each work session with what you learned
+
+3. **Team Decisions** (\`.squad/decisions.md\`)
+   - Significant choices with rationale
+   - "Why we chose X over Y", "Tradeoffs we accepted"
+
+4. **Team Wisdom** (\`.squad/identity/wisdom.md\`)
+   - Distilled principles that emerge from repeated patterns
+   - Higher-level insights: "This domain always has X structure"
+
+5. **Reusable Skills** (\`.squad/skills/\`)
+   - Extracted patterns validated 3+ times
+   - Domain-specific validation logic, investigation techniques
+
+**Integration into workflow:** As you work through each phase, log what you learn. The playbook skill explains when to use each channel.
 
 ## Lifecycle Phases
 
@@ -902,7 +956,7 @@ You'll progress through these phases:
 ## Remember
 
 - Update status.json as you progress
-- Log learnings to learning-log.jsonl
+- Log learnings as you discover them (not just at the end)
 - Signal via outbox if you need meta-squad help
 
 Good luck! 🚀
@@ -919,8 +973,20 @@ You are the **{team}** domain squad, resuming **{{name}}** work.
 You've been running before. Review your prior state:
 
 - **Status**: \`.squad/status.json\`
-- **Learnings**: \`.squad/learning-log.jsonl\`
+- **Learnings**: \`.squad/learnings/log.jsonl\`
 - **Signals**: \`.squad/signals/inbox/\` and \`.squad/signals/outbox/\`
+
+## Knowledge Continuity
+
+**Leverage accumulated knowledge from prior runs:**
+
+1. **Search learnings** — Query \`.squad/learnings/log.jsonl\` for relevant discoveries and patterns
+2. **Read your history** — Review \`.squad/agents/{your-name}/history.md\` to recall what you learned
+3. **Check decisions** — Review \`.squad/decisions.md\` to understand prior architectural choices
+4. **Apply wisdom** — Use patterns in \`.squad/identity/wisdom.md\` to inform new work
+5. **Reuse skills** — Activate domain skills in \`.squad/skills/\` when patterns recur
+
+**As you work:** Capture deltas as new learnings. "Discovered that X also applies to Y." "Corrected assumption about Z." This builds on prior knowledge rather than relearning from scratch.
 
 ## Resume Point
 
@@ -949,9 +1015,22 @@ You are the **{team}** domain squad, starting fresh on **{{name}}** tasks.
 
 Your state has been reset. Prior work may exist but you're starting from scratch.
 
+## Knowledge with Hindsight
+
+**You have access to prior knowledge even though state is reset:**
+
+- **Learnings**: \`.squad/learnings/log.jsonl\` — what was discovered before
+- **Wisdom**: \`.squad/identity/wisdom.md\` — distilled patterns
+- **Skills**: \`.squad/skills/\` — reusable techniques
+- **Decisions**: \`.squad/decisions.md\` — why prior choices were made
+
+**Use this as informed context**, not as current state. You're starting work from scratch, but with the benefit of hindsight. Avoid repeating mistakes, leverage patterns that worked, but don't assume prior conclusions still hold.
+
+**As you work:** Log new learnings as usual. If something changed, log a "correction" entry that supersedes the prior learning. If patterns hold, reinforce them in wisdom.md.
+
 ## First Steps
 
-1. **Clean slate** — Assume no prior context
+1. **Clean slate** — Assume no prior state context
 2. **Review the playbook** — Activate \`{{name}}-playbook\` skill
 3. **Initialize state** — Create fresh \`.squad/status.json\`
 4. **Start work** — Begin with {{states[0]}} phase

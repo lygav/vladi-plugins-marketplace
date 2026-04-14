@@ -125,6 +125,8 @@ Accept whatever the user gives. Don't try to normalize it.
 
 **Say:** "This installs the archetype for your first team. You can add different types of teams later — each team picks its own archetype when onboarded."
 
+**Also mention:** "Your teams will build knowledge over time in five channels: a learning log, agent histories, team decisions, distilled wisdom, and reusable skills. The longer they run, the smarter they get — patterns discovered in run 1 inform run 2."
+
 **Store the selection internally** — it determines which archetype plugin to install. The archetype name does NOT go into core config.
 
 ### Step 3: Install archetype
