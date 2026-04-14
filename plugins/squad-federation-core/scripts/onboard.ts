@@ -13,7 +13,13 @@
  * native casting mechanism — this script does NOT prescribe roles.
  *
  * Usage:
+ *   # Worktree inside repo (default):
  *   npx tsx scripts/onboard.ts --name "my-product" --domain-id "abc-123" --archetype "squad-archetype-deliverable"
+ *   
+ *   # Worktree in sibling directory:
+ *   npx tsx scripts/onboard.ts --name "my-product" --domain-id "abc-123" --archetype "squad-archetype-deliverable" --worktree-dir ../
+ *   
+ *   # Directory transport:
  *   npx tsx scripts/onboard.ts --name "my-product" --domain-id "abc-123" --archetype "squad-archetype-deliverable" --transport directory --path /custom/path
  */
 
@@ -48,6 +54,7 @@ interface ParsedArgs {
   archetype: string;
   transport: 'worktree' | 'directory';
   path?: string;
+  worktreeDir?: string; // Base directory for worktree placement (defaults to .worktrees)
 }
 
 // ==================== Argument Parsing ====================
@@ -84,6 +91,7 @@ function parseArgs(args: string[]): ParsedArgs {
         i++; 
         break;
       case '--path': parsed.path = value; i++; break;
+      case '--worktree-dir': parsed.worktreeDir = value; i++; break;
     }
   }
 
@@ -95,6 +103,7 @@ function parseArgs(args: string[]): ParsedArgs {
     console.error('    --archetype "squad-archetype-deliverable" \\');
     console.error('    [--description "What this domain covers"] \\');
     console.error('    [--transport worktree|directory] \\');
+    console.error('    [--worktree-dir .worktrees] \\');
     console.error('    [--path /custom/path] \\');
     console.error('    [--base-branch main]');
     process.exit(1);
@@ -202,8 +211,18 @@ async function createTeamTransport(
     } catch { /* doesn't exist — good */ }
     
     console.log(`Creating worktree transport for branch: ${branchName}`);
-    const transport = await WorktreeTransport.create(repoRoot, args.name, args.baseBranch);
-    const location = path.join(repoRoot, '.worktrees', args.name);
+    const transport = await WorktreeTransport.create(
+      repoRoot, 
+      args.name, 
+      args.baseBranch,
+      args.worktreeDir  // Optional worktree base directory
+    );
+    
+    // Calculate actual location based on worktreeDir
+    const baseDir = args.worktreeDir || '.worktrees';
+    const location = path.isAbsolute(baseDir) || baseDir.startsWith('../')
+      ? path.join(baseDir, args.name)
+      : path.join(repoRoot, baseDir, args.name);
     
     return { transport, location, branch: branchName };
   } else {
