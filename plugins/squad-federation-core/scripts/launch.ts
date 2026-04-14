@@ -25,13 +25,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { spawn, execSync } from 'child_process';
 import { fileURLToPath } from 'url';
-import {
-  discoverDomains,
-  validateWorktree,
-  initializeSignals,
-  type DomainWorktree,
-} from './lib/communication/signal-protocol.js';
+import { createTeamContext } from './lib/orchestration/context-factory.js';
+import { TeamRegistry } from './lib/registry/team-registry.js';
 import { loadAndValidateConfig, type FederateConfig } from './lib/config/config.js';
+import type { TeamEntry, TeamCommunication, TeamPlacement } from '../sdk/types.js';
 
 // ==================== Configuration ====================
 
@@ -41,28 +38,6 @@ const __dirname = path.dirname(__filename);
 // Scripts run via `npx tsx` from the user's cwd.
 const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
 
-// ==================== Types ====================
-
-function readDomainId(worktreePath: string, fallback: string): string {
-  // Try DOMAIN_CONTEXT.md first
-  const contextPath = path.join(worktreePath, 'DOMAIN_CONTEXT.md');
-  if (fs.existsSync(contextPath)) {
-    const content = fs.readFileSync(contextPath, 'utf-8');
-    const match = content.match(/^Domain ID:\s*(.+)$/m);
-    if (match && match[1].trim()) return match[1].trim();
-  }
-
-  // Fall back to .squad/team.md
-  const teamPath = path.join(worktreePath, '.squad', 'team.md');
-  if (fs.existsSync(teamPath)) {
-    const content = fs.readFileSync(teamPath, 'utf-8');
-    const match = content.match(/^Domain ID:\s*(.+)$/m);
-    if (match && match[1].trim()) return match[1].trim();
-  }
-
-  return fallback;
-}
-
 type RunType = 'first-run' | 'refresh' | 'reset';
 
 // ==================== Config Loading ====================
@@ -70,17 +45,47 @@ type RunType = 'first-run' | 'refresh' | 'reset';
 
 // ==================== Helpers ====================
 
-function detectRunType(worktreePath: string, isReset: boolean): RunType {
-  const statusPath = path.join(worktreePath, '.squad', 'signals', 'status.json');
-  if (!fs.existsSync(statusPath)) return 'first-run';
+async function detectRunType(
+  communication: TeamCommunication,
+  teamId: string,
+  isReset: boolean
+): Promise<RunType> {
+  const status = await communication.readStatus(teamId);
+  if (!status) return 'first-run';
   return isReset ? 'reset' : 'refresh';
+}
+
+async function validatePlacement(
+  placement: TeamPlacement,
+  teamId: string
+): Promise<{ valid: boolean; issues: string[]; location: string }> {
+  const issues: string[] = [];
+  const location = await placement.getLocation(teamId);
+
+  if (!await placement.workspaceExists(teamId)) {
+    issues.push('Workspace does not exist');
+  }
+
+  if (!await placement.exists(teamId, '.squad')) {
+    issues.push('Missing .squad directory');
+  }
+
+  if (!await placement.exists(teamId, '.squad/signals/inbox')) {
+    issues.push('Missing .squad/signals/inbox');
+  }
+
+  if (!await placement.exists(teamId, '.squad/signals/outbox')) {
+    issues.push('Missing .squad/signals/outbox');
+  }
+
+  return { valid: issues.length === 0, issues, location };
 }
 
 function resetTeam(worktreePath: string): void {
   console.log('🔄 Reset mode: clearing core state...');
 
   // Reset status.json
-  const statusPath = path.join(worktreePath, '.squad', 'signals', 'status.json');
+  const statusPath = path.join(worktreePath, '.squad', 'status.json');
   if (fs.existsSync(statusPath)) {
     fs.unlinkSync(statusPath);
     console.log('  ✓ Removed status.json');
@@ -135,7 +140,7 @@ function signalInstructions(team: string): string {
 ---
 ## Signal Protocol (required)
 - Check .squad/signals/inbox/ for directives before starting work.
-- Report progress to .squad/signals/status.json — update "state" and "step" fields.
+- Report progress to .squad/status.json — update "state" and "step" fields.
   States: initializing → scanning → distilling → complete (or failed).
 - You are running in HEADLESS mode — do not ask questions, do not wait for input.
 `;
@@ -224,7 +229,7 @@ function buildStepPrompt(
     base = `Team ${team}, run ONLY step "${step}" from your ${config.playbookSkill} skill.
 
 After completion:
-- Update .squad/signals/status.json (state: complete, step: "${step}")`;
+- Update .squad/status.json (state: complete, step: "${step}")`;
   }
 
   // Always append signal protocol instructions
@@ -233,68 +238,66 @@ After completion:
 
 // ==================== Launch ====================
 
-function launchTeam(
-  worktree: DomainWorktree,
+async function launchTeam(
+  team: TeamEntry,
   config: FederateConfig,
   isReset: boolean,
   targetStep: string | null,
   promptSource: PromptSource,
-): void {
+): Promise<void> {
   if (targetStep && isReset) {
     console.error('   ❌ Cannot use --step with --reset.');
     console.error('\nRecovery:');
     console.error('  1. To reset a team, use --reset alone:');
-    console.error(`     npx tsx scripts/launch.ts --team ${worktree.domain} --reset`);
+    console.error(`     npx tsx scripts/launch.ts --team ${team.domain} --reset`);
     console.error('  2. To launch with a specific step, use --step alone:');
-    console.error(`     npx tsx scripts/launch.ts --team ${worktree.domain} --step "analyze codebase"`);
+    console.error(`     npx tsx scripts/launch.ts --team ${team.domain} --step "analyze codebase"`);
     console.error('  3. To reset AND run a step, do it in two commands:');
-    console.error(`     npx tsx scripts/launch.ts --team ${worktree.domain} --reset`);
-    console.error(`     npx tsx scripts/launch.ts --team ${worktree.domain} --step "your task"`);
+    console.error(`     npx tsx scripts/launch.ts --team ${team.domain} --reset`);
+    console.error(`     npx tsx scripts/launch.ts --team ${team.domain} --step "your task"`);
     return;
   }
 
-  const validation = validateWorktree(worktree.path);
+  const context = createTeamContext(team, config, REPO_ROOT);
+  const validation = await validatePlacement(context.placement, team.domainId);
   if (!validation.valid) {
-    console.error(`   ❌ Invalid worktree: ${validation.issues.join(', ')}`);
-    console.error(`   Path: ${worktree.path}`);
+    console.error(`   ❌ Invalid workspace: ${validation.issues.join(', ')}`);
+    console.error(`   Path: ${validation.location}`);
     console.error('\nRecovery:');
     console.error('  1. Check if worktree directory exists:');
-    console.error(`     ls -la ${worktree.path}`);
+    console.error(`     ls -la ${validation.location}`);
     console.error('  2. Verify .squad directory is initialized:');
-    console.error(`     ls -la ${worktree.path}/.squad`);
+    console.error(`     ls -la ${validation.location}/.squad`);
     console.error('  3. Re-initialize missing directories:');
-    console.error(`     mkdir -p ${worktree.path}/.squad/signals/{{inbox,outbox}}`);
-    console.error(`     mkdir -p ${worktree.path}/.squad/learnings`);
+    console.error(`     mkdir -p ${validation.location}/.squad/signals/{{inbox,outbox}}`);
+    console.error(`     mkdir -p ${validation.location}/.squad/learnings`);
     console.error('  4. Or re-onboard the domain:');
-    console.error(`     npx tsx scripts/onboard.ts --name ${worktree.domain} --domain-id <id> --archetype <name>`);
+    console.error(`     npx tsx scripts/onboard.ts --name ${team.domain} --domain-id <id> --archetype <name>`);
     console.error('  5. Check git worktree status:');
-    console.error(`     git worktree list | grep ${worktree.domain}`);
+    console.error(`     git worktree list | grep ${team.domain}`);
     return;
   }
 
-  const runType = detectRunType(worktree.path, isReset);
+  const runType = await detectRunType(context.communication, team.domainId, isReset);
+  const worktreePath = validation.location;
 
   // Status header
   const emoji = runType === 'first-run' ? '🆕' : runType === 'reset' ? '🔄' : '🚀';
   const mode = targetStep ? `STEP: ${targetStep}` : runType;
-  console.log(`\n${emoji} Launching ${mode} for team ${worktree.domain}`);
-  console.log(`   Worktree: ${worktree.path}`);
+  console.log(`\n${emoji} Launching ${mode} for team ${team.domain}`);
+  console.log(`   Worktree: ${worktreePath}`);
 
   if (isReset && runType === 'reset') {
-    resetTeam(worktree.path);
+    resetTeam(worktreePath);
   }
-
-  const domainId = readDomainId(worktree.path, worktree.domain);
-  initializeSignals(worktree.path, worktree.domain, domainId);
-  console.log('   📡 Signals initialized');
 
   // Resolve prompt
   const prompt = targetStep
-    ? buildStepPrompt(worktree.domain, targetStep, worktree.path, config, promptSource)
-    : resolvePrompt(worktree.domain, worktree.path, runType, config, promptSource);
+    ? buildStepPrompt(team.domain, targetStep, worktreePath, config, promptSource)
+    : resolvePrompt(team.domain, worktreePath, runType, config, promptSource);
 
   // Prepare log file
-  const logFile = path.join(worktree.path, 'run-output.log');
+  const logFile = path.join(worktreePath, 'run-output.log');
   const logStream = fs.openSync(logFile, 'w');
 
   // OTel MCP config (if telemetry enabled)
@@ -312,13 +315,13 @@ function launchTeam(
             args: ['tsx', otelServerPath],
             env: {
               OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318',
-              OTEL_SERVICE_NAME: `squad-${worktree.domain}`,
-              SQUAD_DOMAIN: worktree.domain,
+              OTEL_SERVICE_NAME: `squad-${team.domain}`,
+              SQUAD_DOMAIN: team.domain,
             },
           },
         },
       };
-      const mcpJsonPath = path.join(worktree.path, '.mcp.json');
+      const mcpJsonPath = path.join(worktreePath, '.mcp.json');
       fs.writeFileSync(mcpJsonPath, JSON.stringify(worktreeMcpConfig, null, 2));
       console.log(`   🔭 OTel MCP config written to ${mcpJsonPath}`);
     }
@@ -331,7 +334,7 @@ function launchTeam(
     : ['-p', prompt, '--yolo', '--no-ask-user', '--autopilot'];
 
   const proc = spawn(launcher, launcherArgs, {
-    cwd: worktree.path,
+    cwd: worktreePath,
     stdio: ['ignore', logStream, logStream],
     detached: true,
     env: process.env,
@@ -341,12 +344,12 @@ function launchTeam(
 
   console.log(`   ✅ Launched — PID: ${proc.pid}`);
   console.log(`   📄 Log: ${logFile}`);
-  console.log(`   📊 Status: .squad/signals/status.json`);
+  console.log(`   📊 Status: .squad/status.json`);
 }
 
 // ==================== CLI ====================
 
-function main(): void {
+async function main(): Promise<void> {
   const args = process.argv.slice(2);
   let teamName: string | null = null;
   let allMode = false;
@@ -381,21 +384,30 @@ function main(): void {
   }
 
   const config = loadAndValidateConfig(path.join(REPO_ROOT, 'federate.config.json'));
-  const worktrees = discoverDomains(REPO_ROOT);
+  const registry = new TeamRegistry(REPO_ROOT);
+  let teams = await registry.list();
+  if (teams.length === 0) {
+    const migrated = await registry.migrateFromWorktreeDiscovery(REPO_ROOT);
+    if (migrated > 0) {
+      teams = await registry.list();
+    }
+  }
   const promptSource: PromptSource = { cliPrompt, cliPromptFile };
 
   if (allMode) {
-    if (worktrees.length === 0) { console.log('No team worktrees found.'); return; }
-    console.log(`Found ${worktrees.length} team(s):`);
-    worktrees.forEach((wt, i) => console.log(`  ${i + 1}. ${wt.domain} (${wt.branch})`));
-    worktrees.forEach(wt => launchTeam(wt, config, isReset, targetStep, promptSource));
-    console.log(`\n✅ Launched ${worktrees.length} team(s). Monitor with: npx tsx scripts/monitor.ts --watch`);
+    if (teams.length === 0) { console.log('No registered teams found.'); return; }
+    console.log(`Found ${teams.length} team(s):`);
+    teams.forEach((team, i) => console.log(`  ${i + 1}. ${team.domain} (${team.archetypeId})`));
+    for (const team of teams) {
+      await launchTeam(team, config, isReset, targetStep, promptSource);
+    }
+    console.log(`\n✅ Launched ${teams.length} team(s). Monitor with: npx tsx scripts/monitor.ts --watch`);
   } else {
     const targets = teamName ? [teamName] : teamList;
-    const matched = worktrees.filter(wt => targets.includes(wt.domain));
+    const matched = teams.filter(team => targets.includes(team.domain));
     if (matched.length === 0) {
       console.error(`Team(s) not found: ${targets.join(', ')}`);
-      console.log('Available:', worktrees.map(w => w.domain).join(', ') || '(none)');
+      console.log('Available:', teams.map(t => t.domain).join(', ') || '(none)');
       console.error('\nRecovery:');
       console.error('  1. List all registered teams:');
       console.error('     npx tsx scripts/monitor.ts');
@@ -406,11 +418,16 @@ function main(): void {
       console.error('  4. If team doesn\'t exist, onboard it first:');
       console.error(`     npx tsx scripts/onboard.ts --name ${targets[0]} --domain-id <id> --archetype <name>`);
       console.error('  5. Verify correct team name (case-sensitive):');
-      console.error(`     Available teams: ${worktrees.map(w => w.domain).join(', ')}`);
+      console.error(`     Available teams: ${teams.map(t => t.domain).join(', ')}`);
       process.exit(1);
     }
-    matched.forEach(wt => launchTeam(wt, config, isReset, targetStep, promptSource));
+    for (const team of matched) {
+      await launchTeam(team, config, isReset, targetStep, promptSource);
+    }
   }
 }
 
-main();
+main().catch((error) => {
+  console.error(`Launch failed: ${(error as Error).message}`);
+  process.exit(1);
+});

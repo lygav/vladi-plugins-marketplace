@@ -285,7 +285,14 @@ function generateFiles(ctx: TemplateContext): FileEntry[] {
         states: {
           lifecycle: ctx.states,
           terminal: ctx.terminalStates,
-          pauseable: false,
+          pauseable: [],
+        },
+        monitor: {
+          display: {
+            sectionTitle: `${ctx.Name} Teams`,
+            stateProgressFormat: 'step',
+            groupByArchetype: true,
+          },
         },
       },
       null,
@@ -1073,7 +1080,7 @@ function getMonitorScriptTemplate(): string {
  */
 
 import { MonitorBase } from '@squad/federation-core/sdk';
-import type { TeamTransport, ScanStatus, DashboardEntry } from '@squad/federation-core/sdk/types.js';
+import type { TeamPlacement, TeamCommunication, ScanStatus, DashboardEntry } from '@squad/federation-core/sdk/types.js';
 
 interface {{PascalName}}Data {
   // Add archetype-specific monitoring data fields here
@@ -1088,17 +1095,19 @@ export class {{PascalName}}Monitor extends MonitorBase<{{PascalName}}Data> {
   /**
    * Collect archetype-specific monitoring data for a team.
    *
-   * @param transport - Transport adapter for team workspace
+   * @param placement - Placement adapter for team workspace
+   * @param communication - Communication adapter for team signals
    * @param status - Team's current status
    * @returns Archetype-specific data to enrich dashboard entry
    */
   async collectArchetypeData(
-    transport: TeamTransport,
+    placement: TeamPlacement,
+    communication: TeamCommunication,
     status: ScanStatus
   ): Promise<{{PascalName}}Data> {
     // TODO: Collect archetype-specific data
     // Example:
-    // const files = await transport.listFiles(status.domain_id, '.squad/{{name}}/');
+    // const files = await placement.listFiles(status.domain_id, '.squad/{{name}}/');
     // return { fragmentCount: files.length };
 
     return {};
@@ -1122,7 +1131,7 @@ export class {{PascalName}}Monitor extends MonitorBase<{{PascalName}}Data> {
 
 // CLI entry point
 if (import.meta.url === \`file://\${process.argv[1]}\`) {
-  // TODO: Initialize transport map and run monitor
+  // TODO: Initialize placement/communication maps and run monitor
   // See deliverable-monitor.ts for reference implementation
   console.log('{{Name}} monitor CLI not yet implemented');
 }
@@ -1139,7 +1148,7 @@ function getTriageScriptTemplate(): string {
  */
 
 import { TriageBase } from '@squad/federation-core/sdk';
-import type { TeamTransport, ScanStatus, TriageResult } from '@squad/federation-core/sdk/types.js';
+import type { DashboardEntry, TriageResult, RecoveryAction } from '@squad/federation-core/sdk';
 
 export class {{PascalName}}Triage extends TriageBase {
   get archetypeName(): string {
@@ -1149,21 +1158,11 @@ export class {{PascalName}}Triage extends TriageBase {
   /**
    * Detect archetype-specific problems for a team.
    *
-   * @param transport - Transport adapter for team workspace
-   * @param status - Team's current status
+   * @param entries - Dashboard entries to analyze
    * @returns Detected problems (empty array if none)
    */
-  async detectArchetypeProblems(
-    transport: TeamTransport,
-    status: ScanStatus
-  ): Promise<Array<{
-    severity: 'low' | 'medium' | 'high' | 'critical';
-    category: string;
-    description: string;
-    diagnosticId?: string;
-    suggestedRecovery?: string[];
-  }>> {
-    const problems = [];
+  async diagnose(entries: DashboardEntry[]): Promise<TriageResult[]> {
+    const problems: TriageResult[] = [];
 
     // TODO: Add archetype-specific problem detection
     // Examples:
@@ -1174,11 +1173,22 @@ export class {{PascalName}}Triage extends TriageBase {
 
     return problems;
   }
+
+  /**
+   * Suggest recovery actions for a diagnosed issue.
+   *
+   * @param diagnosis - Problem diagnosis
+   * @returns Suggested recovery actions
+   */
+  async suggestRecovery(diagnosis: TriageResult): Promise<RecoveryAction[]> {
+    // TODO: Add archetype-specific recovery actions
+    return [];
+  }
 }
 
 // CLI entry point
 if (import.meta.url === \`file://\${process.argv[1]}\`) {
-  // TODO: Initialize transport map and run triage
+  // TODO: Initialize dashboard entries and run triage
   // See deliverable-triage.ts for reference implementation
   console.log('{{Name}} triage CLI not yet implemented');
 }
@@ -1253,7 +1263,7 @@ describe('{{Name}} Archetype Contract Tests', () => {
     it('extends TriageBase correctly', () => {
       const triage = new {{PascalName}}Triage(new Map());
       expect(triage.archetypeName).toBe('{{name}}');
-      expect(typeof triage.detectArchetypeProblems).toBe('function');
+      expect(typeof triage.diagnose).toBe('function');
     });
   });
 
@@ -1262,7 +1272,7 @@ describe('{{Name}} Archetype Contract Tests', () => {
       const states: StateSchema = {
         lifecycle: [{{statesStr}}],
         terminal: [{{terminalStatesStr}}],
-        pauseable: false,
+        pauseable: [],
       };
 
       expect(states.lifecycle).toHaveLength({{states.length}});
