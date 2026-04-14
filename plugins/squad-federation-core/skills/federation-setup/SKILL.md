@@ -47,7 +47,7 @@ If neither exists:
 git --version
 ```
 
-Worktree support requires git 2.20+. If missing or too old, stop with install/upgrade instructions.
+Must be 2.20+ for modern git features. If missing or too old, stop with install/upgrade instructions.
 
 ### Required: Node.js 20+
 
@@ -72,7 +72,7 @@ git rev-parse --is-inside-work-tree
 git status --porcelain
 ```
 
-Must be inside a git repo. Warn (don't block) on uncommitted changes — onboarding creates branches and worktrees, so a clean state is recommended.
+Must be inside a git repo. Warn (don't block) on uncommitted changes — a clean state is recommended.
 
 ### Report Summary
 
@@ -110,62 +110,11 @@ Walk through each step in order. One question at a time. Provide sensible defaul
 
 Accept whatever the user gives. Don't try to normalize it.
 
-### Step 2: Work pattern for your first team
-
-**Ask:** "What kind of work will your first team do?"
-
-**Present choices:**
-
-| Work pattern | What it means |
-|-----------|---------------|
-| **Deliverable** | Team produces file artifacts — reports, inventories, audit results |
-| **Coding** | Team writes code and opens PRs |
-| **Research** | Team investigates topics and produces documents |
-| **Task** | Team executes discrete work items |
-
-**Say:** "This installs the archetype for your first team. You can add different types of teams later — each team picks its own archetype when onboarded."
-
-**Also mention:** "Your teams will build knowledge over time in five channels: a learning log, agent histories, team decisions, distilled wisdom, and reusable skills. The longer they run, the smarter they get — patterns discovered in run 1 inform run 2."
-
-**Store the selection internally** — it determines which archetype plugin to install. The archetype name does NOT go into core config.
-
-### Step 3: Install archetype
-
-Based on the selection, install the corresponding archetype plugin.
-
-**First, check if the marketplace is registered:**
-
-```bash
-copilot plugin marketplace list
-```
-
-If `vladi-plugins-marketplace` is not listed:
-
-```bash
-copilot plugin marketplace add lygav/vladi-plugins-marketplace
-```
-
-**Then install the archetype:**
-
-```bash
-copilot plugin install squad-archetype-{choice}@vladi-plugins-marketplace
-```
-
-The archetype name will be suggested based on the user's selection (e.g., `squad-archetype-deliverable`, `squad-archetype-coding`, etc.).
-
-**Confirm success** before proceeding. If install fails, show the error and offer to retry or skip.
-
-**After successful install, say:**
-
-> "Archetype installed. When we onboard your first team, the onboard wizard will discover available archetypes and help you pick the right one based on what the team needs to do."
-
-This is important: the archetype owns its own setup concerns. Core federation doesn't ask archetype-specific questions.
-
-### Step 4: Data sources (MCP stack)
+### Step 2: Data sources (MCP stack)
 
 **Ask:** "What data sources or tools do your teams need access to?"
 
-**Explain:** MCP servers provide tools to headless agent sessions running in each team's worktree. Common examples:
+**Explain:** MCP servers provide tools to headless agent sessions running in each team's workspace. Common examples:
 
 - `filesystem` — read/write files in the worktree
 - `fetch` — make HTTP requests to external APIs
@@ -178,7 +127,7 @@ This is important: the archetype owns its own setup concerns. Core federation do
 
 **Store as:** `mcpStack` array in config.
 
-### Step 5: Telemetry
+### Step 3: Telemetry
 
 **Context:** Copilot CLI has no built-in telemetry — headless team sessions are black boxes by default. This plugin includes a special OTel integration that bridges this gap: a custom MCP server that gives agents trace, metric, event, and log tools, feeding into a central dashboard where you can watch all teams in real time.
 
@@ -208,7 +157,7 @@ Confirm it's running: "✅ Monitoring dashboard live at http://localhost:18888. 
 
 No endpoint, port, or service name in config. The runtime uses sensible defaults. The OTel MCP server auto-starts with each team session via the plugin's `.mcp.json`.
 
-### Step 6: Generate config
+### Step 4: Generate config
 
 Assemble `federate.config.json` at the repository root with **only** core fields:
 
@@ -224,8 +173,8 @@ Assemble `federate.config.json` at the repository root with **only** core fields
 
 **Rules for this config:**
 - `description` — from Step 1, verbatim
-- `mcpStack` — from Step 4, or empty array
-- `telemetry.enabled` — from Step 5
+- `mcpStack` — from Step 2, or empty array
+- `telemetry.enabled` — from Step 3
 
 **Nothing else goes in this file.** No deliverable, no schema, no universe, no importHook, no steps, no roles, no team definitions. Those are archetype or team-level concerns.
 
@@ -239,7 +188,6 @@ If the user wants to change something, make the edit and show the updated config
 cat > federate.config.json << 'EOF'
 {
   "description": "...",
-  "branchPrefix": "squad/",
   "mcpStack": [],
   "telemetry": {
     "enabled": true
@@ -248,7 +196,7 @@ cat > federate.config.json << 'EOF'
 EOF
 ```
 
-### Step 7: Cast the meta-squad
+### Step 5: Cast the meta-squad
 
 Check if the meta-squad actually has members:
 
@@ -267,19 +215,21 @@ Use the user's description from Step 1 to inform the casting proposal. The meta-
 
 **If team.md doesn't exist:** Run `squad init` first, then cast.
 
-Don't prescribe specific roles. Let Squad's casting handle composition. But ensure casting COMPLETES — verify at least one member appears in the Members table before moving to Step 8.
+Don't prescribe specific roles. Let Squad's casting handle composition. But ensure casting COMPLETES — verify at least one member appears in the Members table before moving to Step 6.
 
-### Step 8: Onboard first team
+### Step 6: Onboard first team
 
 **Ask:** "Ready to spin up your first team? What should it work on?"
 
-**If yes:** Delegate to the onboard flow. Pass the user's description of what the team should work on. The onboard agent handles branch creation, worktree setup, and team casting.
+**Explain:** "Each team has its own work pattern (deliverable, coding, research, or task). When we onboard, I'll help you pick the right archetype based on what the team needs to do."
+
+**If yes:** Continue the conversation using the `team-onboarding` skill flow. Pass the user's description of what the team should work on. The team-onboarding skill handles mission clarification, archetype discovery, transport selection, and delegates to the mechanical `onboard.ts` script for branch/worktree creation.
 
 **If no:** That's fine. Close out with:
 
-> "No problem. When you're ready, just say **'spin up a team for X'** or **'@federation onboard a team'**."
+> "No problem. When you're ready, just say **'spin up a team for X'** or **'onboard a team'**. Each team gets to pick its own archetype during onboarding."
 
-Don't push. Setup is complete once the config exists and the meta-squad is cast. Onboarding teams is a separate concern.
+Don't push. Setup is complete once the config exists and the meta-squad is cast. Onboarding teams is a separate concern — and that's where archetype selection happens.
 
 ---
 
@@ -289,7 +239,7 @@ After the config is written and confirmed, provide these reference notes:
 
 ### Adding teams
 
-> Say **"spin up a team for X"** anytime to onboard a new team. Each team gets its own branch, worktree, and agent crew — cast automatically by Squad based on what the team needs to do.
+> Say **"spin up a team for X"** anytime to onboard a new team. Each team gets its own workspace and agent crew — transport (worktree, directory, or Teams channel) is chosen during onboarding, and the crew is cast automatically by Squad based on what the team needs to do.
 
 ### Changing configuration
 
@@ -297,11 +247,12 @@ After the config is written and confirmed, provide these reference notes:
 
 ### Adding archetypes
 
-> Need a different work pattern? Install another archetype:
+> Each team picks its own archetype during onboarding based on what it needs to do. The onboard wizard discovers available archetypes and recommends one, or you can install additional archetypes from the marketplace:
 > ```bash
+> copilot plugin marketplace add lygav/vladi-plugins-marketplace
 > copilot plugin install squad-archetype-{type}@vladi-plugins-marketplace
 > ```
-> The onboard wizard will discover available archetypes and help you pick the right one based on what the team needs to do.
+> Available: `deliverable`, `coding`, `research`, `task`.
 
 ### Archetype-specific configuration
 
@@ -326,7 +277,7 @@ interface FederateConfig {
 }
 ```
 
-No other fields in core config. Archetype-specific settings live in the team's worktree, managed by the archetype plugin.
+No other fields in core config. Archetype-specific settings live in the team's workspace, managed by the archetype plugin.
 
 ### Example
 
@@ -358,8 +309,8 @@ No other fields in core config. Archetype-specific settings live in the team's w
 - **User gives ambiguous archetype choice:** Ask a clarifying follow-up. Don't guess.
 
 ### During Onboarding
-- **Onboard agent not available:** Provide manual instructions (branch, worktree, agent setup).
-- **Branch prefix conflicts:** If `squad/*` branches already exist, list them and ask if the user wants to incorporate or ignore them.
+- **Onboard agent not available:** Provide manual instructions (workspace setup, agent configuration).
+- **Transport conflicts:** Defer to onboarding agent to handle transport-specific issues.
 
 ---
 
@@ -368,15 +319,18 @@ No other fields in core config. Archetype-specific settings live in the team's w
 To keep the boundary clean, this skill explicitly avoids:
 
 - **Asking for team rosters or roles** — Squad's casting handles composition
-- **Collecting deliverable filenames or schemas** — that's archetype config
+- **Selecting archetypes** — archetype is a team property, chosen during onboarding
+- **Selecting transport mechanisms** — transport (worktree, directory, Teams channel) is chosen per-team during onboarding
+- **Collecting deliverable filenames or schemas** — that's archetype config, handled by the archetype's setup skill during onboarding
 - **Defining pipeline steps** — archetype concern
 - **Setting up import hooks** — archetype concern
-- **Asking users to list all teams upfront** — teams onboard one at a time
+- **Asking users to list all teams upfront** — teams onboard one at a time, each choosing its own archetype
 - **Prescribing team sizes** — casting decides based on the work
 - **Configuring telemetry endpoints or ports** — runtime defaults handle this
 
 If the user asks about any of these during setup, point them to the right place:
 - Team composition → "Squad's casting will handle that when you onboard a team"
-- Deliverable config → "The archetype plugin manages that — check its playbook skill"
+- Archetype selection → "Each team picks its archetype during onboarding, based on what it needs to do"
+- Deliverable config → "The archetype plugin's setup skill handles that during onboarding"
 - Pipeline steps → "Those are defined by the archetype, not core federation"
 - Telemetry details → "The runtime uses sensible defaults. Override via environment variables if needed"

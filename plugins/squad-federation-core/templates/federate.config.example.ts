@@ -3,19 +3,21 @@
  *
  * Copy this to your project root as `federate.config.json` and customize.
  *
- * This config covers federation PLUMBING only — how worktrees are branched,
- * what MCP servers are available, and whether telemetry is on.
+ * This config covers federation CORE concerns only — what MCP servers are 
+ * available and whether telemetry is on.
  *
  * Team-specific configuration (archetypes, playbooks, steps, casting,
- * deliverables, hooks, skills) lives inside each team's worktree, not here.
- * When an archetype is installed into a worktree it brings its own config
- * (e.g. .squad/archetype.yaml) that governs the team's work pattern.
+ * deliverables, hooks, skills, transport details) lives inside each team's
+ * workspace, not here. When an archetype is installed into a workspace it
+ * brings its own config (e.g. .squad/archetype.yaml) that governs the team's
+ * work pattern. Transport (worktree, directory, Teams) is chosen per-team 
+ * during onboarding.
  */
 
 // TypeScript interface (for reference — actual config is JSON)
 export interface FederateConfig {
-  /** Git branch prefix for team worktrees (default: "squad/") */
-  branchPrefix: string;
+  /** What this federation is trying to accomplish */
+  description: string;
   /** MCP servers to load for team sessions */
   mcpStack: string[];
   /** OTel observability */
@@ -27,7 +29,7 @@ export interface FederateConfig {
 
 // Example federate.config.json
 const example = {
-  branchPrefix: "squad/",
+  description: "Inventory all Azure services across the organization",
   mcpStack: [],
   telemetry: { enabled: true, aspire: true },
 };

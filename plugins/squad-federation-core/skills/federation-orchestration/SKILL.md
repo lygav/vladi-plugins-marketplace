@@ -35,27 +35,47 @@ All scripts live at `${CLAUDE_PLUGIN_ROOT}/scripts/` and are invoked via `npx ts
 
 ### onboard.ts — Create a New Domain Squad
 
-Creates the full infrastructure for a new domain expert squad.
+Creates the full infrastructure for a new domain expert squad. **Archetype selection happens during the conversational onboarding flow** (see team-onboarding skill), not as a command-line parameter.
+
+**IMPORTANT:** This script is designed for AUTONOMOUS execution — it accepts all parameters via CLI flags and runs without user interaction. Do NOT call this script directly from conversational flows. Instead, use the `team-onboarding` skill, which handles the conversational phase (mission, archetype discovery, transport selection) and then calls this script with fully resolved parameters.
 
 ```bash
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/onboard.ts \
   --name "payments" \
-  --domain-id "pay-001" \
-  --team-size 5 \
-  --roles "lead,developer,developer,sre,analyst" \
-  --agents "Agent Alpha,Agent Beta,Agent Gamma,Agent Delta,Agent Epsilon"
+  --domain-id "payments" \
+  --archetype "squad-archetype-deliverable" \
+  --transport "worktree" \
+  --description "Audit the payments API for security issues"
 ```
 
-What it does:
-1. Creates the `scan/{name}` branch from the current HEAD
-2. Sets up a persistent git worktree at `../worktrees/{name}`
-3. Seeds template files into the worktree
-4. Generates `squad.config.ts` using the Squad SDK builders
-5. Runs `squad build` to produce `.squad/` artifacts (charters, histories, skills)
-6. Cleans meta-squad files out of the domain branch (prevents cross-contamination)
-7. Makes the initial commit on the domain branch
+The **team-onboarding skill** handles the conversational part:
+1. Asks: "What should this team work on?"
+2. Asks guiding questions: "Will they write code or produce artifacts?"
+3. Discovers and recommends an archetype based on the mission
+4. Installs the archetype plugin if needed
+5. Selects transport (worktree/directory)
+6. Calls onboard.ts with the discovered parameters
+7. Runs the archetype's setup skill for team-specific configuration
 
-Use `--base-branch` to specify a different starting point (defaults to current branch).
+The **onboard.ts script** handles the mechanical part:
+1. Creates the `squad/{name}` branch from the current HEAD (or `--base-branch`)
+2. Sets up a persistent git worktree (or directory workspace based on transport)
+3. Seeds the archetype's team/ directory into the workspace
+4. Generates initial team configuration
+5. Makes the initial commit on the team branch
+6. Reports completion status
+
+**Key design principle:** Archetype is a team property, chosen during onboarding. Each team can use a different archetype within the same federation.
+
+**When to use directly:**
+- Scripted/automated team creation with all parameters known upfront
+- CI/CD pipelines
+- Batch team provisioning
+
+**When to use via skill:**
+- Interactive onboarding where user needs to choose archetype and transport
+- First-time team creation where guidance is needed
+- Any conversational context → use `team-onboarding` skill instead
 
 ### launch.ts — Start Domain Squad Sessions
 
