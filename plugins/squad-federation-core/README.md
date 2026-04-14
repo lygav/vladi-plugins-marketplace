@@ -310,7 +310,7 @@ Most teams work on the same codebase:
 | **Three-layer architecture** | Core (infrastructure) → Archetype (work pattern) → Project (domain). Each layer owns its config. Archetypes install as plugins. |
 | **Archetype state machines** | Each archetype defines its own lifecycle (e.g., deliverable: draft→validate→finalize; coding: spec→implement→review→merge). Teams transition through archetype-specific states. |
 | **Persistent worktrees** | Each team gets a permanent git worktree with its own branch, agents, and accumulated knowledge. |
-| **Signal protocol** | File-based IPC between meta-squad and teams. Status, directives, reports, alerts via `.squad/signals/`. |
+| **Signal protocol** | File-based IPC (default) or Teams channel communication between meta-squad and teams. Status, directives, reports, alerts via `.squad/signals/` or Teams hashtag protocol (`#meta`, `#meta-status`, `#meta-error`). Requires Teams workspace + channel setup for Teams channel adapter. |
 | **Knowledge lifecycle** | Three flows: seed (main→team), sync (periodic), graduate (team→main). Cross-team pattern detection. |
 | **Headless launch** | Teams run in detached Copilot sessions. Prompt resolved from archetype templates. |
 | **OTel monitoring** | Copilot CLI has no built-in telemetry. This plugin bridges the gap — custom MCP server gives agents trace/metric/event/log tools. Aspire dashboard included. |
