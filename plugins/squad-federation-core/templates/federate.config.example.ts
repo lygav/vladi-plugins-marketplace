@@ -3,8 +3,9 @@
  *
  * Copy this to your project root as `federate.config.json` and customize.
  *
- * This config covers federation CORE concerns only — what MCP servers are 
- * available and whether telemetry is on.
+ * This config covers federation CORE concerns only — observability settings.
+ * MCP servers are configured via `.mcp.json` at project level, and teams 
+ * inherit automatically.
  *
  * Team-specific configuration (archetypes, playbooks, steps, casting,
  * deliverables, hooks, skills, transport details) lives inside each team's
@@ -18,8 +19,6 @@
 export interface FederateConfig {
   /** What this federation is trying to accomplish */
   description: string;
-  /** MCP servers to load for team sessions */
-  mcpStack: string[];
   /** OTel observability */
   telemetry: {
     enabled: boolean;
@@ -30,7 +29,6 @@ export interface FederateConfig {
 // Example federate.config.json
 const example = {
   description: "Inventory all Azure services across the organization",
-  mcpStack: [],
   telemetry: { enabled: true, aspire: true },
 };
 

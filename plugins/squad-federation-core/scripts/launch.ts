@@ -297,12 +297,6 @@ function launchTeam(
   const logFile = path.join(worktree.path, 'run-output.log');
   const logStream = fs.openSync(logFile, 'w');
 
-  // Build MCP args from config
-  const mcpArgs: string[] = [];
-  for (const mcp of config.mcpStack) {
-    mcpArgs.push('--mcp', mcp);
-  }
-
   // OTel MCP config (if telemetry enabled)
   // Write .mcp.json into the worktree so the headless session auto-discovers it.
   // This is more reliable than --additional-mcp-config which depends on npx/tsx resolution.
@@ -333,8 +327,8 @@ function launchTeam(
   // Launch via copilot (or agency copilot)
   const launcher = process.env.SQUAD_LAUNCHER || 'copilot';
   const launcherArgs = launcher === 'agency'
-    ? ['copilot', '--agent', 'squad', '-p', prompt, '--yolo', '--no-ask-user', '--autopilot', ...mcpArgs]
-    : ['-p', prompt, '--yolo', '--no-ask-user', '--autopilot', ...mcpArgs];
+    ? ['copilot', '--agent', 'squad', '-p', prompt, '--yolo', '--no-ask-user', '--autopilot']
+    : ['-p', prompt, '--yolo', '--no-ask-user', '--autopilot'];
 
   const proc = spawn(launcher, launcherArgs, {
     cwd: worktree.path,

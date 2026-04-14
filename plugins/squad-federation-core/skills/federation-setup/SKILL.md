@@ -110,24 +110,7 @@ Walk through each step in order. One question at a time. Provide sensible defaul
 
 Accept whatever the user gives. Don't try to normalize it.
 
-### Step 2: Data sources (MCP stack)
-
-**Ask:** "What data sources or tools do your teams need access to?"
-
-**Explain:** MCP servers provide tools to headless agent sessions running in each team's workspace. Common examples:
-
-- `filesystem` — read/write files in the worktree
-- `fetch` — make HTTP requests to external APIs
-- `otel` — emit traces, metrics, and logs
-- Custom servers you've built
-
-**Default:** empty array `[]` — teams use whatever tools are available in the project's MCP configuration.
-
-**Say:** "If you're not sure, start with an empty list. Teams inherit whatever MCP servers are configured in the project. You can always add more later by editing the config."
-
-**Store as:** `mcpStack` array in config.
-
-### Step 3: Telemetry
+### Step 2: Telemetry
 
 **Context:** Copilot CLI has no built-in telemetry — headless team sessions are black boxes by default. This plugin includes a special OTel integration that bridges this gap: a custom MCP server that gives agents trace, metric, event, and log tools, feeding into a central dashboard where you can watch all teams in real time.
 
@@ -157,14 +140,13 @@ Confirm it's running: "✅ Monitoring dashboard live at http://localhost:18888. 
 
 No endpoint, port, or service name in config. The runtime uses sensible defaults. The OTel MCP server auto-starts with each team session via the plugin's `.mcp.json`.
 
-### Step 4: Generate config
+### Step 3: Generate config
 
 Assemble `federate.config.json` at the repository root with **only** core fields:
 
 ```json
 {
   "description": "...",
-  "mcpStack": [],
   "telemetry": {
     "enabled": true
   }
@@ -173,10 +155,9 @@ Assemble `federate.config.json` at the repository root with **only** core fields
 
 **Rules for this config:**
 - `description` — from Step 1, verbatim
-- `mcpStack` — from Step 2, or empty array
-- `telemetry.enabled` — from Step 3
+- `telemetry.enabled` — from Step 2
 
-**Nothing else goes in this file.** No deliverable, no schema, no universe, no importHook, no steps, no roles, no team definitions. Those are archetype or team-level concerns.
+**Nothing else goes in this file.** No deliverable, no schema, no universe, no importHook, no steps, no roles, no team definitions. Those are archetype or team-level concerns. MCP servers are configured via `.mcp.json` at the project level and teams inherit automatically.
 
 **Show the generated config to the user.** Ask them to confirm or adjust.
 
@@ -188,7 +169,6 @@ If the user wants to change something, make the edit and show the updated config
 cat > federate.config.json << 'EOF'
 {
   "description": "...",
-  "mcpStack": [],
   "telemetry": {
     "enabled": true
   }
@@ -196,7 +176,7 @@ cat > federate.config.json << 'EOF'
 EOF
 ```
 
-### Step 5: Cast the meta-squad
+### Step 4: Cast the meta-squad
 
 Check if the meta-squad actually has members:
 
@@ -215,9 +195,9 @@ Use the user's description from Step 1 to inform the casting proposal. The meta-
 
 **If team.md doesn't exist:** Run `squad init` first, then cast.
 
-Don't prescribe specific roles. Let Squad's casting handle composition. But ensure casting COMPLETES — verify at least one member appears in the Members table before moving to Step 6.
+Don't prescribe specific roles. Let Squad's casting handle composition. But ensure casting COMPLETES — verify at least one member appears in the Members table before moving to Step 5.
 
-### Step 6: Onboard first team
+### Step 5: Onboard first team
 
 **Ask:** "Ready to spin up your first team? What should it work on?"
 
@@ -243,7 +223,7 @@ After the config is written and confirmed, provide these reference notes:
 
 ### Changing configuration
 
-> Edit `federate.config.json` directly. The schema is minimal — `description`, `mcpStack`, and `telemetry`. Changes take effect on the next team onboard or launch.
+> Edit `federate.config.json` directly. The schema is minimal — `description` and `telemetry`. Changes take effect on the next team onboard or launch.
 
 ### Adding archetypes
 
@@ -267,9 +247,6 @@ interface FederateConfig {
   /** What this federation is trying to accomplish */
   description: string;
 
-  /** MCP servers available to team sessions */
-  mcpStack: string[];
-
   /** Observability settings */
   telemetry: {
     enabled: boolean;
@@ -277,14 +254,13 @@ interface FederateConfig {
 }
 ```
 
-No other fields in core config. Archetype-specific settings live in the team's workspace, managed by the archetype plugin.
+No other fields in core config. Archetype-specific settings live in the team's workspace, managed by the archetype plugin. MCP servers are configured via `.mcp.json` at the project level and teams inherit automatically.
 
 ### Example
 
 ```json
 {
   "description": "Inventory all Azure services across the organization",
-  "mcpStack": ["filesystem", "fetch"],
   "telemetry": {
     "enabled": true
   }

@@ -869,17 +869,6 @@ Detection logic in `detectRunType()`:
 3. Runs cleanup hook if present (`.squad/cleanup-hook.sh` or `.squad/cleanup-hook.ts`)
 4. Commits the cleanup
 
-### MCP Stack Injection
-
-The `mcpStack` array in `federate.config.json` lists MCP server identifiers.
-Each entry becomes a `--mcp <name>` argument to the Copilot launcher:
-
-```json
-{ "mcpStack": ["github", "bluebird"] }
-```
-
-Produces: `copilot --mcp github --mcp bluebird -p "..." --yolo`
-
 ### OTel MCP Injection
 
 When `telemetry.enabled` is true in config, the launch script injects an
@@ -1449,11 +1438,11 @@ configuration lives inside each worktree.
 
 ```typescript
 interface FederateConfig {
+  /** Brief description of what this federation does */
+  description?: string;
+
   /** Git branch prefix for team worktrees. Default: "squad/" */
   branchPrefix: string;
-
-  /** MCP servers to load for every team session */
-  mcpStack: string[];
 
   /** OTel observability settings */
   telemetry: {
@@ -1467,19 +1456,8 @@ interface FederateConfig {
 
 ```json
 {
-  "branchPrefix": "squad/",
-  "mcpStack": [],
-  "telemetry": { "enabled": true, "aspire": true }
-}
-```
-
-**With MCP servers:**
-
-```json
-{
-  "branchPrefix": "squad/",
-  "mcpStack": ["github", "bluebird"],
-  "telemetry": { "enabled": true, "aspire": true }
+  "description": "Inventory all Azure services across the organization",
+  "telemetry": { "enabled": true }
 }
 ```
 

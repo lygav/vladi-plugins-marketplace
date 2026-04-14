@@ -134,7 +134,7 @@ Monitor → real-time signals + OTel traces
 ```
 
 Each layer owns its config:
-- **Core** writes `federate.config.json` (4 fields: description, branchPrefix, mcpStack, telemetry)
+- **Core** writes `federate.config.json` (2 fields: description, telemetry)
 - **Archetypes** write `.squad/archetype-config.json` in each team's worktree
 - **Squad** handles all casting
 
@@ -345,10 +345,9 @@ Most teams work on the same codebase:
 | `description` | — | What this federation is for |
 | `branchPrefix` | `"squad/"` | Git branch prefix for team worktrees |
 | `worktreeDir` | `"parallel"` | Where worktrees live: `"parallel"` (sibling dirs), `"inside"` (`.worktrees/`), or custom path |
-| `mcpStack` | `[]` | MCP servers available to team sessions |
 | `telemetry.enabled` | `true` | OTel monitoring dashboard |
 
-That's it — 4 fields. Everything else is archetype or team-level config.
+That's it — 2 fields (+ 2 optional internal fields). Everything else is archetype or team-level config. MCP servers are configured via `.mcp.json` at the project level and teams inherit automatically.
 
 > **Scripts reference:** See [ARCHITECTURE.md](ARCHITECTURE.md) §10 for all CLI commands.
 

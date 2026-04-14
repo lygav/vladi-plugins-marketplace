@@ -92,8 +92,7 @@ Sure, leave it enabled.
 
 ```json
 {
-  "branchPrefix": "squad/",
-  "mcpStack": ["filesystem", "otel", "fetch"],
+  "description": "Build a test automation suite for the API",
   "telemetry": {
     "enabled": true
   }
@@ -102,7 +101,7 @@ Sure, leave it enabled.
 
 > **Copilot:**
 >
-> This config is intentionally minimal — it only covers federation plumbing. Team-specific behavior (playbook, prompts, cleanup) lives inside each worktree, managed by the coding archetype.
+> This config is intentionally minimal — it only covers federation plumbing. Team-specific behavior (playbook, prompts, cleanup) lives inside each worktree, managed by the coding archetype. MCP servers are configured via `.mcp.json` at the project level and teams inherit automatically.
 >
 > Now let me cast your **meta-squad** — the leadership team on the main branch that coordinates everything.
 

@@ -186,7 +186,6 @@ export const FederateConfigSchema = z.object({
   description: z.string().optional(),
   branchPrefix: z.string().default('squad/'),
   worktreeDir: z.union([z.literal('parallel'), z.literal('inside'), z.string()]).default('parallel'),
-  mcpStack: z.array(z.string()).default([]),
   telemetry: z
     .object({
       enabled: z.boolean(),
