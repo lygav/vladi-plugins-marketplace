@@ -6,13 +6,25 @@ version: 0.1.0
 
 # Consultant Setup Wizard
 
-You are configuring a **consultant archetype** team. This skill runs after the core federation setup has installed the consultant archetype plugin. Core config (description, MCP stack, telemetry) is already in `federate.config.json` — don't touch it. Your job is to collect archetype-specific settings and write them to the team's `.squad/archetype-config.json`.
+You are configuring a **consultant archetype** team. This skill runs after team onboarding has selected the consultant archetype and completed the mechanical workspace setup. Core federation config (description, MCP stack, telemetry) is in `federate.config.json` — don't touch it. Your job is to collect archetype-specific settings and write them to the team's `.squad/archetype-config.json`.
 
 ## Triggers
 
 - "configure consultant"
 - "consultant setup"
 - "set up consultant team"
+
+## When This Runs
+
+This skill is a **handoff target** from the **onboard agent**. The onboarding flow:
+
+1. Asks about the team's mission
+2. Discovers and selects the consultant archetype
+3. Installs the archetype plugin if needed
+4. Runs onboard.ts to create the workspace and seed archetype templates
+5. Hands off to this skill for archetype-specific configuration questions
+
+You can also be invoked directly if a user wants to reconfigure an existing consultant team.
 
 ## Prerequisites
 

@@ -1367,6 +1367,8 @@ async function main() {
   console.log(`   4. Tailor setup wizard: meta/skills/${ctx.name}-setup/SKILL.md`);
   console.log(`   5. Run contract tests: npm test ${ctx.name}.contract.test.ts`);
   console.log(`   6. Update README with archetype-specific details`);
+  console.log(`\n💡 Your archetype will be automatically discovered by the federation setup wizard.`);
+  console.log(`   No manual registration needed — just install the plugin and it appears in setup options.`);
 }
 
 main().catch((error) => {

@@ -62,27 +62,14 @@ I want to set up a team organization to redesign my portfolio as a modern React 
 >
 > Everything looks good. Let me walk you through the setup.
 >
-> **What type of work will your squads do?**
->
-> - **Coding** — squads implement features, output is pull requests
-> - **Deliverable** — squads produce file artifacts (JSON output)
-> - **Research** — squads investigate, output is design docs
-> - **Task** — squads execute work items
->
-> You can mix types later — a meta-squad can manage different kinds of teams.
+> **What's this federation for?** Describe what you're trying to accomplish.
 
 **Alex:**
-Coding — the main team will build React components and pages
+Coordinating a multi-team website redesign — frontend, content, maybe API later
 
 > **Copilot:**
 >
-> Got it — coding archetype. Installing now...
->
-> ```bash
-> copilot plugin install squad-archetype-coding@vladi-plugins-marketplace
-> ```
->
-> ✅ `squad-archetype-coding` installed.
+> Got it. Each team will pick its own archetype during onboarding (coding, deliverable, research, or task) based on what it needs to do.
 >
 > **What MCP servers should your teams have access to?**
 > These give Copilot sessions their tools. Defaults: `filesystem`, `otel`.
@@ -94,29 +81,7 @@ Defaults are fine, maybe add fetch too for npm lookups
 >
 > Got it — `filesystem`, `otel`, `fetch`.
 >
-> **List the teams you want in this federation.** Each gets its own branch, worktree, and agent team. You can add more later.
-
-**Alex:**
-Just one for now — a frontend team for the React redesign. I might add a content/blog team later.
-
-> **Copilot:**
->
-> Perfect. One team to start: `frontend-redesign`.
->
-> **Workflow steps for coding teams?** Default pipeline:
-> 1. `design` — plan architecture and component structure
-> 2. `implement` — write the code
-> 3. `test` — add tests and verify
-> 4. `pr` — open a pull request with the changes
->
-> Want to customize this?
-
-**Alex:**
-That works. Let's go with it.
-
-> **Copilot:**
->
-> Last question — **telemetry?** Docker isn't installed, so the Aspire dashboard won't be available right now. I'll enable telemetry anyway — you can point it at a collector later.
+> **Last question — telemetry?** Docker isn't installed, so the Aspire dashboard won't be available right now. I'll enable telemetry anyway — you can point it at a collector later.
 
 **Alex:**
 Sure, leave it enabled.
@@ -190,32 +155,53 @@ Build the React redesign — migrate from static HTML to a modern React site
 
 > **Copilot:**
 >
-> Got it. Will they be writing code?
+> Got it. Will they be writing code or producing file artifacts (like reports/inventories)?
+
+**Alex:**
+Writing code
+
+> **Copilot:**
+>
+> Will they open pull requests, or push directly to branches?
+
+**Alex:**
+Pull requests
+
+> **Copilot:**
+>
+> Perfect! Based on your description, I recommend the **coding** archetype. This team will write code and open PRs. Sound right?
 
 **Alex:**
 Yes
 
 > **Copilot:**
 >
-> In this repository, or a different one?
-
-**Alex:**
-This one
-
-> **Copilot:**
+> Let me check if the coding archetype is installed...
 >
-> Should their changes go through pull requests?
+> ```bash
+> copilot plugin list | grep squad-archetype-coding
+> ```
+>
+> Not installed yet. Installing now:
+>
+> ```bash
+> copilot plugin marketplace add lygav/vladi-plugins-marketplace
+> copilot plugin install squad-archetype-coding@vladi-plugins-marketplace
+> ```
+>
+> ✅ `squad-archetype-coding` installed.
+>
+> **Where should this team's workspace live?** (worktree/directory/teams)
 
 **Alex:**
-Yes
+worktree
 
 > **Copilot:**
 >
 > 📋 Got it. Setting up:
 >    Name: frontend-redesign
->    Type: coding team
->    Location: branch squad/frontend-redesign
->    Changes via: pull requests to main
+>    Archetype: squad-archetype-coding
+>    Transport: worktree (branch: squad/frontend-redesign)
 >    
 >    Proceed? [Y/n]
 
@@ -231,8 +217,10 @@ Y
 > ```
 > Creating branch: squad/frontend-redesign from main
 > Creating worktree: /Users/alex/alex-portfolio-frontend-redesign
-> Seeding template files...
->   ✓ Seeded README.md
+> Seeding coding archetype templates...
+>   ✓ Copied team/ directory from squad-archetype-coding
+>   ✓ Seeded launch-prompt.md
+>   ✓ Seeded playbook skills
 > Scaffolding federation state...
 >   ✓ Signal protocol (inbox/, outbox/, status.json)
 >   ✓ Learnings directory
@@ -244,8 +232,37 @@ Y
 > Committing initial state...
 >
 > ✅ Team onboarded: Frontend Redesign
+>    Archetype: squad-archetype-coding
 >    Worktree: /Users/alex/alex-portfolio-frontend-redesign
 >    Branch: squad/frontend-redesign
+> ```
+>
+> Now let's configure the coding archetype settings for this team.
+>
+> **Default PR branch target?** (where PRs should merge to)
+
+**Alex:**
+main
+
+> **Copilot:**
+>
+> **Branch pattern for feature branches?** (e.g. feature/*, feat/*)
+
+**Alex:**
+feature/*
+
+> **Copilot:**
+>
+> ✅ Archetype configured. Writing `.squad/archetype-config.json`:
+>
+> ```json
+> {
+>   "archetype": "squad-archetype-coding",
+>   "pr": {
+>     "targetBranch": "main",
+>     "branchPattern": "feature/*"
+>   }
+> }
 > ```
 
 Squad then casts the team in the worktree. For a coding team, it selects agents suited for frontend development:
