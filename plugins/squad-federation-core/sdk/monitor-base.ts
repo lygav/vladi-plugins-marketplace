@@ -3,7 +3,7 @@
  * 
  * Handles the mechanical parts of monitoring:
  * - Team discovery via registry
- * - Status collection from transports
+ * - Status collection from communication adapters
  * - Stall detection
  * - Dashboard formatting
  * 
@@ -68,8 +68,8 @@ export abstract class MonitorBase<TArchetypeData = unknown> {
    * Collect status from all teams of this archetype type.
    * 
    * For each team:
-   * 1. Read status.json via transport
-   * 2. Call collectArchetypeData() for custom data
+   * 1. Read status.json via communication
+   * 2. Call collectArchetypeData() for placement-backed data
    * 3. Detect stalls
    * 4. Build DashboardEntry with enriched metadata
    * 

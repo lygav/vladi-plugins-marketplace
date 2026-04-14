@@ -7,9 +7,12 @@
  */
 
 import { TriageBase } from '@squad/federation-core/sdk';
-import type { TeamTransport, ScanStatus, TriageResult } from '@squad/federation-core/sdk/types.js';
-import fs from 'fs/promises';
-import path from 'path';
+import type {
+  TeamPlacement,
+  TeamCommunication,
+  ScanStatus,
+  TriageResult
+} from '@squad/federation-core/sdk/types.js';
 
 export class ConsultantTriage extends TriageBase {
   get archetypeName(): string {
@@ -19,12 +22,14 @@ export class ConsultantTriage extends TriageBase {
   /**
    * Detect archetype-specific problems for a team.
    *
-   * @param transport - Transport adapter for team workspace
-   * @param status - Team's current status
-   * @returns Detected problems (empty array if none)
-   */
+    * @param placement - Placement adapter for team workspace
+    * @param communication - Communication adapter for signals/status
+    * @param status - Team's current status
+    * @returns Detected problems (empty array if none)
+    */
   async detectArchetypeProblems(
-    transport: TeamTransport,
+    placement: TeamPlacement,
+    communication: TeamCommunication,
     status: ScanStatus
   ): Promise<Array<{
     severity: 'low' | 'medium' | 'high' | 'critical';
@@ -54,21 +59,16 @@ export class ConsultantTriage extends TriageBase {
 
     // Problem 2: Stale consultant (no questions answered in 7+ days)
     try {
-      const outboxPath = path.join(transport.rootPath, '.squad/signals/outbox');
-      const files = await fs.readdir(outboxPath);
-      const reports = files.filter(f => f.includes('-report-'));
+      const reports = await communication.listSignals(status.domain_id, 'outbox', { type: 'report' });
 
       if (reports.length > 0) {
         const timestamps = reports
-          .map(f => {
-            const match = f.match(/^(\d+)-/);
-            return match ? parseInt(match[1], 10) : 0;
-          })
-          .filter(t => t > 0);
+          .map(report => new Date(report.timestamp).getTime())
+          .filter(ts => !Number.isNaN(ts));
 
         if (timestamps.length > 0) {
           const lastTs = Math.max(...timestamps);
-          const daysSinceQuestion = (Date.now() - lastTs * 1000) / (1000 * 60 * 60 * 24);
+          const daysSinceQuestion = (Date.now() - lastTs) / (1000 * 60 * 60 * 24);
 
           if (daysSinceQuestion > 7 && status.state === 'ready') {
             problems.push({
@@ -87,23 +87,15 @@ export class ConsultantTriage extends TriageBase {
 
     // Problem 3: Knowledge gaps (repeated "I don't know" responses)
     try {
-      const outboxPath = path.join(transport.rootPath, '.squad/signals/outbox');
-      const files = await fs.readdir(outboxPath);
-      const reports = files.filter(f => f.includes('-report-'));
+      const reports = await communication.listSignals(status.domain_id, 'outbox', { type: 'report' });
 
       let unknownCount = 0;
-      for (const reportFile of reports.slice(-10)) {  // Check last 10 reports
-        try {
-          const content = await fs.readFile(path.join(outboxPath, reportFile), 'utf-8');
-          const signal = JSON.parse(content);
-          if (
-            signal.body?.toLowerCase().includes("i don't know") ||
-            signal.body?.toLowerCase().includes("insufficient")
-          ) {
-            unknownCount++;
-          }
-        } catch (e) {
-          // Skip malformed signal
+      for (const report of reports.slice(-10)) {  // Check last 10 reports
+        if (
+          report.body?.toLowerCase().includes("i don't know") ||
+          report.body?.toLowerCase().includes("insufficient")
+        ) {
+          unknownCount++;
         }
       }
 
@@ -120,6 +112,7 @@ export class ConsultantTriage extends TriageBase {
       // Outbox not accessible — skip
     }
 
+    void placement;
     return problems;
   }
 }

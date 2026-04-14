@@ -3,6 +3,8 @@
  * 
  * Analyzes dashboard entries to detect issues and suggest recovery actions.
  * Archetypes extend this to implement archetype-specific diagnostics.
+ * When loading team data for triage, use placement for file reads and
+ * communication adapters for signals/status.
  * 
  * Hybrid pattern: Scripts detect patterns → Skills interpret and recommend actions.
  * 

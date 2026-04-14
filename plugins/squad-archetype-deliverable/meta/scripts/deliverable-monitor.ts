@@ -14,7 +14,8 @@
 
 import { MonitorBase } from '../../../squad-federation-core/sdk/monitor-base.js';
 import type {
-  TeamTransport,
+  TeamPlacement,
+  TeamCommunication,
   ScanStatus,
   DashboardEntry
 } from '../../../squad-federation-core/sdk/types.js';
@@ -72,7 +73,8 @@ export class DeliverableMonitor extends MonitorBase<DeliverableMonitorData> {
    * - .squad/deliverable/validation.json — validation results
    */
   async collectArchetypeData(
-    transport: TeamTransport,
+    placement: TeamPlacement,
+    _communication: TeamCommunication,
     status: ScanStatus
   ): Promise<DeliverableMonitorData> {
     const data: DeliverableMonitorData = {
@@ -81,16 +83,17 @@ export class DeliverableMonitor extends MonitorBase<DeliverableMonitorData> {
 
     try {
       // Count fragments
-      const fragmentFiles = await transport.listFiles(
+      const fragmentFiles = await placement.listFiles(
         status.domain_id,
         '.squad/deliverable/fragments'
       );
-      data.fragmentCount = fragmentFiles.filter(f => f.endsWith('.json')).length;
+      const fragmentJsonFiles = fragmentFiles.filter(f => f.endsWith('.json'));
+      data.fragmentCount = fragmentJsonFiles.length;
 
       // Get total expected fragments from scan metadata if available
       const scanMetaPath = '.squad/deliverable/scan-metadata.json';
-      if (await transport.exists(status.domain_id, scanMetaPath)) {
-        const scanMetaRaw = await transport.readFile(status.domain_id, scanMetaPath);
+      if (await placement.exists(status.domain_id, scanMetaPath)) {
+        const scanMetaRaw = await placement.readFile(status.domain_id, scanMetaPath);
         if (scanMetaRaw) {
           const scanMeta = JSON.parse(scanMetaRaw);
           data.totalFragments = scanMeta.expectedFragments;
@@ -99,8 +102,8 @@ export class DeliverableMonitor extends MonitorBase<DeliverableMonitorData> {
 
       // Read schema version
       const schemaPath = '.squad/deliverable/schema.json';
-      if (await transport.exists(status.domain_id, schemaPath)) {
-        const schemaRaw = await transport.readFile(status.domain_id, schemaPath);
+      if (await placement.exists(status.domain_id, schemaPath)) {
+        const schemaRaw = await placement.readFile(status.domain_id, schemaPath);
         if (schemaRaw) {
           const schema = JSON.parse(schemaRaw);
           data.schemaVersion = schema.version || 'unknown';
@@ -109,10 +112,9 @@ export class DeliverableMonitor extends MonitorBase<DeliverableMonitorData> {
 
       // Calculate deliverable size
       let totalSize = 0;
-      for (const fragmentFile of fragmentFiles) {
-        const fragmentPath = `.squad/deliverable/fragments/${fragmentFile}`;
-        const stats = transport.stat 
-          ? await transport.stat(status.domain_id, fragmentPath)
+      for (const fragmentFile of fragmentJsonFiles) {
+        const stats = placement.stat 
+          ? await placement.stat(status.domain_id, fragmentFile)
           : null;
         if (stats) {
           totalSize += stats.size;
@@ -122,8 +124,8 @@ export class DeliverableMonitor extends MonitorBase<DeliverableMonitorData> {
 
       // Check validation status
       const validationPath = '.squad/deliverable/validation.json';
-      if (await transport.exists(status.domain_id, validationPath)) {
-        const validationRaw = await transport.readFile(status.domain_id, validationPath);
+      if (await placement.exists(status.domain_id, validationPath)) {
+        const validationRaw = await placement.readFile(status.domain_id, validationPath);
         if (validationRaw) {
           const validation = JSON.parse(validationRaw);
           data.validationStatus = validation.status || 'pending';
@@ -133,11 +135,11 @@ export class DeliverableMonitor extends MonitorBase<DeliverableMonitorData> {
       }
 
       // Get last fragment timestamp
-      if (fragmentFiles.length > 0) {
+      if (fragmentJsonFiles.length > 0) {
         // Sort by filename (assumes timestamp-based naming)
-        const sortedFragments = fragmentFiles.sort();
-        const lastFragmentPath = `.squad/deliverable/fragments/${sortedFragments[sortedFragments.length - 1]}`;
-        const lastFragmentRaw = await transport.readFile(status.domain_id, lastFragmentPath);
+        const sortedFragments = fragmentJsonFiles.sort();
+        const lastFragmentPath = sortedFragments[sortedFragments.length - 1];
+        const lastFragmentRaw = await placement.readFile(status.domain_id, lastFragmentPath);
         if (lastFragmentRaw) {
           const lastFragment = JSON.parse(lastFragmentRaw);
           data.lastFragmentAt = lastFragment.timestamp || lastFragment.created_at;
@@ -146,8 +148,8 @@ export class DeliverableMonitor extends MonitorBase<DeliverableMonitorData> {
 
       // Check merged deliverable status
       const mergedPath = '.squad/deliverable/merged.json';
-      if (await transport.exists(status.domain_id, mergedPath)) {
-        const mergedRaw = await transport.readFile(status.domain_id, mergedPath);
+      if (await placement.exists(status.domain_id, mergedPath)) {
+        const mergedRaw = await placement.readFile(status.domain_id, mergedPath);
         if (mergedRaw) {
           const merged = JSON.parse(mergedRaw);
           data.mergedStatus = merged.status || 'complete';

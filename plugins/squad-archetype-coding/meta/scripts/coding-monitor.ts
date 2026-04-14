@@ -14,7 +14,8 @@
 
 import { MonitorBase } from '../../../squad-federation-core/sdk/monitor-base.js';
 import type {
-  TeamTransport,
+  TeamPlacement,
+  TeamCommunication,
   ScanStatus,
   DashboardEntry
 } from '../../../squad-federation-core/sdk/types.js';
@@ -63,7 +64,8 @@ export class CodingMonitor extends MonitorBase<CodingMonitorData> {
    * - Status.json for current state
    */
   async collectArchetypeData(
-    transport: TeamTransport,
+    placement: TeamPlacement,
+    _communication: TeamCommunication,
     status: ScanStatus
   ): Promise<CodingMonitorData> {
     const data: CodingMonitorData = {
@@ -75,7 +77,7 @@ export class CodingMonitor extends MonitorBase<CodingMonitorData> {
 
     try {
       // Try to read PR status file
-      const prStatusContent = await transport.readFile(status.domain_id, '.squad/pr-status.json');
+      const prStatusContent = await placement.readFile(status.domain_id, '.squad/pr-status.json');
       if (prStatusContent) {
         const prData = JSON.parse(prStatusContent);
         data.prNumber = prData.number;
@@ -92,7 +94,7 @@ export class CodingMonitor extends MonitorBase<CodingMonitorData> {
 
     // Get commit activity
     try {
-      const lastCommit = await this.getLastCommitTime(transport, status.domain_id);
+      const lastCommit = await this.getLastCommitTime(placement, status.domain_id);
       if (lastCommit) {
         data.lastCommitAt = lastCommit;
         data.minutesSinceCommit = this.getMinutesSince(lastCommit);
@@ -162,10 +164,12 @@ export class CodingMonitor extends MonitorBase<CodingMonitorData> {
   /**
    * Get last commit timestamp from git log.
    */
-  private async getLastCommitTime(transport: TeamTransport, domainId: string): Promise<string | null> {
+  private async getLastCommitTime(placement: TeamPlacement, domainId: string): Promise<string | null> {
     try {
       // Read git log if team transport supports it
       // For now, return null — teams will need to update this in status.json
+      void placement;
+      void domainId;
       return null;
     } catch {
       return null;
