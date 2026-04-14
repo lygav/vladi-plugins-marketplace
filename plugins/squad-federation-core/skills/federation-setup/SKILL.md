@@ -302,11 +302,11 @@ Don't prescribe specific roles. Let Squad's casting handle composition. But ensu
 
 **Ask:** "Ready to spin up your first team? What should it work on?"
 
-**If yes:** Delegate to the onboard flow. Pass the user's description of what the team should work on. The onboard agent handles branch creation, worktree setup, and team casting.
+**If yes:** Continue the conversation using the `team-onboarding` skill flow. Pass the user's description of what the team should work on. The team-onboarding skill handles mission clarification, archetype discovery, transport selection, and delegates to the mechanical `onboard.ts` script for branch/worktree creation.
 
 **If no:** That's fine. Close out with:
 
-> "No problem. When you're ready, just say **'spin up a team for X'** or **'@federation onboard a team'**."
+> "No problem. When you're ready, just say **'spin up a team for X'** or **'onboard a team'**."
 
 Don't push. Setup is complete once the config exists and the meta-squad is cast. Onboarding teams is a separate concern.
 

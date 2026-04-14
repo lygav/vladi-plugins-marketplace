@@ -37,25 +37,34 @@ All scripts live at `${CLAUDE_PLUGIN_ROOT}/scripts/` and are invoked via `npx ts
 
 Creates the full infrastructure for a new domain expert squad.
 
+**IMPORTANT:** This script is designed for AUTONOMOUS execution — it accepts all parameters via CLI flags and runs without user interaction. Do NOT call this script directly from conversational flows. Instead, use the `team-onboarding` skill, which handles the conversational phase (mission, archetype discovery, transport selection) and then calls this script with fully resolved parameters.
+
 ```bash
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/onboard.ts \
   --name "payments" \
-  --domain-id "pay-001" \
-  --team-size 5 \
-  --roles "lead,developer,developer,sre,analyst" \
-  --agents "Agent Alpha,Agent Beta,Agent Gamma,Agent Delta,Agent Epsilon"
+  --domain-id "payments" \
+  --archetype "squad-archetype-deliverable" \
+  --transport "worktree" \
+  --description "Audit the payments API for security issues"
 ```
 
 What it does:
-1. Creates the `scan/{name}` branch from the current HEAD
-2. Sets up a persistent git worktree at `../worktrees/{name}`
-3. Seeds template files into the worktree
-4. Generates `squad.config.ts` using the Squad SDK builders
-5. Runs `squad build` to produce `.squad/` artifacts (charters, histories, skills)
-6. Cleans meta-squad files out of the domain branch (prevents cross-contamination)
-7. Makes the initial commit on the domain branch
+1. Creates the `squad/{name}` branch from the current HEAD (or `--base-branch`)
+2. Sets up a persistent git worktree (if `--transport worktree`) or directory (if `--transport directory`)
+3. Seeds template files from the specified archetype into the workspace
+4. Generates initial team configuration
+5. Makes the initial commit on the team branch
+6. Reports completion status
 
-Use `--base-branch` to specify a different starting point (defaults to current branch).
+**When to use directly:**
+- Scripted/automated team creation with all parameters known upfront
+- CI/CD pipelines
+- Batch team provisioning
+
+**When to use via skill:**
+- Interactive onboarding where user needs to choose archetype and transport
+- First-time team creation where guidance is needed
+- Any conversational context → use `team-onboarding` skill instead
 
 ### launch.ts — Start Domain Squad Sessions
 
