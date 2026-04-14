@@ -10,10 +10,6 @@ import * as fs from 'fs';
 export interface FederateConfig {
   /** Brief description of this federation (optional) */
   description?: string;
-  /** Git branch prefix for team worktrees (default: "squad/") */
-  branchPrefix: string;
-  /** Worktree location strategy (default: "parallel") */
-  worktreeDir: 'parallel' | 'inside' | string;
   /** MCP servers to load for team sessions */
   mcpStack: string[];
   /** OTel observability */
@@ -32,8 +28,6 @@ export interface FederateConfig {
 }
 
 const DEFAULT_CONFIG: FederateConfig = {
-  branchPrefix: 'squad/',
-  worktreeDir: 'parallel',
   mcpStack: [],
   telemetry: { enabled: true },
   playbookSkill: 'domain-playbook',
@@ -92,8 +86,6 @@ export function validateConfig(raw: unknown): FederateConfig {
   // Track known fields for unknown field warnings
   const knownFields = new Set([
     'description',
-    'branchPrefix',
-    'worktreeDir',
     'mcpStack',
     'telemetry',
     'playbookSkill',
@@ -114,25 +106,6 @@ export function validateConfig(raw: unknown): FederateConfig {
     result.description = validateString(config.description, 'description');
     if (result.description.trim() === '') {
       throw new ConfigValidationError('description cannot be empty string');
-    }
-  }
-
-  // Validate branchPrefix
-  if ('branchPrefix' in config) {
-    result.branchPrefix = validateString(config.branchPrefix, 'branchPrefix');
-    if (result.branchPrefix === '') {
-      throw new ConfigValidationError('branchPrefix cannot be empty');
-    }
-  }
-
-  // Validate worktreeDir
-  if ('worktreeDir' in config) {
-    result.worktreeDir = validateString(config.worktreeDir, 'worktreeDir');
-    const validPresets = ['parallel', 'inside'];
-    if (!validPresets.includes(result.worktreeDir) && !result.worktreeDir) {
-      throw new ConfigValidationError(
-        `worktreeDir must be "parallel", "inside", or a custom path (got "${result.worktreeDir}")`
-      );
     }
   }
 
@@ -225,10 +198,9 @@ export function loadAndValidateConfig(configPath: string): FederateConfig {
       console.error('  2. Validate your config structure:');
       console.error('     cat federate.config.json');
       console.error('  3. Common issues to check:');
-      console.error('     - squadRoot: must be a valid directory path');
-      console.error('     - worktreeRoot: must be a valid directory path');
-      console.error('     - branchPrefix: must be a non-empty string (e.g., "squad/")');
-      console.error('     - archetypes: must be an object with archetype definitions');
+      console.error('     - mcpStack: must be an array of strings');
+      console.error('     - telemetry: must have enabled boolean field');
+      console.error('     - playbookSkill: must be a non-empty string');
       console.error('  4. Restore from example:');
       console.error('     cp federate.config.example.ts federate.config.json');
       console.error('  5. Verify required fields are present:');
