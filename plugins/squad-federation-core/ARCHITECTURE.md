@@ -76,7 +76,7 @@ and communicate via file-based signals.
 
 ### Runtime Topology
 
-**Example with WorktreeTransport:**
+**Example with WorktreePlacement:**
 
 ```
 ~/project/ (main branch — meta-squad)
@@ -101,7 +101,7 @@ and communicate via file-based signals.
     └── (same structure)
 ```
 
-**Example with DirectoryTransport:**
+**Example with DirectoryPlacement:**
 
 ```
 ~/project/ (meta-squad)
@@ -370,9 +370,9 @@ export function createTeamContext(
 
 ---
 
-## 2a. Git Mechanics (WorktreeTransport only)
+## 2a. Git Mechanics (WorktreePlacement only)
 
-This section applies **only** to WorktreeTransport. For other transports, see their
+This section applies **only** to WorktreePlacement. For other placements, see their
 respective implementation docs.
 
 ### Branch Naming
@@ -415,7 +415,7 @@ git branch -D squad/team-alpha
 # Also remove from .squad/teams.json
 ```
 
-### No-Merge-Back Principle (WorktreeTransport)
+### No-Merge-Back Principle (WorktreePlacement)
 
 Domain branches **never** merge back to main. Knowledge flows via:
 - Graduation proposals (domain → main learning log → main skill)
@@ -425,7 +425,7 @@ Domain branches **never** merge back to main. Knowledge flows via:
 The main branch reads FROM domain branches. Domain branches receive skill
 updates via cherry-pick sync, never via `git merge main`.
 
-### Isolation Model (WorktreeTransport)
+### Isolation Model (WorktreePlacement)
 
 Each worktree has a complete, independent `.squad/` directory:
 - **Archetype manifest** — defines states, monitor config, triage, recovery
@@ -804,8 +804,10 @@ import {
   MonitorCollector,
   TeamContext,
   ScanStatus,
-  TeamTransport,
-  selectTransport
+  TeamPlacement,
+  TeamCommunication,
+  selectPlacement,
+  selectCommunication
 } from '@squad/federation-core/sdk';
 ```
 
@@ -820,7 +822,8 @@ import {
 - `SignalMessage` — IPC message format
 - `LearningEntry` — learning log entry format
 
-**sdk/transport.ts** — `TeamTransport` interface (see §2)
+**sdk/placement.ts** — `TeamPlacement` interface (see §2a)
+**sdk/communication.ts** — `TeamCommunication` interface (see §2b)
 
 **sdk/monitor-base.ts** — `MonitorCollector` abstract base class:
 ```typescript
@@ -931,7 +934,8 @@ Archetypes extend the SDK to implement custom behavior:
 1. **Custom monitors** — extend `MonitorCollector`, implement `collect()`
 2. **Custom triage** — extend `TriageAnalyzer`, implement `diagnose()`
 3. **Custom recovery** — extend `RecoveryEngine`, implement `suggestActions()` and `executeAutomated()`
-4. **Custom transports** — implement `TeamTransport` interface
+4. **Custom placements** — implement `TeamPlacement` interface
+5. **Custom communication adapters** — implement `TeamCommunication` interface and register via `CommunicationRegistry`
 
 Core discovers and loads these via archetype.json manifest, never via direct imports.
 
@@ -1334,7 +1338,7 @@ squad-archetype-backend/
 
 **Meta directory** — Orchestration layer (meta-squad POV):
 - Runs in plugin, has access to full Node.js environment
-- Can import SDK: `import { MonitorCollector, TeamTransport } from '@squad/federation-core/sdk'`
+- Can import SDK: `import { MonitorCollector, TeamPlacement, TeamCommunication } from '@squad/federation-core/sdk'`
 - Implements monitoring, triage, recovery, aggregation
 - Never copied to team workspaces
 
@@ -1766,7 +1770,7 @@ The onboarding wizard uses natural conversation to discover team requirements wi
 "In this repository or different one?" → This one
 "Should changes go through pull requests?" → Yes
 
-→ WorktreeTransport auto-selected
+→ WorktreePlacement auto-selected
 → Creates: squad/payments branch + worktree + .squad/ state
 ```
 
@@ -1779,7 +1783,7 @@ The onboarding wizard uses natural conversation to discover team requirements wi
 "Code or research/documents?" → Research and analysis docs
 "Where should findings live?" → In this project, under docs/research
 
-→ DirectoryTransport auto-selected
+→ DirectoryPlacement auto-selected
 → Creates: docs/research/ + .squad/ + archetype templates
 ```
 
@@ -1848,33 +1852,41 @@ Single import point for archetype developers:
 
 ```typescript
 import {
-  TeamTransport,
+  TeamPlacement,
+  TeamCommunication,
   MonitorCollector,
   ScanStatus,
   SignalMessage,
-  selectTransport
+  selectPlacement,
+  selectCommunication
 } from '@squad/federation-core/sdk';
 ```
 
 ### Key Interfaces
 
-**TeamTransport** (`sdk/transport.ts`)
+**TeamPlacement** (`sdk/placement.ts`)
 ```typescript
-export interface TeamTransport {
+export interface TeamPlacement {
   // File operations
   readFile(teamId: string, filePath: string): Promise<string | null>;
   writeFile(teamId: string, filePath: string, content: string): Promise<void>;
   exists(teamId: string, filePath: string): Promise<boolean>;
   stat?(teamId: string, filePath: string): Promise<FileStats | null>;
   
-  // Signal protocol
-  listSignals(teamId: string, direction: 'inbox' | 'outbox', filter?: SignalFilter): Promise<SignalMessage[]>;
-  watchSignals?(teamId: string, direction: 'inbox' | 'outbox', callback: (msg: SignalMessage) => void): () => void;
-  
   // Workspace operations
   workspaceExists(teamId: string): Promise<boolean>;
   initializeWorkspace(teamId: string, config: WorkspaceConfig): Promise<void>;
   removeWorkspace(teamId: string): Promise<void>;
+}
+```
+
+**TeamCommunication** (`sdk/communication.ts`)
+```typescript
+export interface TeamCommunication {
+  // Signal protocol
+  listSignals(teamId: string, direction: 'inbox' | 'outbox', filter?: SignalFilter): Promise<SignalMessage[]>;
+  watchSignals?(teamId: string, direction: 'inbox' | 'outbox', callback: (msg: SignalMessage) => void): () => void;
+  writeSignal(teamId: string, direction: 'outbox', message: SignalMessage): Promise<void>;
 }
 ```
 
@@ -1916,7 +1928,7 @@ export class DeliverableMonitor extends MonitorCollector {
 5. Publish to npm
 6. Users `npm install` it → auto-discovered at runtime
 
-**Transport Abstraction Benefits:**
+**Placement Abstraction Benefits:**
 - Archetype code never touches filesystem directly
 - Works with worktrees, directories, future cloud storage
 - Testable with mock transport
@@ -1990,13 +2002,13 @@ never enforces. The schema contract mediates between them.
 
 ## 15. Revision History
 
-### 2026-04-16 — TeamTransport Split & Adapter Registry (v0.4.0)
+### 2026-04-16 — TeamPlacement & TeamCommunication Split (v0.4.0)
 
 **Author:** Mal (Lead)  
 **Issue:** [#89](https://github.com/lygav/vladi-plugins-marketplace/issues/89)  
 **Changes:**
 
-1. **Split TeamTransport into two concerns:**
+1. **Split concerns:**
    - `TeamPlacement` — WHERE teams live (worktree, directory, cloud)
    - `TeamCommunication` — HOW teams communicate (file signals, Teams channels, pub-sub)
    - Both are federation-scoped; factory (`createTeamContext()`) composes them per team

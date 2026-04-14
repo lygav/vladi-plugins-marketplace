@@ -937,20 +937,20 @@ The meta-squad monitors all 4 teams through the **transport abstraction** — it
 > 
 > ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**Signals flow seamlessly** regardless of transport:
+**Signals flow seamlessly** regardless of placement and communication:
 
-- **Worktree teams** — Meta-squad reads/writes `.squad/signals/` in worktree directories
-- **Directory team** — Meta-squad reads/writes `.squad/signals/` in `.worktrees/blog-research/`
-- **Teams channel** — Meta-squad posts/reads messages via MCP tools
+- **Worktree teams** — Meta-squad reads/writes `.squad/signals/` in worktree directories (WorktreePlacement + FileSignalCommunication)
+- **Directory team** — Meta-squad reads/writes `.squad/signals/` in `.worktrees/blog-research/` (DirectoryPlacement + FileSignalCommunication)
+- **Teams channel** — Meta-squad posts/reads messages via MCP tools (any placement + TeamsChannelCommunication)
 
-From the meta-squad's perspective, all teams are **TeamTransport** instances. The interface is identical:
+From the meta-squad's perspective, all teams expose the same interfaces. The implementation is abstracted:
 
 ```typescript
-// Meta-squad code is transport-agnostic
+// Meta-squad code is placement and communication agnostic
 for (const team of teams) {
-  const status = await team.readStatus();        // Works for all transports
-  const signals = await team.listSignals('inbox'); // Works for all transports
-  await team.writeSignal('outbox', directive);   // Works for all transports
+  const status = await team.readStatus();        // Works for all placements and communications
+  const signals = await team.listSignals('inbox'); // Works for all placements and communications
+  await team.writeSignal('outbox', directive);   // Works for all placements and communications
 }
 ```
 
