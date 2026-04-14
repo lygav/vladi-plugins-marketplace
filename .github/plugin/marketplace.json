@@ -11,7 +11,7 @@
     {
       "name": "squad-federation-core",
       "description": "Federated squad model \u2014 transport-agnostic team orchestration with SDK, knowledge lifecycle, OTel observability, and headless automation",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "source": "plugins/squad-federation-core",
       "author": {
         "name": "Vladi Lyga"
@@ -38,7 +38,7 @@
     {
       "name": "squad-archetype-deliverable",
       "description": "Deliverable archetype \u2014 iterative teams that scan unstructured sources, distill structured artifacts, and learn from feedback",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "source": "plugins/squad-archetype-deliverable",
       "author": {
         "name": "Vladi Lyga"
@@ -62,7 +62,7 @@
     {
       "name": "squad-archetype-coding",
       "description": "Coding archetype \u2014 implementation teams that write code, open PRs, and follow full SDLC with review cycles",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "source": "plugins/squad-archetype-coding",
       "author": {
         "name": "Vladi Lyga"
@@ -87,7 +87,7 @@
     {
       "name": "squad-archetype-consultant",
       "description": "Consultant archetype \u2014 domain expert teams that index codebases and answer questions on demand as a persistent knowledge service",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "source": "plugins/squad-archetype-consultant",
       "author": {
         "name": "Vladi Lyga"
