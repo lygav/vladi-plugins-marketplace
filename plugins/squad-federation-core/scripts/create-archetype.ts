@@ -282,10 +282,22 @@ function generateFiles(ctx: TemplateContext): FileEntry[] {
     path: 'team/archetype.json',
     content: JSON.stringify(
       {
+        id: ctx.name,
+        name: ctx.Name,
+        description: ctx.description,
+        version: ctx.version,
+        coreCompatibility: '>=0.2.0',
         states: {
           lifecycle: ctx.states,
           terminal: ctx.terminalStates,
-          pauseable: false,
+          pauseable: [],
+        },
+        monitor: {
+          display: {
+            sectionTitle: `${ctx.Name} Teams`,
+            stateProgressFormat: 'step',
+            groupByArchetype: true,
+          },
         },
       },
       null,
@@ -1265,7 +1277,7 @@ describe('{{Name}} Archetype Contract Tests', () => {
       const states: StateSchema = {
         lifecycle: [{{statesStr}}],
         terminal: [{{terminalStatesStr}}],
-        pauseable: false,
+        pauseable: [],
       };
 
       expect(states.lifecycle).toHaveLength({{states.length}});

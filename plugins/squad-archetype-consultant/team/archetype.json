@@ -1,7 +1,28 @@
 {
+  "id": "consultant",
+  "name": "Consultant",
+  "description": "Domain expert teams that answer questions about codebases and specialized domains",
+  "version": "0.3.2",
+  "coreCompatibility": ">=0.2.0",
   "states": {
-    "lifecycle": ["onboarding", "indexing", "ready", "researching", "waiting-for-feedback"],
+    "lifecycle": [
+      "onboarding",
+      "indexing",
+      "ready",
+      "researching",
+      "waiting-for-feedback",
+      "retired",
+      "failed"
+    ],
     "terminal": ["retired", "failed"],
-    "pauseable": true
+    "pauseable": []
+  },
+  "monitor": {
+    "display": {
+      "sectionTitle": "Consultant Teams",
+      "stateProgressFormat": "step",
+      "groupByArchetype": true,
+      "archetypeEmoji": "🧭"
+    }
   }
 }

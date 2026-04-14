@@ -1,7 +1,20 @@
 {
+  "id": "deliverable",
+  "name": "Deliverable",
+  "description": "Teams that produce file artifacts",
+  "version": "0.3.2",
+  "coreCompatibility": ">=0.2.0",
   "states": {
-    "lifecycle": ["preparing", "scanning", "distilling", "aggregating"],
+    "lifecycle": ["preparing", "scanning", "distilling", "aggregating", "complete", "failed"],
     "terminal": ["complete", "failed"],
-    "pauseable": true
+    "pauseable": []
+  },
+  "monitor": {
+    "display": {
+      "sectionTitle": "Deliverable Teams",
+      "stateProgressFormat": "step",
+      "groupByArchetype": true,
+      "archetypeEmoji": "📦"
+    }
   }
 }

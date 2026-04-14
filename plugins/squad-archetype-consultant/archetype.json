@@ -17,12 +17,14 @@
       "indexing",
       "ready",
       "researching",
-      "waiting-for-feedback"
+      "waiting-for-feedback",
+      "retired",
+      "failed"
     ],
     "terminal": [
       "retired",
       "failed"
     ],
-    "pauseable": true
+    "pauseable": []
   }
 }

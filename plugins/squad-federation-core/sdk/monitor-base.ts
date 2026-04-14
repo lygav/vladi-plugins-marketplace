@@ -77,7 +77,9 @@ export abstract class MonitorBase<TArchetypeData = unknown> {
    * @returns Array of dashboard entries with archetype-specific data
    */
   async collectAll(teams: TeamEntry[]): Promise<DashboardEntry[]> {
-    return await this.emitter.span(
+    let collectedEntries: DashboardEntry[] = [];
+
+    await this.emitter.span(
       'monitor.collectAll',
       async () => {
         const entries: DashboardEntry[] = [];
@@ -147,13 +149,15 @@ export abstract class MonitorBase<TArchetypeData = unknown> {
           'archetype.name': this.archetypeName
         });
 
-        return entries;
+        collectedEntries = entries;
       },
       {
         'archetype.name': this.archetypeName,
         'teams.count': teams.length
       }
     );
+
+    return collectedEntries;
   }
 
   /**

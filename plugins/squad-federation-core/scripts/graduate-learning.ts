@@ -226,7 +226,7 @@ function markAsGraduated(branches: string[], learningId: string, skill: string):
 }
 
 function getWorktreePath(branch: string): string | null {
-  return getWorktreeForBranch(branch, REPO_ROOT);
+  return getWorktreeForBranch(branch, REPO_ROOT)?.path ?? null;
 }
 
 // ==================== Reporting ====================

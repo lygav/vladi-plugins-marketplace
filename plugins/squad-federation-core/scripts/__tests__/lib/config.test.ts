@@ -33,6 +33,7 @@ describe('config.ts', () => {
 
       expect(result).toEqual({
         ...config,
+        communicationType: 'file-signal',
         playbookSkill: 'domain-playbook', // default value
       });
     });
@@ -48,13 +49,21 @@ describe('config.ts', () => {
       };
 
       const result = validateConfig(config);
-      expect(result).toEqual(config);
+      expect(result).toEqual({
+        ...config,
+        communicationType: 'file-signal',
+      });
     });
 
-    it('should reject config with missing required fields', () => {
+    it('should apply defaults when config is empty', () => {
       const invalidConfig = {};
 
-      expect(() => validateConfig(invalidConfig)).toThrow(ConfigValidationError);
+      const result = validateConfig(invalidConfig);
+      expect(result).toEqual({
+        telemetry: { enabled: true },
+        communicationType: 'file-signal',
+        playbookSkill: 'domain-playbook',
+      });
     });
 
     it('should reject config with invalid telemetry object', () => {
@@ -109,9 +118,9 @@ describe('config.ts', () => {
     });
 
     it('should throw on invalid config structure', () => {
-      mockReadFileSync.mockReturnValue(JSON.stringify({ invalid: 'config' }));
+      mockReadFileSync.mockReturnValue(JSON.stringify({ telemetry: { enabled: 'nope' } }));
 
-      expect(() => loadAndValidateConfig('/path/to/config.json')).toThrow(ConfigValidationError);
+      expect(() => loadAndValidateConfig('/path/to/config.json')).toThrow(/process.exit/);
     });
 
     it('should apply default values for optional fields', () => {
@@ -123,6 +132,7 @@ describe('config.ts', () => {
       const result = loadAndValidateConfig('/path/to/config.json');
 
       expect(result.playbookSkill).toBe('domain-playbook');
+      expect(result.communicationType).toBe('file-signal');
     });
 
     it('should preserve user-specified optional values', () => {

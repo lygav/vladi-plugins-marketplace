@@ -183,8 +183,9 @@ describe('team-registry.ts', () => {
     const updated = await registry.update('frontend', { location: '/new/location' });
     expect(updated).toBe(true);
 
-    const writeCall = vi.mocked(fs.writeFile).mock.calls[0];
-    const writtenData = JSON.parse(writeCall[1] as string);
+    const writeCalls = vi.mocked(fs.writeFile).mock.calls;
+    const registryCall = writeCalls.find((call) => String(call[0]).includes('teams.json.tmp'));
+    const writtenData = JSON.parse((registryCall?.[1] as string) || '{}');
     expect(writtenData.teams[0].location).toBe('/new/location');
   });
 

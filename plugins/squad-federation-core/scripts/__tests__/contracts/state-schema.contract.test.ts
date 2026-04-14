@@ -11,7 +11,7 @@ import { StateSchemaSchema } from '../../../sdk/schemas.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const repoRoot = join(__dirname, '../../../..');
+const repoRoot = join(__dirname, '../../../../..');
 
 describe('state-schema.contract.test.ts', () => {
   describe('StateSchemaSchema validation', () => {

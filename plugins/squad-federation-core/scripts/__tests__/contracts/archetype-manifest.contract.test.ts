@@ -11,7 +11,7 @@ import { ArchetypeManifestSchema } from '../../../sdk/schemas.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const repoRoot = join(__dirname, '../../../..');
+const repoRoot = join(__dirname, '../../../../..');
 
 describe('archetype-manifest.contract.test.ts', () => {
   describe('squad-archetype-deliverable', () => {

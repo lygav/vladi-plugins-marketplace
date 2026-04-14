@@ -218,18 +218,9 @@ branch refs/heads/feature/test
 
   describe('listSquadBranches', () => {
     it('should extract branch names from squad worktrees', () => {
-      const mockOutput = `worktree /main
-branch refs/heads/main
-
-worktree /squad/alpha
-branch refs/heads/squad/alpha
-
-worktree /squad/beta
-branch refs/heads/squad/beta
-
-worktree /squad/gamma
-branch refs/heads/squad/gamma
-
+      const mockOutput = `squad/alpha
+squad/beta
+squad/gamma
 `;
       mockExecSync.mockReturnValue(mockOutput);
 
@@ -239,19 +230,15 @@ branch refs/heads/squad/gamma
     });
 
     it('should return empty array when no squad branches', () => {
-      mockExecSync.mockReturnValue('worktree /main\nbranch refs/heads/main\n\n');
+      mockExecSync.mockReturnValue('');
 
       const result = listSquadBranches();
       expect(result).toEqual([]);
     });
 
     it('should respect custom branch prefix', () => {
-      const mockOutput = `worktree /team/one
-branch refs/heads/team/one
-
-worktree /team/two
-branch refs/heads/team/two
-
+      const mockOutput = `team/one
+team/two
 `;
       mockExecSync.mockReturnValue(mockOutput);
 
