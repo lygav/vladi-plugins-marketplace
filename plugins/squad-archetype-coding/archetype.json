@@ -1,6 +1,6 @@
 {
   "name": "squad-archetype-coding",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Teams that write code and open pull requests",
   "coreCompatibility": ">=0.2.0",
   "meta": {
