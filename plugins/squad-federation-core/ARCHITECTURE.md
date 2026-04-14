@@ -1,32 +1,35 @@
 # squad-federation-core — Architecture
 
 **Author:** Squad Team (Mal, Wash, Zoe, Ripley, Kaylee)
-**Version:** 0.3.2
+**Version:** 0.4.0
 **Status:** Current
-**Last Updated:** 2026-04-15
+**Last Updated:** 2026-04-16
 
 ---
 
 ## Executive Summary
 
-squad-federation-core is a Copilot plugin that enables federated multi-team coordination. A **meta-squad** orchestrates N permanent **domain squads** via transport abstraction. Teams can exist in git worktrees, standalone directories, or (future) remote systems—core is transport-agnostic. Domain squads accumulate expertise, run autonomously in headless sessions, and communicate via file-based signals.
+squad-federation-core is a Copilot plugin that enables federated multi-team coordination. A **meta-squad** orchestrates N permanent **domain squads** via placement and communication abstraction. Teams live in git worktrees or directories (placement), and communicate via file-based signals or Teams channels (communication)—core is location and protocol agnostic. Domain squads accumulate expertise, run autonomously in headless sessions, and coordinate via adapters.
 
 **Core Pillars:**
 
-1. **Transport Abstraction** — Teams can exist anywhere (worktrees, directories, repos, cloud). Core is transport-agnostic.
-2. **SDK Foundation** — Shared types/interfaces at `sdk/` enable archetype development as proper plugin extensions.
-3. **Meta/Team Separation** — Archetypes cleanly separate orchestration concerns (meta) from execution concerns (team).
-4. **Hybrid Monitoring** — Scripts collect mechanical data → skills interpret and present insights.
-5. **Convention-Based Discovery** — Filesystem conventions reduce configuration overhead.
-6. **Dynamic Archetype Discovery** — Archetypes auto-discovered from marketplace.json + filesystem at runtime.
-7. **Two-Mode Onboarding** — Conversational (interactive discovery) + Mechanical (autonomous setup).
+1. **Placement Abstraction** — Teams can live in worktrees, directories, or remote systems. Where a team lives (placement) is independent of how it communicates.
+2. **Communication Abstraction** — Teams communicate via file signals (default), Teams channels (v0.5.0), or custom adapters. Protocol is pluggable, federation-scoped.
+3. **SDK Foundation** — Shared types/interfaces at `sdk/` enable archetype development as proper plugin extensions.
+4. **Meta/Team Separation** — Archetypes cleanly separate orchestration concerns (meta) from execution concerns (team).
+5. **Hybrid Monitoring** — Scripts collect mechanical data → skills interpret and present insights.
+6. **Convention-Based Discovery** — Filesystem conventions reduce configuration overhead.
+7. **Dynamic Archetype Discovery** — Archetypes auto-discovered from marketplace.json + filesystem at runtime.
+8. **Two-Mode Onboarding** — Conversational (interactive discovery) + Mechanical (autonomous setup).
 
 **Design Principles:**
 
 - **Core agnostic** — Core never imports archetype code. Zero coupling.
 - **Open/Closed** — New archetypes extend the system without modifying core.
 - **Interface-driven** — TypeScript contracts enforce archetype API.
-- **Transport-neutral** — Team location is abstracted behind `TeamTransport` interface.
+- **Location-neutral** — Team placement is abstracted behind `TeamPlacement` interface.
+- **Protocol-neutral** — Team communication is abstracted behind `TeamCommunication` interface.
+- **Adapter registry** — Communication adapters register at runtime. Factory composes placement + communication.
 - **Start empty, add what's needed** — Onboarding creates minimal bootstrap, not kitchen-sink template.
 
 ---
@@ -146,12 +149,12 @@ and communicate via file-based signals.
 
 ---
 
-## 2. Team Discovery & Transport Abstraction
+## 2. Team Placement & Communication
 
 ### Team Registry (.squad/teams.json)
 
-The **team registry** is the source of truth for team discovery. It replaces hardcoded
-`git worktree list` calls with a declarative manifest:
+The **team registry** is the source of truth for team discovery. It declaratively records
+team placement and communication settings:
 
 ```json
 {
@@ -161,7 +164,7 @@ The **team registry** is the source of truth for team discovery. It replaces har
       "domain": "team-alpha",
       "domainId": "alpha-001",
       "archetypeId": "deliverable",
-      "transport": "worktree",
+      "placement": "worktree",
       "location": "/Users/user/project-team-alpha",
       "branch": "squad/team-alpha",
       "createdAt": "2025-01-15T10:00:00Z",
@@ -171,7 +174,7 @@ The **team registry** is the source of truth for team discovery. It replaces har
       "domain": "team-beta",
       "domainId": "beta-002",
       "archetypeId": "coding",
-      "transport": "directory",
+      "placement": "directory",
       "location": ".squad-teams/team-beta",
       "createdAt": "2025-01-16T14:30:00Z",
       "metadata": {}
@@ -181,33 +184,23 @@ The **team registry** is the source of truth for team discovery. It replaces har
 ```
 
 **Benefits:**
-- Multi-transport federations (worktree + directory + remote in same project)
+- Multi-placement federations (worktree + directory in same project)
 - Fast team lookup (no git subprocess calls)
 - Extensible metadata (store custom team properties)
-- Enables future mesh routing (team-to-team signals)
+- Placement is independent of communication (same team can move to Teams channel v0.5.0)
 
-### TeamTransport Interface
+### TeamPlacement Interface
 
-All team workspace operations go through the `TeamTransport` interface, defined in `sdk/transport.ts`:
+Team workspace location is abstracted by `TeamPlacement`, defined in `sdk/placement.ts`:
 
 ```typescript
-export interface TeamTransport {
-  // File operations
+export interface TeamPlacement {
+  // File operations — delegated to placement implementation
   readFile(teamId: string, filePath: string): Promise<string | null>;
   writeFile(teamId: string, filePath: string, content: string): Promise<void>;
   exists(teamId: string, filePath: string): Promise<boolean>;
   
-  // Status & signals
-  readStatus(teamId: string): Promise<ScanStatus | null>;
-  readInboxSignals(teamId: string): Promise<SignalMessage[]>;
-  writeInboxSignal(teamId: string, signal: SignalMessage): Promise<void>;
-  readOutboxSignals(teamId: string): Promise<SignalMessage[]>;
-  
-  // Learning log
-  readLearningLog(teamId: string): Promise<LearningEntry[]>;
-  appendLearning(teamId: string, entry: LearningEntry): Promise<void>;
-  
-  // Workspace management
+  // Workspace queries
   workspaceExists(teamId: string): Promise<boolean>;
   getLocation(teamId: string): Promise<string>;
   listFiles(teamId: string, directory?: string): Promise<string[]>;
@@ -215,12 +208,29 @@ export interface TeamTransport {
 }
 ```
 
-**Core never imports transport implementations.** Transport selection happens at runtime
-via the registry's `transport` field.
+### TeamCommunication Interface
 
-### WorktreeTransport (lib/worktree-transport.ts)
+Team communication protocol is abstracted by `TeamCommunication`, defined in `sdk/communication.ts`:
 
-Git worktree adapter for v0.1.0 compatibility. Teams live on permanent branches:
+```typescript
+export interface TeamCommunication {
+  // Signal protocol
+  readStatus(teamId: string): Promise<ScanStatus | null>;
+  readInboxSignals(teamId: string): Promise<SignalMessage[]>;
+  writeInboxSignal(teamId: string, signal: SignalMessage): Promise<void>;
+  readOutboxSignals(teamId: string): Promise<SignalMessage[]>;
+  
+  // Learning log (shared across adapters)
+  readLearningLog(teamId: string): Promise<LearningEntry[]>;
+  appendLearning(teamId: string, entry: LearningEntry): Promise<void>;
+}
+```
+
+**Key design:** Placement knows WHERE teams live (filesystem, git worktree). Communication knows HOW they receive signals (file-based, Teams channel). Neither interface is tightly coupled.
+
+### WorktreePlacement (lib/worktree-placement.ts)
+
+Git worktree adapter. Teams live on permanent branches:
 
 **Branch naming:** `{branchPrefix}{team-name}` (default: `squad/team-alpha`)
 
@@ -230,9 +240,8 @@ Git worktree adapter for v0.1.0 compatibility. Teams live on permanent branches:
 git branch squad/team-alpha main
 git worktree add ~/project-team-alpha squad/team-alpha
 
-# Discovery (replaced by registry)
-# OLD: git worktree list --porcelain
-# NEW: Read .squad/teams.json
+# Discovery
+# Read .squad/teams.json, get placement from entry
 
 # Removal (manual)
 git worktree remove ~/project-team-alpha
@@ -247,7 +256,7 @@ git branch -D squad/team-alpha
 **Isolation:** Each worktree has independent `.squad/` directory. Shared git object store
 (disk-efficient), but zero coordination overhead between concurrent sessions.
 
-### DirectoryTransport (lib/directory-transport.ts)
+### DirectoryPlacement (lib/directory-placement.ts)
 
 Standalone directory adapter. Teams exist in `.squad-teams/{teamName}/`:
 
@@ -260,34 +269,104 @@ Standalone directory adapter. Teams exist in `.squad-teams/{teamName}/`:
 - No version control for team workspace
 - No cross-read via `git show` (use direct file reads)
 
-### Future Transports (v0.3.0+)
+### Adapter Registry Pattern
 
-- **RemoteTransport** — Teams in separate repos (HTTP/SSH)
-- **CloudTransport** — Azure Blob Storage / S3 (serverless orchestration)
-- **TeamsChannelTransport** — Microsoft Teams channels (human-in-loop coordination)
-- **EventHubTransport** — Azure Event Hub (pub-sub mesh)
-
-See DESIGN.md §4.2 for transport roadmap.
-
-### Transport Selection
-
-Scripts use `selectTransport()` helper from `lib/team-registry.ts`:
+Communication adapters register at runtime. Core provides a registry factory:
 
 ```typescript
-import { selectTransport } from './lib/team-registry.js';
+import { CommunicationRegistry } from './lib/communication-registry.js';
 
-const team = registry.teams.find(t => t.domain === 'team-alpha');
-const transport = selectTransport(team.transport, config);
+const registry = new CommunicationRegistry(config);
 
-const status = await transport.readStatus(team.domain);
+// Register default adapter (FileSignalCommunication)
+registry.register('file-signal', FileSignalCommunication);
+
+// v0.5.0: Register Teams channel adapter when available
+// registry.register('teams-channel', TeamsChannelCommunication);
+
+const adapter = registry.get(config.communicationType || 'file-signal');
 ```
 
-Core is **100% transport-agnostic**. Adding a new transport requires:
-1. Implement `TeamTransport` interface
-2. Register in `selectTransport()` factory
-3. Document in DESIGN.md
+**Adding a new communication adapter requires:**
+1. Implement `TeamCommunication` interface
+2. Call `registry.register(name, implementation)` during bootstrap
+3. Update `federate.config.json` communicationType field if desired
+4. No changes to core scripts, signals, or knowledge lifecycle
 
-No changes to core scripts, signals, or knowledge lifecycle.
+### FileSignalCommunication (lib/file-signal-communication.ts)
+
+Default adapter. Signals stored as JSON files in `.squad/signals/`:
+
+```
+.squad/signals/
+├── inbox/
+│   ├── {messageId}.json     ← meta-squad sends to team
+│   └── {messageId}.json
+├── outbox/
+│   ├── {messageId}.json     ← team sends to meta-squad
+│   └── {messageId}.json
+└── status.json              ← last scan status
+```
+
+**Lifecycle:** Meta-squad writes to `.squad/signals/inbox/`, team consumes. Team writes to `.squad/signals/outbox/`, meta-squad consumes.
+
+### Future Communication Adapters
+
+**v0.5.0 — TeamsChannelCommunication**
+
+Teams channels as first-class signal protocol:
+
+- **Hashtag protocol:** All signal types use structured hashtags
+  - `#meta` — humans discuss federation strategy
+  - `#meta-status` — teams report status
+  - `#meta-error` — teams report errors/blockers
+  - `#{teamId}` — team-specific channel for human oversight
+  
+- **Async human participation:** Humans @mention teams in channel to send directives; teams read channel as signal input
+
+- **Example flow:**
+  ```
+  [Meta-squad]: "Team Alpha, investigate inventory discrepancies"
+     (posts in #inventory-team)
+  
+  [Team Alpha]: Receives as signal in session, processes
+  [Team Alpha]: "Discrepancy found in region-3 data"
+     (posts in #meta-status)
+  
+  [Meta-squad]: Reads #meta-status, aggregates findings
+  [Human]: Reviews in #meta, replies with guidance
+  ```
+
+### Context Factory (lib/team-context.ts)
+
+Composes placement + communication at runtime:
+
+```typescript
+export function createTeamContext(
+  team: TeamMetadata,
+  placementType: string,
+  communicationType: string,
+  config: FederateConfig
+): TeamContext {
+  const placement = selectPlacement(placementType, config);
+  const communication = selectCommunication(communicationType, config);
+  
+  return {
+    domain: team.domain,
+    placement,
+    communication,
+    // convenience methods
+    async readSignals() { return communication.readInboxSignals(team.domain); },
+    async writeStatus(status) { return communication.readStatus(team.domain); },
+    async readFile(path) { return placement.readFile(team.domain, path); }
+  };
+}
+```
+
+**Benefits:**
+- Placement and communication chosen independently
+- Same team can migrate communication protocol (e.g., add Teams channel in v0.5.0)
+- Federation can have mixed communication types (FileSignal + Teams coexist)
 
 ---
 
@@ -1481,44 +1560,105 @@ archetype-provided ceremony definitions.
 
 ### federate.config.json Schema
 
-Located at the project root. Controls federation plumbing only — team-specific
-configuration lives inside each worktree.
+Located at the project root. Controls federation communication and telemetry only — team-specific
+placement configuration lives in `.squad/teams.json`.
 
 ```typescript
 interface FederateConfig {
   /** Brief description of what this federation does */
   description?: string;
 
-  /** Git branch prefix for team worktrees. Default: "squad/" */
-  branchPrefix: string;
+  /** Communication settings */
+  communication: {
+    /** Default communication adapter type (e.g., "file-signal", "teams-channel") */
+    defaultType: string;
+    
+    /** Per-adapter configuration */
+    adapters: {
+      "file-signal"?: {
+        signalsDir: string;  // Default: ".squad/signals"
+      };
+      "teams-channel"?: {
+        tenantId: string;
+        clientId: string;
+        graphApiEndpoint: string;
+      };
+      // Custom adapters can add their own config
+      [key: string]: any;
+    };
+  };
 
   /** OTel observability settings */
   telemetry: {
-    enabled: boolean;    // inject otel MCP server into sessions
-    aspire: boolean;     // use Aspire dashboard defaults
+    enableTracing: boolean;           // Default: false
+    enableMetrics: boolean;           // Default: false
+    otelServiceName: string;          // Default: "squad-federation"
   };
 }
 ```
 
-**Minimal example:**
+**Minimal example (file signals):**
 
 ```json
 {
-  "description": "Inventory all Azure services across the organization",
-  "telemetry": { "enabled": true }
+  "description": "Multi-team inventory federation",
+  "communication": {
+    "defaultType": "file-signal",
+    "adapters": {
+      "file-signal": {
+        "signalsDir": ".squad/signals"
+      }
+    }
+  },
+  "telemetry": {
+    "enableTracing": false,
+    "enableMetrics": false,
+    "otelServiceName": "squad-federation"
+  }
 }
 ```
+
+**v0.5.0 example (Teams channels):**
+
+```json
+{
+  "description": "Multi-team federation with Teams channel communication",
+  "communication": {
+    "defaultType": "teams-channel",
+    "adapters": {
+      "teams-channel": {
+        "tenantId": "{{ TENANT_ID }}",
+        "clientId": "{{ CLIENT_ID }}",
+        "graphApiEndpoint": "https://graph.microsoft.com/v1.0"
+      }
+    }
+  },
+  "telemetry": {
+    "enableTracing": true,
+    "enableMetrics": true,
+    "otelServiceName": "squad-federation"
+  }
+}
+```
+
+**Schema Notes:**
+
+- **communication.defaultType** — All teams in federation use same protocol by default. Teams can migrate communication protocols as new adapters become available (e.g., add Teams channel v0.5.0 alongside file signals).
+- **communication.adapters** — Runtime-registered adapters. Supports custom implementations (e.g., `"redis-pubsub"` for high-throughput federations).
+- **Placement is per-team** — Not in federate.config.json. Each team's placement (worktree, directory, cloud) is in `.squad/teams.json` entry.
+- **No branchPrefix/worktreeDir** — These were federation-level in v0.2.0. Now team-level (in teams.json) to support multi-placement federations.
+- **No mcpStack** — Archetypes auto-discovered from marketplace.json. MCP servers inherited from project `.mcp.json`.
 
 ### Environment Variable Overrides
 
 | Variable | Overrides | Default |
 |----------|-----------|---------|
-| `FEDERATE_BRANCH_PREFIX` | `branchPrefix` | `squad/` |
+| `SQUAD_COMMUNICATION_TYPE` | `communication.defaultType` | `file-signal` |
 | `SQUAD_MAIN_BRANCH` | Main branch name in sync-skills | `main` |
 | `SQUAD_LAUNCHER` | Copilot launcher binary | `copilot` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTel collector URL | `http://localhost:4318` |
 | `OTEL_SERVICE_NAME` | Service name for telemetry | `squad-{domain}` |
-| `SQUAD_DOMAIN` | Domain name for OTel attributes | (from worktree) |
+| `SQUAD_DOMAIN` | Domain name for OTel attributes | (from teams.json) |
 
 ### Config Loading Precedence
 
@@ -1527,6 +1667,7 @@ interface FederateConfig {
 1. Read `federate.config.json` from project root
 2. Merge with `DEFAULT_CONFIG` (missing fields filled with defaults)
 3. Environment variables override at point of use (not merged into config)
+4. Load `.squad/teams.json` for per-team placement and communication metadata
 
 ---
 
@@ -1848,6 +1989,63 @@ never enforces. The schema contract mediates between them.
 ---
 
 ## 15. Revision History
+
+### 2026-04-16 — TeamTransport Split & Adapter Registry (v0.4.0)
+
+**Author:** Mal (Lead)  
+**Issue:** [#89](https://github.com/lygav/vladi-plugins-marketplace/issues/89)  
+**Changes:**
+
+1. **Split TeamTransport into two concerns:**
+   - `TeamPlacement` — WHERE teams live (worktree, directory, cloud)
+   - `TeamCommunication` — HOW teams communicate (file signals, Teams channels, pub-sub)
+   - Both are federation-scoped; factory (`createTeamContext()`) composes them per team
+
+2. **Adapter Registry Pattern:**
+   - Communication adapters register at runtime via `CommunicationRegistry`
+   - Default: `FileSignalCommunication` (signals in `.squad/signals/`)
+   - Future: `TeamsChannelCommunication` (v0.5.0 roadmap)
+   - Core 100% adapter-agnostic; no import of adapter implementations
+
+3. **FileSignalCommunication (current):**
+   - Signal files in `.squad/signals/inbox/` and `.squad/signals/outbox/`
+   - Status in `.squad/signals/status.json`
+   - Learning log in `.squad/learnings/log.jsonl`
+   - Works with any placement (worktree, directory, cloud)
+
+4. **TeamsChannelCommunication (v0.5.0 roadmap):**
+   - Teams channels as first-class signal protocol
+   - Hashtag-based: `#meta` (federation discussion), `#meta-status` (team status), `#meta-error` (team errors), `#{teamId}` (oversight)
+   - Humans @mention teams in channels; teams read channel as signal input
+   - Enables hybrid human-AI coordination at federation scale
+
+5. **Configuration schema update:**
+   - Added `communication.defaultType` and `communication.adapters` section
+   - Supports per-adapter configuration (e.g., Teams tenant/client ID)
+   - Placement remains per-team in `.squad/teams.json` metadata
+
+6. **Documentation updates:**
+   - §2 "Team Placement & Communication" — explains split, shows interfaces, documents adapter registry
+   - §3 "Configuration" — documents communicationType field and adapter configuration
+   - §6 "Onboarding Patterns" — clarifies placement is per-team, communication is federation-scoped
+
+**Rationale:** 
+
+Prior design force-fit communication adapters with unnecessary placement parameters (e.g., `FileSignalCommunication` didn't need placement but signature included it). This PR cleanly separates orthogonal concerns:
+- Different teams can live in different places (placement) while using same communication protocol
+- Same team can migrate communication protocol without changing placement (e.g., add Teams channel to project)
+- New adapters (Redis pub-sub, Slack, Discord, etc.) implement only `TeamCommunication`, not placement
+
+**Benefits:**
+
+- **Separation of concerns** — Location and protocol independent
+- **Protocol extensibility** — Add TeamsChannelCommunication v0.5.0 without team rebootstrap
+- **Multi-protocol federations** — Gradual rollout of Teams channels alongside file signals
+- **Design improvement** — Fixes Issue #97 design flaw (TeamPlacement not needed by all adapters)
+
+**Impact:** Low-risk internal refactor. Public API unchanged (same `TeamContext` interface). Team onboarding and registry format (`teams.json`) unchanged. Federation-level config gains `communication` section.
+
+---
 
 ### 2026-04-15 — DESIGN.md Consolidation (v0.3.2)
 
