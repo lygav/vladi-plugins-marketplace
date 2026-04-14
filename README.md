@@ -51,6 +51,21 @@ copilot plugin install squad-federation-core@vladi-plugins-marketplace
 
 See [squad-federation-core/README.md](plugins/squad-federation-core/README.md) for full walkthrough.
 
+## Creating Your Own Archetypes
+
+Build custom work patterns for teams that don't fit existing archetypes.
+
+```bash
+# Guided creation (recommended)
+> I want to create a new archetype
+
+# Or scaffold directly
+npx tsx plugins/squad-federation-core/scripts/create-archetype.ts \
+  --name my-workflow --states "step1,step2,step3" --dry-run
+```
+
+See [Creating Archetypes](plugins/squad-federation-core/CREATING_ARCHETYPES.md) for the full guide.
+
 ## License
 
 MIT

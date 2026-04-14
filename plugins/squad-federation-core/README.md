@@ -134,6 +134,43 @@ Each layer owns its config:
 - **Archetypes** write `.squad/archetype-config.json` in each team's worktree
 - **Squad** handles all casting
 
+## Creating Archetypes
+
+Build custom work patterns when existing archetypes don't fit your teams' workflows.
+
+### Quick Example
+
+```bash
+# Conversational (recommended)
+> I want to create a new archetype
+
+# Or scaffold directly
+cd plugins/squad-federation-core
+npx tsx scripts/create-archetype.ts \
+  --name etl-pipeline \
+  --states "extracting,transforming,loading" \
+  --description "Teams that extract, transform, and load data pipelines" \
+  --has-aggregation \
+  --dry-run
+```
+
+**What you get:**
+
+- Complete plugin structure (meta/team skills, scripts, templates)
+- State machine configuration
+- Contract tests validating against SDK
+- README documentation template
+
+**After scaffolding:**
+
+1. Customize the playbook skill (team execution workflow)
+2. Add archetype-specific logic to monitor/triage scripts
+3. Implement aggregation (if applicable)
+4. Run contract tests: `npx vitest run __tests__/`
+5. Install and test: `copilot plugin install {archetype}@vladi-plugins-marketplace`
+
+See [CREATING_ARCHETYPES.md](CREATING_ARCHETYPES.md) for the comprehensive guide — includes design principles, customization patterns, and reference implementations.
+
 ## Creating Teams
 
 The onboard wizard uses natural conversation to understand what you're building. Just describe your goal — the wizard asks guiding questions, then sets up the right structure automatically.
