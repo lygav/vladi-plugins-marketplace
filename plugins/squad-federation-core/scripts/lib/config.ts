@@ -15,6 +15,8 @@ export interface FederateConfig {
     enabled: boolean;
     aspire?: boolean;
   };
+  /** Communication type for team signaling (v0.4.0: file-signal only) */
+  communicationType: 'file-signal';
   /** Playbook skill name (default: "domain-playbook") */
   playbookSkill?: string;
   /** Deliverable filename for archetype (optional) */
@@ -27,6 +29,7 @@ export interface FederateConfig {
 
 const DEFAULT_CONFIG: FederateConfig = {
   telemetry: { enabled: true },
+  communicationType: 'file-signal',
   playbookSkill: 'domain-playbook',
 };
 
@@ -84,6 +87,7 @@ export function validateConfig(raw: unknown): FederateConfig {
   const knownFields = new Set([
     'description',
     'telemetry',
+    'communicationType',
     'playbookSkill',
     'deliverable',
     'deliverableSchema',
@@ -128,6 +132,15 @@ export function validateConfig(raw: unknown): FederateConfig {
         console.warn(`⚠️  Unknown telemetry field: "${key}"`);
       }
     }
+  }
+
+  // Validate communicationType
+  if ('communicationType' in config) {
+    const commType = validateString(config.communicationType, 'communicationType');
+    if (commType !== 'file-signal') {
+      throw new ConfigValidationError('communicationType must be "file-signal" (v0.4.0 only supports file-signal)');
+    }
+    result.communicationType = commType as 'file-signal';
   }
 
   // Validate optional playbookSkill

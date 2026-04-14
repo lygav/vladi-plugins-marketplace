@@ -205,6 +205,7 @@ export const FederateConfigSchema = z.object({
       aspire: z.boolean().optional(),
     })
     .default({ enabled: true }),
+  communicationType: z.enum(['file-signal']).default('file-signal'),
   playbookSkill: z.string().optional().default('domain-playbook'),
   deliverable: z.string().optional(),
   deliverableSchema: z.string().optional(),
