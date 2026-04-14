@@ -94,7 +94,8 @@ export function createPlacement(
         config.basePath,
         config.branch,
         config.repoRoot,
-        emitter
+        emitter,
+        config.teamId
       );
     }
     case 'directory': {
@@ -147,11 +148,11 @@ function inferPlacementConfig(teamEntry: TeamEntry, repoRoot?: string): Placemen
   const placementType = teamEntry.placementType || teamEntry.transport;
   
   if (placementType === 'worktree') {
+    // Extract branch name from location path
+    // Location format: /path/to/repo/.worktrees/{branch} or ../worktrees/{branch}
     const branchOverride = typeof teamEntry.metadata?.branch === 'string'
       ? teamEntry.metadata.branch
       : undefined;
-    // Extract branch name from location path
-    // Location format: /path/to/repo/.worktrees/{branch} or ../worktrees/{branch}
     const branch = branchOverride || teamEntry.location.split('/').pop() || teamEntry.domain;
     
     if (!repoRoot) {
@@ -161,13 +162,14 @@ function inferPlacementConfig(teamEntry: TeamEntry, repoRoot?: string): Placemen
     return {
       basePath: teamEntry.location,
       branch,
-      repoRoot
+      repoRoot,
+      teamId: teamEntry.domainId
     };
   } else {
     // Directory placement
     return {
       basePath: teamEntry.location,
-      teamId: teamEntry.domain
+      teamId: teamEntry.domainId
     };
   }
 }

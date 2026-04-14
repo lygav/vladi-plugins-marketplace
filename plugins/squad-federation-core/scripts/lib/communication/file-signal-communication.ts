@@ -10,7 +10,6 @@
  * @since v0.4.0
  */
 
-import * as path from 'path';
 import { z } from 'zod';
 import type {
   TeamPlacement,
@@ -68,7 +67,7 @@ const LearningEntrySchema = z.object({
   graduated: z.boolean().optional(),
   graduated_to: z.string().optional(),
   supersedes: z.string().optional()
-});
+}).passthrough();
 
 /**
  * FileSignalCommunication implementation.
@@ -99,6 +98,31 @@ export class FileSignalCommunication implements TeamCommunication {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
+  }
+
+  /**
+   * Normalize legacy learning log entries to current schema.
+   */
+  private normalizeLearningEntry(raw: Record<string, unknown>): LearningEntry {
+    const normalized: Record<string, unknown> = { ...raw };
+
+    const legacyTimestamp = typeof normalized['ts'] === 'string' ? normalized['ts'] : undefined;
+    if (!normalized['timestamp'] && legacyTimestamp) {
+      normalized['timestamp'] = legacyTimestamp;
+    }
+
+    if (!normalized['version']) {
+      normalized['version'] = '1.0';
+    }
+
+    if (!normalized['content']) {
+      const title = typeof normalized['title'] === 'string' ? normalized['title'] : '';
+      const body = typeof normalized['body'] === 'string' ? normalized['body'] : '';
+      const combined = [title, body].filter(Boolean).join('\n\n');
+      normalized['content'] = combined || '';
+    }
+
+    return LearningEntrySchema.parse(normalized);
   }
 
   /**
@@ -144,10 +168,19 @@ export class FileSignalCommunication implements TeamCommunication {
   }
 
   /**
+   * Write signal message to outbox.
+   */
+  async writeOutboxSignal(teamId: string, signal: SignalMessage): Promise<void> {
+    await this.writeSignal(teamId, 'outbox', signal);
+  }
+
+  /**
    * Read signal messages from specified direction.
    */
   private async readSignals(teamId: string, direction: 'inbox' | 'outbox'): Promise<SignalMessage[]> {
-    return await this.emitter.span(
+    let signals: SignalMessage[] = [];
+
+    await this.emitter.span(
       'communication.readSignals',
       async () => {
         try {
@@ -163,23 +196,23 @@ export class FileSignalCommunication implements TeamCommunication {
           const files = await this.placement.listFiles(teamId, signalsDir);
           const jsonFiles = files.filter(f => f.endsWith('.json'));
 
-          const signals: SignalMessage[] = [];
+          const collected: SignalMessage[] = [];
           for (const file of jsonFiles) {
             const content = await this.placement.readFile(teamId, file);
             if (!content) continue;
             
             const parsed = JSON.parse(content);
             const validated = SignalMessageSchema.parse(parsed);
-            signals.push(validated);
+            collected.push(validated);
           }
 
           // Emit metric for signals read
-          await this.emitter.metric('signals.read', signals.length, {
+          await this.emitter.metric('signals.read', collected.length, {
             'squad.domain': teamId,
             'signal.direction': direction
           });
 
-          return signals;
+          signals = collected;
         } catch (error) {
           throw new Error(`Failed to read ${direction} signals for team ${teamId}: ${(error as Error).message}`);
         }
@@ -189,6 +222,8 @@ export class FileSignalCommunication implements TeamCommunication {
         'signal.direction': direction
       }
     );
+
+    return signals;
   }
 
   /**
@@ -230,6 +265,23 @@ export class FileSignalCommunication implements TeamCommunication {
     );
   }
 
+  private async resolveLearningLogPath(teamId: string): Promise<string> {
+    const preferredPath = '.squad/learnings/log.jsonl';
+    const legacyPath = '.squad/learning-log.jsonl';
+
+    const preferredExists = await this.placement.exists(teamId, preferredPath);
+    if (preferredExists) {
+      return preferredPath;
+    }
+
+    const legacyExists = await this.placement.exists(teamId, legacyPath);
+    if (legacyExists) {
+      return legacyPath;
+    }
+
+    return preferredPath;
+  }
+
   /**
    * List signals with optional filtering.
    */
@@ -268,7 +320,8 @@ export class FileSignalCommunication implements TeamCommunication {
    */
   async readLearningLog(teamId: string): Promise<LearningEntry[]> {
     try {
-      const content = await this.placement.readFile(teamId, '.squad/learning-log.jsonl');
+      const logPath = await this.resolveLearningLogPath(teamId);
+      const content = await this.placement.readFile(teamId, logPath);
       if (!content) {
         return [];
       }
@@ -278,8 +331,7 @@ export class FileSignalCommunication implements TeamCommunication {
 
       for (const line of lines) {
         const parsed = JSON.parse(line);
-        const validated = LearningEntrySchema.parse(parsed);
-        entries.push(validated);
+        entries.push(this.normalizeLearningEntry(parsed));
       }
 
       return entries;
@@ -301,14 +353,16 @@ export class FileSignalCommunication implements TeamCommunication {
       LearningEntrySchema.parse(entry);
 
       // Read existing log
-      const existingContent = await this.placement.readFile(teamId, '.squad/learning-log.jsonl') || '';
+      const logPath = await this.resolveLearningLogPath(teamId);
+      const existingContent = await this.placement.readFile(teamId, logPath) || '';
       
       // Append new entry as JSONL line
       const line = JSON.stringify(entry);
-      const newContent = existingContent ? `${existingContent}\n${line}` : line;
+      const existingTrimmed = existingContent.trimEnd();
+      const newContent = existingTrimmed ? `${existingTrimmed}\n${line}` : line;
       
       // Write back to placement
-      await this.placement.writeFile(teamId, '.squad/learning-log.jsonl', newContent);
+      await this.placement.writeFile(teamId, logPath, `${newContent}\n`);
     } catch (error) {
       throw new Error(`Failed to append learning for team ${teamId}: ${(error as Error).message}`);
     }

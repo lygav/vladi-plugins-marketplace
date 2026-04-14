@@ -59,8 +59,9 @@ function migrateEntry(entry: any): LearningEntry {
 export class LearningLog {
   private logPath: string;
 
-  constructor(squadRoot: string) {
-    const learningsDir = path.join(squadRoot, '.squad', 'learnings');
+  constructor(squadRoot: string | { path: string }) {
+    const resolvedRoot = typeof squadRoot === 'string' ? squadRoot : squadRoot.path;
+    const learningsDir = path.join(resolvedRoot, '.squad', 'learnings');
     if (!fs.existsSync(learningsDir)) {
       fs.mkdirSync(learningsDir, { recursive: true });
     }

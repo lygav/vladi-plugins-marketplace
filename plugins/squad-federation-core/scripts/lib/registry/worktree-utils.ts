@@ -49,12 +49,10 @@ export function getAllWorktrees(repoRoot?: string): WorktreeInfo[] {
         current.isDetached = false;
         current.isPrunable = false;
         current.isLocked = false;
-      } else if (line.startsWith('HEAD ')) {
-        current.isDetached = true;
-      } else if (line.startsWith('branch ')) {
-        current.branch = line.replace('branch refs/heads/', '');
-      } else if (line.startsWith('detached')) {
-        current.isDetached = true;
+    } else if (line.startsWith('branch ')) {
+      current.branch = line.replace('branch refs/heads/', '');
+    } else if (line.startsWith('detached')) {
+      current.isDetached = true;
       } else if (line.startsWith('prunable')) {
         current.isPrunable = true;
       } else if (line.startsWith('locked')) {
@@ -105,12 +103,12 @@ export function discoverDomains(repoRoot?: string, branchPrefix?: string): Domai
  *
  * @param branch Branch name to find worktree for
  * @param repoRoot Repository root path (defaults to current working directory)
- * @returns Worktree path if found, null otherwise
+ * @returns Worktree info if found, null otherwise
  */
-export function getWorktreeForBranch(branch: string, repoRoot?: string): string | null {
+export function getWorktreeForBranch(branch: string, repoRoot?: string): WorktreeInfo | null {
   const allWorktrees = getAllWorktrees(repoRoot);
   const found = allWorktrees.find(wt => wt.branch === branch);
-  return found ? found.path : null;
+  return found ?? null;
 }
 
 /**
