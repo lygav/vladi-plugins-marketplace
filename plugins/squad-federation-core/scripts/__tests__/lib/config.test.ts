@@ -26,8 +26,6 @@ describe('config.ts', () => {
   describe('validateConfig', () => {
     it('should accept valid minimal config', () => {
       const config = {
-        branchPrefix: 'squad/',
-        worktreeDir: 'parallel',
         mcpStack: [],
         telemetry: { enabled: true },
       };
@@ -43,8 +41,6 @@ describe('config.ts', () => {
     it('should accept config with all optional fields', () => {
       const config = {
         description: 'Test federation',
-        branchPrefix: 'team/',
-        worktreeDir: '.worktrees',
         mcpStack: ['@modelcontextprotocol/server-filesystem'],
         telemetry: { enabled: true, aspire: true },
         playbookSkill: 'custom-playbook',
@@ -59,31 +55,7 @@ describe('config.ts', () => {
 
     it('should reject config with missing required fields', () => {
       const invalidConfig = {
-        worktreeDir: 'parallel',
         mcpStack: [],
-      };
-
-      expect(() => validateConfig(invalidConfig)).toThrow(ConfigValidationError);
-    });
-
-    it('should reject config with invalid branchPrefix type', () => {
-      const invalidConfig = {
-        branchPrefix: 123,
-        worktreeDir: 'parallel',
-        mcpStack: [],
-        telemetry: { enabled: true },
-      };
-
-      expect(() => validateConfig(invalidConfig)).toThrow(ConfigValidationError);
-      expect(() => validateConfig(invalidConfig)).toThrow(/branchPrefix must be a string/);
-    });
-
-    it('should reject config with invalid worktreeDir', () => {
-      const invalidConfig = {
-        branchPrefix: 'squad/',
-        worktreeDir: 12345,
-        mcpStack: [],
-        telemetry: { enabled: true },
       };
 
       expect(() => validateConfig(invalidConfig)).toThrow(ConfigValidationError);
@@ -91,8 +63,6 @@ describe('config.ts', () => {
 
     it('should reject config with invalid mcpStack type', () => {
       const invalidConfig = {
-        branchPrefix: 'squad/',
-        worktreeDir: 'parallel',
         mcpStack: 'not-an-array',
         telemetry: { enabled: true },
       };
@@ -115,8 +85,6 @@ describe('config.ts', () => {
 
     it('should reject config with invalid telemetry.enabled type', () => {
       const invalidConfig = {
-        branchPrefix: 'squad/',
-        worktreeDir: 'parallel',
         mcpStack: [],
         telemetry: { enabled: 'yes' },
       };
@@ -127,8 +95,6 @@ describe('config.ts', () => {
 
     it('should handle unknown fields gracefully', () => {
       const configWithUnknown = {
-        branchPrefix: 'squad/',
-        worktreeDir: 'parallel',
         mcpStack: [],
         telemetry: { enabled: true },
         unknownField: 'should-be-ignored',
@@ -139,32 +105,6 @@ describe('config.ts', () => {
       const result = validateConfig(configWithUnknown);
       expect(result).not.toHaveProperty('unknownField');
       expect(result).not.toHaveProperty('anotherUnknown');
-    });
-
-    it('should validate worktreeDir predefined values', () => {
-      const parallelConfig = {
-        branchPrefix: 'squad/',
-        worktreeDir: 'parallel' as const,
-        mcpStack: [],
-        telemetry: { enabled: true },
-      };
-      expect(() => validateConfig(parallelConfig)).not.toThrow();
-
-      const insideConfig = {
-        branchPrefix: 'squad/',
-        worktreeDir: 'inside' as const,
-        mcpStack: [],
-        telemetry: { enabled: true },
-      };
-      expect(() => validateConfig(insideConfig)).not.toThrow();
-
-      const customConfig = {
-        branchPrefix: 'squad/',
-        worktreeDir: '.custom-worktrees',
-        mcpStack: [],
-        telemetry: { enabled: true },
-      };
-      expect(() => validateConfig(customConfig)).not.toThrow();
     });
   });
 
@@ -198,8 +138,6 @@ describe('config.ts', () => {
 
     it('should apply default values for optional fields', () => {
       const minimalConfig = {
-        branchPrefix: 'squad/',
-        worktreeDir: 'parallel',
         mcpStack: [],
         telemetry: { enabled: false },
       };
@@ -212,8 +150,6 @@ describe('config.ts', () => {
 
     it('should preserve user-specified optional values', () => {
       const configWithOptionals = {
-        branchPrefix: 'team/',
-        worktreeDir: '.worktrees',
         mcpStack: [],
         telemetry: { enabled: true, aspire: true },
         playbookSkill: 'custom-skill',

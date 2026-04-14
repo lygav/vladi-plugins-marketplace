@@ -35,6 +35,9 @@ const __dirname = path.dirname(__filename);
 // ==================== Config ====================
 // Config loading now uses validated config from lib/config.ts
 
+// Branch prefix for team worktrees (transport-level concern, not federation config)
+const BRANCH_PREFIX = 'squad/';
+
 // ==================== Types ====================
 
 interface ParsedArgs {
@@ -178,7 +181,7 @@ async function createTeamTransport(
 ): Promise<{ transport: WorktreeTransport | DirectoryTransport; location: string; branch?: string }> {
   if (args.transport === 'worktree') {
     // Worktree transport: create git branch + worktree
-    const branchName = `${config.branchPrefix}${args.name}`;
+    const branchName = `${BRANCH_PREFIX}${args.name}`;
     
     // Check if branch already exists
     try {

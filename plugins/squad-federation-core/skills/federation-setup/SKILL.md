@@ -151,17 +151,13 @@ copilot plugin marketplace add lygav/vladi-plugins-marketplace
 copilot plugin install squad-archetype-{choice}@vladi-plugins-marketplace
 ```
 
-Archetype name mapping:
-- Deliverable → `squad-archetype-deliverable`
-- Coding → `squad-archetype-coding`
-- Research → `squad-archetype-research`
-- Task → `squad-archetype-task`
+The archetype name will be suggested based on the user's selection (e.g., `squad-archetype-deliverable`, `squad-archetype-coding`, etc.).
 
 **Confirm success** before proceeding. If install fails, show the error and offer to retry or skip.
 
 **After successful install, say:**
 
-> "Archetype installed. When we onboard your first team, the archetype's setup wizard will ask team-specific questions (like deliverable filename or PR conventions)."
+> "Archetype installed. When we onboard your first team, the onboard wizard will discover available archetypes and help you pick the right one based on what the team needs to do."
 
 This is important: the archetype owns its own setup concerns. Core federation doesn't ask archetype-specific questions.
 
@@ -212,27 +208,6 @@ Confirm it's running: "✅ Monitoring dashboard live at http://localhost:18888. 
 
 No endpoint, port, or service name in config. The runtime uses sensible defaults. The OTel MCP server auto-starts with each team session via the plugin's `.mcp.json`.
 
-### Step 5.5: Branch prefix
-
-**Ask:** "Team worktrees use git branches. The default prefix is `squad/` (e.g., `squad/frontend-team`, `squad/payments`). Want to change it?"
-
-**Default:** `squad/`
-
-Most users keep the default. Only change if there's a naming conflict or organizational convention.
-
-### Step 5.6: Worktree location
-
-**Ask:** "Where should team worktrees live?"
-
-**Choices:**
-- **Parallel** *(default)* — next to your project: `../your-project-team-name/`
-- **Inside** — inside your project: `.worktrees/team-name/`
-- **Custom path** — you specify a directory
-
-**Default:** `parallel`
-
-**Parallel** keeps worktrees visible as sibling folders — easy to find and open separately. **Inside** keeps everything contained in the project but adds clutter. Suggest parallel unless the user has a reason to contain them.
-
 ### Step 6: Generate config
 
 Assemble `federate.config.json` at the repository root with **only** core fields:
@@ -240,8 +215,6 @@ Assemble `federate.config.json` at the repository root with **only** core fields
 ```json
 {
   "description": "...",
-  "branchPrefix": "squad/",
-  "worktreeDir": "parallel",
   "mcpStack": [],
   "telemetry": {
     "enabled": true
@@ -251,8 +224,6 @@ Assemble `federate.config.json` at the repository root with **only** core fields
 
 **Rules for this config:**
 - `description` — from Step 1, verbatim
-- `branchPrefix` — from Step 5.5, default `"squad/"`
-- `worktreeDir` — from Step 5.6, default `"parallel"`
 - `mcpStack` — from Step 4, or empty array
 - `telemetry.enabled` — from Step 5
 
@@ -322,7 +293,7 @@ After the config is written and confirmed, provide these reference notes:
 
 ### Changing configuration
 
-> Edit `federate.config.json` directly. The schema is minimal — `description`, `branchPrefix`, `mcpStack`, and `telemetry`. Changes take effect on the next team onboard or launch.
+> Edit `federate.config.json` directly. The schema is minimal — `description`, `mcpStack`, and `telemetry`. Changes take effect on the next team onboard or launch.
 
 ### Adding archetypes
 
@@ -330,7 +301,7 @@ After the config is written and confirmed, provide these reference notes:
 > ```bash
 > copilot plugin install squad-archetype-{type}@vladi-plugins-marketplace
 > ```
-> Available: `deliverable`, `coding`, `research`, `task`.
+> The onboard wizard will discover available archetypes and help you pick the right one based on what the team needs to do.
 
 ### Archetype-specific configuration
 
@@ -344,9 +315,6 @@ After the config is written and confirmed, provide these reference notes:
 interface FederateConfig {
   /** What this federation is trying to accomplish */
   description: string;
-
-  /** Branch prefix for team worktrees (default: "squad/") */
-  branchPrefix: string;
 
   /** MCP servers available to team sessions */
   mcpStack: string[];
@@ -365,7 +333,6 @@ No other fields in core config. Archetype-specific settings live in the team's w
 ```json
 {
   "description": "Inventory all Azure services across the organization",
-  "branchPrefix": "squad/",
   "mcpStack": ["filesystem", "fetch"],
   "telemetry": {
     "enabled": true
