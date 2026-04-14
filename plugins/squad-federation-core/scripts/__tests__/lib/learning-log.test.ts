@@ -7,7 +7,7 @@ import { MockCommunication } from '../helpers/mock-communication.js';
 import { createTestLearning } from '../helpers/test-fixtures.js';
 
 describe('learning-log.ts', () => {
-  let communication: MockTransport;
+  let communication: MockCommunication;
 
   beforeEach(() => {
     communication = new MockCommunication();
