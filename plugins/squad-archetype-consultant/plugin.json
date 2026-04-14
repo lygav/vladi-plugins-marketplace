@@ -1,7 +1,7 @@
 {
   "name": "squad-archetype-consultant",
   "description": "Domain expert consultant teams \u2014 answer questions about codebases and specialized domains",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "author": {
     "name": "Vladi Lyga",
     "email": "vladi@example.com"
