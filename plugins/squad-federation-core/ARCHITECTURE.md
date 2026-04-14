@@ -1,8 +1,33 @@
 # squad-federation-core — Architecture
 
-**Author:** Ripley (Lead Architect)
-**Version:** 0.2.0
+**Author:** Squad Team (Mal, Wash, Zoe, Ripley, Kaylee)
+**Version:** 0.3.2
 **Status:** Current
+**Last Updated:** 2026-04-15
+
+---
+
+## Executive Summary
+
+squad-federation-core is a Copilot plugin that enables federated multi-team coordination. A **meta-squad** orchestrates N permanent **domain squads** via transport abstraction. Teams can exist in git worktrees, standalone directories, or (future) remote systems—core is transport-agnostic. Domain squads accumulate expertise, run autonomously in headless sessions, and communicate via file-based signals.
+
+**Core Pillars:**
+
+1. **Transport Abstraction** — Teams can exist anywhere (worktrees, directories, repos, cloud). Core is transport-agnostic.
+2. **SDK Foundation** — Shared types/interfaces at `sdk/` enable archetype development as proper plugin extensions.
+3. **Meta/Team Separation** — Archetypes cleanly separate orchestration concerns (meta) from execution concerns (team).
+4. **Hybrid Monitoring** — Scripts collect mechanical data → skills interpret and present insights.
+5. **Convention-Based Discovery** — Filesystem conventions reduce configuration overhead.
+6. **Dynamic Archetype Discovery** — Archetypes auto-discovered from marketplace.json + filesystem at runtime.
+7. **Two-Mode Onboarding** — Conversational (interactive discovery) + Mechanical (autonomous setup).
+
+**Design Principles:**
+
+- **Core agnostic** — Core never imports archetype code. Zero coupling.
+- **Open/Closed** — New archetypes extend the system without modifying core.
+- **Interface-driven** — TypeScript contracts enforce archetype API.
+- **Transport-neutral** — Team location is abstracted behind `TeamTransport` interface.
+- **Start empty, add what's needed** — Onboarding creates minimal bootstrap, not kitchen-sink template.
 
 ---
 
@@ -95,6 +120,29 @@ and communicate via file-based signals.
     ├── team-beta/
     └── team-gamma/
 ```
+
+### v0.3.x Evolution
+
+**Key changes from v0.2.0 design to v0.3.x implementation:**
+
+1. **Minimal Federation Config** — `federate.config.json` reduced to just `description` + `telemetry`. Transport concerns (branch prefix, worktree location, MCP stack) moved to team-level decisions during onboarding.
+
+2. **Dynamic Archetype Discovery** — Archetypes auto-discovered from:
+   - `marketplace.json` (npm packages declared in dependencies)
+   - Filesystem (plugins/*/plugin.json with "archetype" type)
+   - No hardcoded archetype list
+
+3. **Two-Mode Onboarding** —
+   - **Conversational:** Interactive wizard asks questions, infers archetype
+   - **Mechanical:** Autonomous setup given archetype + config (used by archetype creators)
+
+4. **Archetype Creator** — `create-archetype` skill + scaffold scripts enable users to create custom archetypes via conversational discovery (purpose → outputs → lifecycle → failure modes).
+
+5. **Consultant Archetype** — New lightweight archetype for advisory/research teams without deliverables or complex state machines.
+
+6. **Knowledge Accumulation Pattern** — All archetypes now include explicit learning instructions in agent prompts to capture discoveries in `.squad/learnings/`.
+
+7. **Team MCP Inheritance** — Teams inherit MCP servers from project `.mcp.json` automatically; no separate federation-level MCP config.
 
 ---
 
@@ -1556,7 +1604,186 @@ no monitoring. Meta-squad can later install archetype via "assign archetype" com
 
 ---
 
-## 12. Design Decisions
+## 12. Onboarding Patterns
+
+### Conversational Discovery
+
+The onboarding wizard uses natural conversation to discover team requirements without forcing users to understand transport internals. Think intake interview, not dropdown menu.
+
+**First question is always open-ended:**
+```
+> What's this team's mission?
+```
+
+**Follow-ups branch based on the answer:**
+
+#### Pattern: Coding Team (Same Repo)
+```
+> Build the payment processing module
+
+"Will they be writing code?" → Yes
+"In this repository or different one?" → This one
+"Should changes go through pull requests?" → Yes
+
+→ WorktreeTransport auto-selected
+→ Creates: squad/payments branch + worktree + .squad/ state
+```
+
+**Why Worktree:** Same repo = shared history. Git provides isolation, PRs flow naturally, full audit trail.
+
+#### Pattern: Research Team
+```
+> Analyze competitor APIs
+
+"Code or research/documents?" → Research and analysis docs
+"Where should findings live?" → In this project, under docs/research
+
+→ DirectoryTransport auto-selected
+→ Creates: docs/research/ + .squad/ + archetype templates
+```
+
+**Why Directory:** Non-code work doesn't need git branch isolation. Deliverables live in team directory, progress tracked via .squad/status.json.
+
+#### Pattern: External Project
+```
+> Mobile app team
+
+"Working in this repository?" → No, separate repo
+"Project location?" → /Users/vladi/devel/mobile-app
+"Coordinate with teams here?" → Yes, via signals
+
+→ RemoteTransport (future)
+→ Signals connected, but team lives in different repo
+```
+
+### Mechanical Mode
+
+For archetype creators and automation. Given archetype + config → autonomous setup:
+
+```bash
+npx tsx scripts/onboard.ts --mechanical \
+  --archetype deliverable \
+  --domain reports \
+  --config '{"outputFormat":"markdown","aggregateScript":"summary.ts"}'
+```
+
+**Used by:**
+- Archetype creator skill (scaffolds new archetypes)
+- CI/CD pipelines
+- Mass team provisioning scripts
+
+### "Start Empty, Add What's Needed" Model
+
+Onboarding creates minimal bootstrap, not kitchen-sink template:
+
+**Base structure:**
+```
+.squad/
+├── signals/              # Signal protocol directories
+│   ├── inbox/
+│   └── outbox/
+└── learnings/            # Learning log (if enabled)
+```
+
+**Archetype adds only what it needs:**
+- Deliverable archetype → adds `archetype.json`, monitor script, aggregation logic
+- Coding archetype → adds agents, PR templates, test ceremony
+- Consultant archetype → adds advisory playbook, no state machine
+
+**Benefits:**
+- Teams understand what they have (no mystery files)
+- Archetypes evolve without migrating old bloat
+- Easy to inspect what archetype provides vs. what's custom
+
+---
+
+## 13. SDK Organization
+
+The SDK provides the contract layer between core and archetypes. All shared types and utilities live at `sdk/`.
+
+### Barrel Export (sdk/index.ts)
+
+Single import point for archetype developers:
+
+```typescript
+import {
+  TeamTransport,
+  MonitorCollector,
+  ScanStatus,
+  SignalMessage,
+  selectTransport
+} from '@squad/federation-core/sdk';
+```
+
+### Key Interfaces
+
+**TeamTransport** (`sdk/transport.ts`)
+```typescript
+export interface TeamTransport {
+  // File operations
+  readFile(teamId: string, filePath: string): Promise<string | null>;
+  writeFile(teamId: string, filePath: string, content: string): Promise<void>;
+  exists(teamId: string, filePath: string): Promise<boolean>;
+  stat?(teamId: string, filePath: string): Promise<FileStats | null>;
+  
+  // Signal protocol
+  listSignals(teamId: string, direction: 'inbox' | 'outbox', filter?: SignalFilter): Promise<SignalMessage[]>;
+  watchSignals?(teamId: string, direction: 'inbox' | 'outbox', callback: (msg: SignalMessage) => void): () => void;
+  
+  // Workspace operations
+  workspaceExists(teamId: string): Promise<boolean>;
+  initializeWorkspace(teamId: string, config: WorkspaceConfig): Promise<void>;
+  removeWorkspace(teamId: string): Promise<void>;
+}
+```
+
+**MonitorCollector** (`sdk/monitor-base.ts`)
+```typescript
+export abstract class MonitorCollector {
+  abstract collect(team: TeamContext): Promise<StatusData>;
+  
+  protected async readStatus(team: TeamContext): Promise<ScanStatus> {
+    // Common status read logic
+  }
+  
+  protected async readSignals(team: TeamContext, direction: 'inbox' | 'outbox'): Promise<SignalMessage[]> {
+    // Signal access helper
+  }
+}
+```
+
+**Archetype authors extend this:**
+```typescript
+export class DeliverableMonitor extends MonitorCollector {
+  async collect(team: TeamContext): Promise<StatusData> {
+    const status = await this.readStatus(team);
+    const signals = await this.readSignals(team, 'inbox');
+    // Archetype-specific aggregation
+    return { /* ... */ };
+  }
+}
+```
+
+### Extension Points
+
+**Adding a New Archetype (No Core Changes):**
+
+1. Create plugin package: `squad-archetype-{name}`
+2. Define `meta/archetype.json` with states + monitor config
+3. Implement `meta/monitor.ts` extending `MonitorCollector`
+4. Add `team/` directory with agents/playbook
+5. Publish to npm
+6. Users `npm install` it → auto-discovered at runtime
+
+**Transport Abstraction Benefits:**
+- Archetype code never touches filesystem directly
+- Works with worktrees, directories, future cloud storage
+- Testable with mock transport
+- Enables remote team coordination (future)
+
+---
+
+## 14. Design Decisions
 
 ### Archetype-Specific State Machines (Approved 2026-04-13)
 
@@ -1617,3 +1844,82 @@ never enforces. The schema contract mediates between them.
 **Related Issues:** [#18](https://github.com/lygav/vladi-plugins-marketplace/issues/18)
 **Design Document:** `.squad/decisions/inbox/mal-archetype-state-machines.md`
 
+
+---
+
+## 15. Revision History
+
+### 2026-04-15 — DESIGN.md Consolidation (v0.3.2)
+
+**Author:** Mal (Lead)  
+**Issue:** [#78](https://github.com/lygav/vladi-plugins-marketplace/issues/78)  
+**Changes:**
+
+- Consolidated DESIGN.md (v0.2.0 design spec) into ARCHITECTURE.md
+- Updated version from 0.2.0 to 0.3.2 to reflect shipped implementation
+- Added "v0.3.x Evolution" section documenting key changes:
+  - Minimal federation config (description + telemetry only)
+  - Dynamic archetype discovery (marketplace.json + filesystem scan)
+  - Two-mode onboarding (conversational + mechanical)
+  - Archetype creator tool
+  - Consultant archetype
+  - Knowledge accumulation pattern
+  - Team MCP inheritance
+- Added comprehensive "Onboarding Patterns" section with conversational discovery flows
+- Added "SDK Organization" section with interface details and extension points
+- Added Executive Summary with design principles from DESIGN.md
+- Removed DESIGN.md (served its purpose for v0.2.0 design phase)
+
+**Rationale:** DESIGN.md was the technical design spec for v0.2.0. Now that v0.3.2 is shipped and stable, maintaining two large architectural docs creates confusion. ARCHITECTURE.md is the living doc—it should reflect what was built, not just what was designed. Unique technical content from DESIGN.md (SDK interfaces, onboarding patterns, design principles) has been absorbed here.
+
+**Impact:** Single source of truth for squad-federation-core architecture. Future updates go here.
+
+---
+
+### 2026-04-14 — MCP Stack Removal (v0.3.2)
+
+**Author:** Kaylee (Dev)  
+**PR:** [#77](https://github.com/lygav/vladi-plugins-marketplace/pull/77)  
+**Changes:**
+
+- Removed `mcpStack` field from `federate.config.json`
+- Teams inherit MCP servers from project `.mcp.json` automatically
+- OTel MCP written directly to team worktree `.mcp.json` by launch.ts
+- Updated all config examples and documentation
+- Federation config reduced to 2 core fields: `description` + `telemetry`
+
+**Rationale:** MCP servers configured at project level via `.mcp.json` are automatically inherited by all Copilot sessions (including headless team sessions). Separate federation-level MCP config was redundant.
+
+---
+
+### 2026-04-14 — Transport Concerns Moved to Onboarding (v0.3.0)
+
+**Author:** Kaylee (Dev)  
+**PR:** [#69](https://github.com/lygav/vladi-plugins-marketplace/pull/69)  
+**Changes:**
+
+- Removed `branchPrefix` and `worktreeDir` from federation-setup skill
+- Transport selection (worktree vs. directory vs. remote) moved to onboarding wizard
+- Federation-setup now only handles federation-level concerns (description, telemetry)
+- Transport-specific settings (branch prefix, worktree location) configured per-team
+
+**Rationale:** Different teams in same federation may use different transports. Branch prefix and worktree location are team-level decisions, not federation-level config.
+
+---
+
+### 2026-04-13 — Archetype State Machines (v0.2.0)
+
+**Author:** Mal (Lead)  
+**PR:** [#23](https://github.com/lygav/vladi-plugins-marketplace/pull/23)  
+**Changes:**
+
+- Archetypes now declare custom lifecycle states in `archetype.json`
+- Core validates state transitions at runtime but never interprets semantics
+- Monitor scripts render archetype-specific dashboards
+- Added `StateSchema` interface to SDK
+
+**Rationale:** Generic states ("working", "complete") too coarse for meaningful monitoring. Archetypes know their own lifecycles better than core. Enables richer observability (e.g., "Team Alpha 80% through distilling" vs. "Team Alpha working at 80%").
+
+---
+
+**End of Architecture Document**
