@@ -299,6 +299,29 @@ ${args.description || 'This domain squad is responsible for...'}
 // ==================== Team Directory Seeding ====================
 
 /**
+ * Find installed plugin path by searching copilot plugin directories.
+ * Archetype plugins are installed at ~/.copilot/installed-plugins/{marketplace}/{plugin-name}/
+ */
+function findInstalledPluginPath(archetypeName: string): string | null {
+  const homeDir = process.env.HOME || process.env.USERPROFILE;
+  if (!homeDir) return null;
+  
+  // Check marketplace install path (vladi-plugins-marketplace)
+  const marketplacePath = path.join(homeDir, '.copilot', 'installed-plugins', 'vladi-plugins-marketplace', archetypeName);
+  if (fs.existsSync(marketplacePath)) {
+    return marketplacePath;
+  }
+  
+  // Check global plugins path (for user plugins)
+  const globalPath = path.join(homeDir, '.copilot', 'installed-plugins', archetypeName);
+  if (fs.existsSync(globalPath)) {
+    return globalPath;
+  }
+  
+  return null;
+}
+
+/**
  * Seed team/ directory from archetype plugin.
  * Copies: skills/, templates/, archetype.json (and anything else in team/)
  */
@@ -307,8 +330,28 @@ async function seedTeamDirectory(
   teamLocation: string,
   repoRoot: string
 ): Promise<void> {
-  // Locate archetype plugin
-  const archetypePluginPath = path.join(repoRoot, 'plugins', archetypeName);
+  // First try to find archetype in installed plugins (production path)
+  let archetypePluginPath = findInstalledPluginPath(archetypeName);
+  
+  // Fallback to local plugins/ directory (development path)
+  if (!archetypePluginPath) {
+    const localPath = path.join(repoRoot, 'plugins', archetypeName);
+    if (fs.existsSync(localPath)) {
+      archetypePluginPath = localPath;
+    }
+  }
+  
+  if (!archetypePluginPath) {
+    console.error(`❌ Archetype plugin not found: ${archetypeName}`);
+    console.error('\nRecovery:');
+    console.error('  1. Check if archetype is installed:');
+    console.error(`     copilot plugin list | grep ${archetypeName}`);
+    console.error('  2. If not installed, install it:');
+    console.error(`     copilot plugin install ${archetypeName}@vladi-plugins-marketplace`);
+    console.error('  3. Retry onboarding after installation');
+    process.exit(1);
+  }
+  
   const archetypeTeamPath = path.join(archetypePluginPath, 'team');
   
   if (!fs.existsSync(archetypeTeamPath)) {
@@ -318,6 +361,7 @@ async function seedTeamDirectory(
   }
   
   console.log(`Seeding team/ directory from archetype: ${archetypeName}`);
+  console.log(`  Source: ${archetypePluginPath}`);
   await copyDirectory(archetypeTeamPath, teamLocation);
   console.log('✓ Team directory seeded');
 }
@@ -336,8 +380,9 @@ function scaffoldFederation(teamLocation: string, repoRoot: string, args: Parsed
   fs.mkdirSync(path.join(squadDir, 'learnings'), { recursive: true });
 
   // Try to read version from archetype's plugin.json
-  const pluginJsonPath = path.join(repoRoot, 'plugins', archetypeName, 'plugin.json');
   let version = '0.1.0'; // fallback
+  const archetypePluginPath = findInstalledPluginPath(archetypeName) || path.join(repoRoot, 'plugins', archetypeName);
+  const pluginJsonPath = path.join(archetypePluginPath, 'plugin.json');
   try {
     const pluginJson = JSON.parse(fs.readFileSync(pluginJsonPath, 'utf-8'));
     version = pluginJson.version || '0.1.0';
@@ -390,9 +435,6 @@ This squad uses the inter-squad signal protocol:
   fs.writeFileSync(path.join(teamLocation, 'DOMAIN_CONTEXT.md'), contextMd);
 
   console.log('✓ Federation state scaffolded');
-
-  // Scaffold archetype (always required for federated teams)
-  scaffoldArchetype(teamLocation, repoRoot, args.archetype);
 }
 
 function cleanMetaSquadFiles(worktreePath: string): void {
