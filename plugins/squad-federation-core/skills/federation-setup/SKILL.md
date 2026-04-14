@@ -223,16 +223,11 @@ Don't prescribe specific roles. Let Squad's casting handle composition. But ensu
 
 **Explain:** "Each team has its own work pattern (deliverable, coding, research, or task). When we onboard, I'll help you pick the right archetype based on what the team needs to do."
 
-**If yes:** Delegate to the onboard flow. Pass the user's description of what the team should work on. The onboard agent will:
-1. Understand the team's mission
-2. Discover and recommend an archetype
-3. Select transport (worktree/directory/teams)
-4. Run the archetype's setup skill for team-specific questions
-5. Scaffold the workspace
+**If yes:** Continue the conversation using the `team-onboarding` skill flow. Pass the user's description of what the team should work on. The team-onboarding skill handles mission clarification, archetype discovery, transport selection, and delegates to the mechanical `onboard.ts` script for branch/worktree creation.
 
 **If no:** That's fine. Close out with:
 
-> "No problem. When you're ready, just say **'spin up a team for X'** or **'@federation onboard a team'**. Each team gets to pick its own archetype during onboarding."
+> "No problem. When you're ready, just say **'spin up a team for X'** or **'onboard a team'**. Each team gets to pick its own archetype during onboarding."
 
 Don't push. Setup is complete once the config exists and the meta-squad is cast. Onboarding teams is a separate concern — and that's where archetype selection happens.
 
