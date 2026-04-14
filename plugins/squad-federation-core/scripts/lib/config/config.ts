@@ -97,7 +97,7 @@ export function validateConfig(raw: unknown): FederateConfig {
   // Warn on unknown fields
   for (const key of Object.keys(config)) {
     if (!knownFields.has(key)) {
-      console.warn(`⚠️  Unknown config field: "${key}" — this may be a typo or deprecated field`);
+      console.warn(`⚠️  Unknown config field: "${key}" — this may be a typo`);
     }
   }
 

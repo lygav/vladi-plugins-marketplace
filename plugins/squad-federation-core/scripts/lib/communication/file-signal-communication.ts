@@ -4,7 +4,7 @@
  * Implements TeamCommunication interface by delegating all file I/O to TeamPlacement.
  * Works with any placement type (worktree, directory) — no direct filesystem access.
  * 
- * Signal/status/learning operations extracted from legacy transport classes.
+ * Signal/status/learning operations for file-based communication.
  * Same file formats: JSON signals in inbox/outbox dirs, JSONL learning log, status.json.
  * 
  * @since v0.4.0
@@ -98,31 +98,6 @@ export class FileSignalCommunication implements TeamCommunication {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
-  }
-
-  /**
-   * Normalize legacy learning log entries to current schema.
-   */
-  private normalizeLearningEntry(raw: Record<string, unknown>): LearningEntry {
-    const normalized: Record<string, unknown> = { ...raw };
-
-    const legacyTimestamp = typeof normalized['ts'] === 'string' ? normalized['ts'] : undefined;
-    if (!normalized['timestamp'] && legacyTimestamp) {
-      normalized['timestamp'] = legacyTimestamp;
-    }
-
-    if (!normalized['version']) {
-      normalized['version'] = '1.0';
-    }
-
-    if (!normalized['content']) {
-      const title = typeof normalized['title'] === 'string' ? normalized['title'] : '';
-      const body = typeof normalized['body'] === 'string' ? normalized['body'] : '';
-      const combined = [title, body].filter(Boolean).join('\n\n');
-      normalized['content'] = combined || '';
-    }
-
-    return LearningEntrySchema.parse(normalized);
   }
 
   /**
@@ -265,23 +240,6 @@ export class FileSignalCommunication implements TeamCommunication {
     );
   }
 
-  private async resolveLearningLogPath(teamId: string): Promise<string> {
-    const preferredPath = '.squad/learnings/log.jsonl';
-    const legacyPath = '.squad/learning-log.jsonl';
-
-    const preferredExists = await this.placement.exists(teamId, preferredPath);
-    if (preferredExists) {
-      return preferredPath;
-    }
-
-    const legacyExists = await this.placement.exists(teamId, legacyPath);
-    if (legacyExists) {
-      return legacyPath;
-    }
-
-    return preferredPath;
-  }
-
   /**
    * List signals with optional filtering.
    */
@@ -320,21 +278,17 @@ export class FileSignalCommunication implements TeamCommunication {
    */
   async readLearningLog(teamId: string): Promise<LearningEntry[]> {
     try {
-      const logPath = await this.resolveLearningLogPath(teamId);
+      const logPath = '.squad/learnings/log.jsonl';
       const content = await this.placement.readFile(teamId, logPath);
       if (!content) {
         return [];
       }
 
       const lines = content.trim().split('\n').filter(line => line.trim());
-      const entries: LearningEntry[] = [];
-
-      for (const line of lines) {
+      return lines.map(line => {
         const parsed = JSON.parse(line);
-        entries.push(this.normalizeLearningEntry(parsed));
-      }
-
-      return entries;
+        return LearningEntrySchema.parse(parsed);
+      });
     } catch (error) {
       if ((error as Error).message?.includes('Failed to read file') ||
           (error as Error).message?.includes('ENOENT')) {
@@ -353,7 +307,7 @@ export class FileSignalCommunication implements TeamCommunication {
       LearningEntrySchema.parse(entry);
 
       // Read existing log
-      const logPath = await this.resolveLearningLogPath(teamId);
+      const logPath = '.squad/learnings/log.jsonl';
       const existingContent = await this.placement.readFile(teamId, logPath) || '';
       
       // Append new entry as JSONL line

@@ -225,9 +225,8 @@ export class DirectoryPlacement implements TeamPlacement {
       await this.writeFile(teamId, '.squad/status.json', JSON.stringify(initialStatus, null, 2));
       await this.writeFile(teamId, '.squad/signals/status.json', JSON.stringify(initialStatus, null, 2));
 
-          // Create empty learning log
+      // Create empty learning log
       await this.writeFile(teamId, '.squad/learnings/log.jsonl', '');
-      await this.writeFile(teamId, '.squad/learning-log.jsonl', '');
 
           // Write config if provided
           if (Object.keys(config).length > 0) {

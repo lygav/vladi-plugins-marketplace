@@ -8,10 +8,8 @@
  */
 
 import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
 import * as path from 'path';
 import { z } from 'zod';
-import { execSync } from 'child_process';
 import { OTelEmitter } from '../../sdk/otel-emitter.js';
 
 // ==================== Types & Schema ====================
@@ -25,16 +23,12 @@ export interface TeamEntry {
   /** Unique team identifier (UUID or slug) */
   domainId: string;
   /** Archetype identifier for this team */
-  archetypeId?: string;
-  /**
-   * @deprecated Use placementType + communicationType instead. Will be removed in v0.5.0.
-   */
-  transport: 'worktree' | 'directory' | 'remote';
+  archetypeId: string;
   /**
    * Placement type (where files live).
    * @since v0.4.0
    */
-  placementType?: 'worktree' | 'directory';
+  placementType: 'worktree' | 'directory';
   /** Absolute path to team workspace or remote URL */
   location: string;
   /** ISO 8601 timestamp when team was registered */
@@ -48,7 +42,7 @@ export interface TeamEntry {
     /** Team role in federation hierarchy */
     role: 'team' | 'meta';
   };
-  /** Additional metadata (transport-specific config, etc.) */
+  /** Additional metadata (placement-specific config, etc.) */
   metadata?: Record<string, unknown>;
 }
 
@@ -66,9 +60,8 @@ interface RegistryFile {
 const TeamEntrySchema = z.object({
   domain: z.string().min(1),
   domainId: z.string().min(1),
-  archetypeId: z.string().min(1).default('unknown'),
-  transport: z.enum(['worktree', 'directory', 'remote']),
-  placementType: z.enum(['worktree', 'directory']).optional(),
+  archetypeId: z.string().min(1),
+  placementType: z.enum(['worktree', 'directory']),
   location: z.string().min(1),
   createdAt: z.string().datetime(),
   federation: z.object({
@@ -100,7 +93,7 @@ const RegistryFileSchema = z.object({
  * await registry.register({
  *   domain: 'frontend',
  *   domainId: 'frontend-123',
- *   transport: 'worktree',
+ *   placementType: 'worktree',
  *   location: '/path/to/.worktrees/frontend',
  *   createdAt: new Date().toISOString(),
  * });
@@ -139,25 +132,20 @@ export class TeamRegistry {
     await this.emitter.span(
       'registry.register',
       async () => {
-        const normalizedEntry: TeamEntry = {
-          ...entry,
-          placementType: entry.placementType || entry.transport,
-          archetypeId: entry.archetypeId || 'unknown',
-        };
         // Validate entry
-        TeamEntrySchema.parse(normalizedEntry);
+        const validatedEntry = TeamEntrySchema.parse(entry);
 
         await this.withLock(async () => {
           const registry = await this.load();
           
           // Check for duplicate domain or domainId
           const existingTeam = registry.teams.find(
-            (t) => t.domainId === normalizedEntry.domainId || t.domain === normalizedEntry.domain
+            (t) => t.domainId === validatedEntry.domainId || t.domain === validatedEntry.domain
           );
           if (existingTeam) {
-            const conflictField = existingTeam.domainId === normalizedEntry.domainId ? 'domainId' : 'domain';
+            const conflictField = existingTeam.domainId === validatedEntry.domainId ? 'domainId' : 'domain';
             throw new Error(
-              `Team with ${conflictField} "${conflictField === 'domainId' ? normalizedEntry.domainId : normalizedEntry.domain}" already registered.\n` +
+              `Team with ${conflictField} "${conflictField === 'domainId' ? validatedEntry.domainId : validatedEntry.domain}" already registered.\n` +
               `Existing team: ${existingTeam.domain || 'unknown'}\n` +
               `Recovery:\n` +
               `  1. Check existing teams:\n` +
@@ -173,20 +161,20 @@ export class TeamRegistry {
             );
           }
 
-          registry.teams.push(normalizedEntry);
+          registry.teams.push(validatedEntry);
           await this.save(registry);
 
           // Emit event for team registered
           await this.emitter.event('team.registered', {
-            'squad.domain': normalizedEntry.domain,
-            'domain.id': normalizedEntry.domainId,
-            'transport.type': normalizedEntry.transport
+            'squad.domain': validatedEntry.domain,
+            'domain.id': validatedEntry.domainId,
+            'placement.type': validatedEntry.placementType
           });
         });
       },
       {
         'squad.domain': entry.domain,
-        'transport.type': entry.transport
+        'placement.type': entry.placementType
       }
     );
   }
@@ -224,7 +212,7 @@ export class TeamRegistry {
               await this.emitter.event('team.unregistered', {
                 'squad.domain': team.domain,
                 'domain.id': team.domainId,
-                'transport.type': team.transport
+                'placement.type': team.placementType
               });
             }
 
@@ -263,17 +251,6 @@ export class TeamRegistry {
   }
 
   /**
-   * List teams filtered by transport type.
-   * 
-   * @param transportType - Transport type to filter by
-   * @returns Array of matching team entries
-   */
-  async listByTransport(transportType: TeamEntry['transport']): Promise<TeamEntry[]> {
-    const registry = await this.load();
-    return registry.teams.filter(t => t.transport === transportType);
-  }
-
-  /**
    * Update a team entry with partial changes.
    * 
    * @param domainOrId - Team identifier (domain or domainId) to update
@@ -306,7 +283,7 @@ export class TeamRegistry {
           await this.emitter.event('team.updated', {
             'squad.domain': updated.domain,
             'domain.id': updated.domainId,
-            'transport.type': updated.transport
+            'placement.type': updated.placementType
           });
 
           return true;
@@ -329,71 +306,6 @@ export class TeamRegistry {
   async exists(domainId: string): Promise<boolean> {
     const registry = await this.load();
     return registry.teams.some(t => t.domainId === domainId);
-  }
-
-  /**
-   * Migrate from git worktree discovery to registry.
-   * 
-   * Scans existing worktrees and registers them in the team registry.
-   * Safe to run multiple times — skips already-registered teams.
-   * 
-   * @param repoRoot - Absolute path to repository root
-   * @returns Number of teams migrated
-   */
-  async migrateFromWorktreeDiscovery(repoRoot: string): Promise<number> {
-    let migrated = 0;
-
-    try {
-      // Parse git worktree list output
-      const output = execSync('git worktree list --porcelain', {
-        cwd: repoRoot,
-        encoding: 'utf-8',
-      });
-
-      const worktrees = this.parseWorktreeList(output);
-
-      for (const wt of worktrees) {
-        // Skip if not a squad worktree (no .squad/team.md)
-        const teamMdPath = path.join(wt.path, '.squad', 'team.md');
-        if (!fsSync.existsSync(teamMdPath)) continue;
-
-        // Skip if already registered
-        if (await this.exists(wt.domain)) continue;
-
-        // Read team.md to extract metadata
-        const teamMd = await fs.readFile(teamMdPath, 'utf-8');
-        const metadata = this.parseTeamMd(teamMd);
-        const inferredDomainId = metadata.domainId || wt.domain;
-        const inferredArchetype = metadata.archetypeId || 'unknown';
-
-        // Register team
-        await this.register({
-          domain: wt.domain,
-          domainId: inferredDomainId,
-          archetypeId: inferredArchetype,
-          transport: 'worktree',
-          placementType: 'worktree',
-          location: wt.path,
-          createdAt: new Date().toISOString(),
-          federation: metadata.federation,
-          metadata: {
-            branch: wt.branch,
-            migrated: true,
-            migratedAt: new Date().toISOString(),
-          },
-        });
-
-        migrated++;
-      }
-    } catch (error) {
-      // If git worktree list fails, return 0 (no worktrees or not a git repo)
-      if (error instanceof Error && error.message.includes('not a git repository')) {
-        return 0;
-      }
-      throw error;
-    }
-
-    return migrated;
   }
 
   // ==================== Private Helpers ====================
@@ -544,113 +456,4 @@ export class TeamRegistry {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  /**
-   * Parse git worktree list --porcelain output.
-   */
-  private parseWorktreeList(output: string): Array<{ path: string; branch: string; domain: string }> {
-    const worktrees: Array<{ path: string; branch: string; domain: string }> = [];
-    const lines = output.split('\n');
-    
-    let currentWorktree: Partial<{ path: string; branch: string }> = {};
-    
-    for (const line of lines) {
-      if (line.startsWith('worktree ')) {
-        currentWorktree.path = line.substring('worktree '.length);
-      } else if (line.startsWith('branch ')) {
-        currentWorktree.branch = line.substring('branch '.length).replace(/^refs\/heads\//, '');
-      } else if (line === '' && currentWorktree.path) {
-        // End of worktree entry
-        if (currentWorktree.path && currentWorktree.branch) {
-          // Extract domain from branch name (e.g., "squad/frontend" -> "frontend")
-          const branchParts = currentWorktree.branch.split('/');
-          const domain = branchParts.length > 1 ? branchParts[branchParts.length - 1] : currentWorktree.branch;
-          
-          worktrees.push({
-            path: currentWorktree.path,
-            branch: currentWorktree.branch,
-            domain,
-          });
-        }
-        currentWorktree = {};
-      }
-    }
-    
-    // Handle last entry
-    if (currentWorktree.path && currentWorktree.branch) {
-      const branchParts = currentWorktree.branch.split('/');
-      const domain = branchParts.length > 1 ? branchParts[branchParts.length - 1] : currentWorktree.branch;
-      worktrees.push({
-        path: currentWorktree.path,
-        branch: currentWorktree.branch,
-        domain,
-      });
-    }
-    
-    return worktrees;
-  }
-
-  /**
-   * Parse team.md frontmatter to extract metadata.
-   */
-  private parseTeamMd(content: string): {
-    federation?: TeamEntry['federation'];
-    archetypeId?: string;
-    domainId?: string;
-  } {
-    const result: ReturnType<TeamRegistry['parseTeamMd']> = {};
-    
-    // Simple frontmatter extraction (between --- markers)
-    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
-    if (!frontmatterMatch) {
-      this.extractInlineMetadata(content, result);
-      return result;
-    }
-    
-    const frontmatter = frontmatterMatch[1];
-    
-    // Extract federation metadata
-    const parentMatch = frontmatter.match(/parent:\s*(.+)/);
-    const roleMatch = frontmatter.match(/role:\s*(.+)/);
-    
-    if (parentMatch && roleMatch) {
-      result.federation = {
-        parent: parentMatch[1].trim(),
-        parentLocation: '', // Not available in team.md
-        role: roleMatch[1].trim() as 'team' | 'meta',
-      };
-    }
-
-    const archetypeMatch = frontmatter.match(/archetype:\s*(.+)/i);
-    if (archetypeMatch) {
-      result.archetypeId = archetypeMatch[1].trim();
-    }
-
-    const domainIdMatch = frontmatter.match(/domainId:\s*(.+)/i) || frontmatter.match(/domain_id:\s*(.+)/i);
-    if (domainIdMatch) {
-      result.domainId = domainIdMatch[1].trim();
-    }
-
-    this.extractInlineMetadata(content, result);
-    
-    return result;
-  }
-
-  private extractInlineMetadata(
-    content: string,
-    result: { archetypeId?: string; domainId?: string }
-  ): void {
-    if (!result.archetypeId) {
-      const archetypeMatch = content.match(/\*\*Archetype:\*\*\s*(.+)/i);
-      if (archetypeMatch) {
-        result.archetypeId = archetypeMatch[1].trim();
-      }
-    }
-
-    if (!result.domainId) {
-      const domainIdMatch = content.match(/\*\*Domain ID:\*\*\s*(.+)/i);
-      if (domainIdMatch) {
-        result.domainId = domainIdMatch[1].trim();
-      }
-    }
-  }
 }

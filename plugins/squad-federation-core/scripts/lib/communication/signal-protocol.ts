@@ -10,7 +10,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { discoverDomains as discoverDomainsFromLib, type DomainWorktree } from '../registry/worktree-utils.js';
 
 // ==================== Types ====================
 
@@ -37,9 +36,6 @@ export interface SignalMessage {
   acknowledged?: boolean;
   acknowledged_at?: string;
 }
-
-// Re-export DomainWorktree type from discovery for backward compatibility
-export type { DomainWorktree };
 
 // ==================== Filesystem Helpers ====================
 
@@ -157,9 +153,6 @@ export function acknowledgeMessage(worktreePath: string, box: 'inbox' | 'outbox'
 }
 
 // ==================== Worktree Discovery ====================
-
-// Re-export discoverDomains from discovery lib for backward compatibility
-export { discoverDomains } from '../registry/worktree-utils.js';
 
 export function validateWorktree(worktreePath: string): { valid: boolean; issues: string[] } {
   const issues: string[] = [];

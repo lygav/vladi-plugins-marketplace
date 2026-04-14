@@ -145,9 +145,7 @@ export function createCommunication(
  * @returns PlacementConfig for createPlacement
  */
 function inferPlacementConfig(teamEntry: TeamEntry, repoRoot?: string): PlacementConfig {
-  const placementType = teamEntry.placementType || teamEntry.transport;
-  
-  if (placementType === 'worktree') {
+  if (teamEntry.placementType === 'worktree') {
     // Extract branch name from location path
     // Location format: /path/to/repo/.worktrees/{branch} or ../worktrees/{branch}
     const branchOverride = typeof teamEntry.metadata?.branch === 'string'
@@ -197,11 +195,8 @@ export function createTeamContext(
   // Infer placement config from team entry
   const placementConfig = inferPlacementConfig(teamEntry, repoRoot);
   
-  // Use placementType if available, fall back to deprecated transport field
-  const placementType = teamEntry.placementType || teamEntry.transport;
-  
   // Create placement adapter (per-team)
-  const placement = createPlacement(placementType, placementConfig, emitter);
+  const placement = createPlacement(teamEntry.placementType, placementConfig, emitter);
   
   // Create communication adapter (federation-scoped)
   const communicationConfig = buildCommunicationConfig(
