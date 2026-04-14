@@ -1,0 +1,7 @@
+{
+  "states": {
+    "lifecycle": ["onboarding", "indexing", "ready", "researching", "waiting-for-feedback"],
+    "terminal": ["retired", "failed"],
+    "pauseable": true
+  }
+}
