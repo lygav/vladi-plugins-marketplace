@@ -2059,14 +2059,14 @@ Prior design force-fit communication adapters with unnecessary placement paramet
 
 ---
 
-### 2026-04-15 — DESIGN.md Consolidation (v0.3.2)
+### 2026-04-15 — DESIGN.md Consolidation (v0.4.0)
 
 **Author:** Mal (Lead)  
 **Issue:** [#78](https://github.com/lygav/vladi-plugins-marketplace/issues/78)  
 **Changes:**
 
 - Consolidated DESIGN.md (v0.2.0 design spec) into ARCHITECTURE.md
-- Updated version from 0.2.0 to 0.3.2 to reflect shipped implementation
+- Updated version from 0.2.0 to 0.4.0 to reflect shipped implementation
 - Added "v0.3.x Evolution" section documenting key changes:
   - Minimal federation config (description + telemetry only)
   - Dynamic archetype discovery (marketplace.json + filesystem scan)
@@ -2080,13 +2080,13 @@ Prior design force-fit communication adapters with unnecessary placement paramet
 - Added Executive Summary with design principles from DESIGN.md
 - Removed DESIGN.md (served its purpose for v0.2.0 design phase)
 
-**Rationale:** DESIGN.md was the technical design spec for v0.2.0. Now that v0.3.2 is shipped and stable, maintaining two large architectural docs creates confusion. ARCHITECTURE.md is the living doc—it should reflect what was built, not just what was designed. Unique technical content from DESIGN.md (SDK interfaces, onboarding patterns, design principles) has been absorbed here.
+**Rationale:** DESIGN.md was the technical design spec for v0.2.0. Now that v0.4.0 is shipped and stable, maintaining two large architectural docs creates confusion. ARCHITECTURE.md is the living doc—it should reflect what was built, not just what was designed. Unique technical content from DESIGN.md (SDK interfaces, onboarding patterns, design principles) has been absorbed here.
 
 **Impact:** Single source of truth for squad-federation-core architecture. Future updates go here.
 
 ---
 
-### 2026-04-14 — MCP Stack Removal (v0.3.2)
+### 2026-04-14 — MCP Stack Removal (v0.4.0)
 
 **Author:** Kaylee (Dev)  
 **PR:** [#77](https://github.com/lygav/vladi-plugins-marketplace/pull/77)  

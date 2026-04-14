@@ -1,7 +1,7 @@
 {
   "name": "squad-archetype-consultant",
   "description": "Domain expert consultant teams \u2014 answer questions about codebases and specialized domains",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "author": {
     "name": "Vladi Lyga",
     "email": "vladi@example.com"
@@ -19,7 +19,7 @@
     "git": ">=2.20.0"
   },
   "peerDependencies": {
-    "squad-federation-core": ">=0.2.0"
+    "squad-federation-core": ">=0.4.0"
   },
   "archetype": "archetype.json",
   "meta": {

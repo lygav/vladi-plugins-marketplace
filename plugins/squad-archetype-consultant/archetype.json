@@ -1,9 +1,9 @@
 {
   "_note": "Plugin manifest — used by archetype-discovery to identify this as an archetype. The team/ directory has a separate archetype.json with the runtime state machine that gets copied to each onboarded team.",
   "name": "squad-archetype-consultant",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Domain expert teams that answer questions about codebases and specialized domains",
-  "coreCompatibility": ">=0.2.0",
+  "coreCompatibility": ">=0.4.0",
   "meta": {
     "skills": "meta/skills/",
     "scripts": "meta/scripts/"
