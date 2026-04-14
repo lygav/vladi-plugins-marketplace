@@ -228,7 +228,7 @@ export interface TeamCommunication {
 
 **Key design:** Placement knows WHERE teams live (filesystem, git worktree). Communication knows HOW they receive signals (file-based, Teams channel). Neither interface is tightly coupled.
 
-### WorktreePlacement (lib/worktree-placement.ts)
+### WorktreePlacement (lib/placement/worktree-placement.ts)
 
 Git worktree adapter. Teams live on permanent branches:
 
@@ -256,7 +256,7 @@ git branch -D squad/team-alpha
 **Isolation:** Each worktree has independent `.squad/` directory. Shared git object store
 (disk-efficient), but zero coordination overhead between concurrent sessions.
 
-### DirectoryPlacement (lib/directory-placement.ts)
+### DirectoryPlacement (lib/placement/directory-placement.ts)
 
 Standalone directory adapter. Teams exist in `.squad-teams/{teamName}/`:
 
@@ -293,7 +293,7 @@ const adapter = registry.get(config.communicationType || 'file-signal');
 3. Update `federate.config.json` communicationType field if desired
 4. No changes to core scripts, signals, or knowledge lifecycle
 
-### FileSignalCommunication (lib/file-signal-communication.ts)
+### FileSignalCommunication (lib/communication/file-signal-communication.ts)
 
 Default adapter. Signals stored as JSON files in `.squad/signals/`:
 
@@ -337,7 +337,7 @@ Teams channels as first-class signal protocol:
   [Human]: Reviews in #meta, replies with guidance
   ```
 
-### Context Factory (lib/team-context.ts)
+### Context Factory (lib/orchestration/context-factory.ts)
 
 Composes placement + communication at runtime:
 
@@ -1737,7 +1737,7 @@ no monitoring. Meta-squad can later install archetype via "assign archetype" com
 
 ### Library Modules (scripts/lib/)
 
-**signals.ts** — Signal protocol implementation. Provides `ScanStatus`, `SignalMessage`, and `DomainWorktree` types. Functions: `readStatus`, `writeStatus`, `validateStatus` (runtime state validation against archetype schema), `loadArchetypeMetadata`, `initializeSignals`, `sendMessage`, `readMessages`, `acknowledgeMessage`, `discoverDomains`, `validateWorktree`.
+**signal-protocol.ts** — Signal protocol implementation. Provides `ScanStatus`, `SignalMessage`, and `DomainWorktree` types. Functions: `readStatus`, `writeStatus`, `validateStatus` (runtime state validation against archetype schema), `loadArchetypeMetadata`, `initializeSignals`, `sendMessage`, `readMessages`, `acknowledgeMessage`, `discoverDomains`, `validateWorktree`.
 
 **learning-log.ts** — `LearningLog` class. Append-only JSONL storage with `append()`, `query()` (with filters), `markGraduated()`, `count()`. Static methods `readFromBranch()` and `readAllDomains()` for cross-team reads via `git show`.
 
@@ -1971,7 +1971,7 @@ on each other. Core validates but never interprets. Archetype defines but
 never enforces. The schema contract mediates between them.
 
 **Implementation Impact:**
-- `lib/signals.ts`: Add `validateStatus()`, `loadArchetypeMetadata()` (~60 lines)
+- `lib/communication/signal-protocol.ts`: Add `validateStatus()`, `loadArchetypeMetadata()` (~60 lines)
 - `scripts/monitor.ts`: Archetype-aware dashboard rendering (~130 lines)
 - Archetype plugins: Add `states` section to `archetype.json` (~20 lines each)
 - Total: ~170 lines new code, ~40 lines modified

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { TeamEntry } from '../../lib/team-registry.js';
+import type { TeamEntry } from '../../lib/registry/team-registry.js';
 import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
 
@@ -12,7 +12,7 @@ vi.mock('fs/promises');
 vi.mock('fs');
 vi.mock('child_process');
 
-const { TeamRegistry } = await import('../../lib/team-registry.js');
+const { TeamRegistry } = await import('../../lib/registry/team-registry.js');
 
 describe('team-registry.ts', () => {
   let registry: InstanceType<typeof TeamRegistry>;

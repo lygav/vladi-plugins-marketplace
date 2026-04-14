@@ -12,7 +12,7 @@
  *     --detail "When scanning rollout specs..."
  */
 
-import { LearningLog } from './lib/learning-log.js';
+import { LearningLog } from './lib/knowledge/learning-log.js';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';

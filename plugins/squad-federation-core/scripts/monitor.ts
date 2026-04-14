@@ -24,8 +24,10 @@ import { TeamRegistry } from './lib/team-registry.js';
 import type {
   ScanStatus,
   SignalMessage,
+  DomainWorktree,
   TeamCommunication
 } from '../sdk/types.js';
+import { loadAndValidateConfig } from './lib/config/config.js';
 
 // ==================== Configuration ====================
 

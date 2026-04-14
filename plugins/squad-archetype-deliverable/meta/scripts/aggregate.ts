@@ -22,14 +22,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { loadAndValidateConfig, type FederateConfig } from '../../squad-federation-core/scripts/lib/config.js';
+import { loadAndValidateConfig, type FederateConfig } from '../../squad-federation-core/scripts/lib/config/config.js';
 
 // ==================== Configuration ====================
 
 const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
 const CONFIG_PATH = path.join(REPO_ROOT, 'federate.config.json');
 
-// Config loading now uses validated config from lib/config.ts
+// Config loading now uses validated config from lib/config/config.ts
 const config = loadAndValidateConfig(CONFIG_PATH);
 
 // Ensure deliverable field is set (apply env var fallback if needed)

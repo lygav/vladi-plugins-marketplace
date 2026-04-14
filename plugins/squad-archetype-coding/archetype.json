@@ -1,4 +1,5 @@
 {
+  "_note": "Plugin manifest — used by archetype-discovery to identify this as an archetype. The team/ directory has a separate archetype.json with the runtime state machine that gets copied to each onboarded team.",
   "name": "squad-archetype-coding",
   "version": "0.3.2",
   "description": "Teams that write code and open pull requests",

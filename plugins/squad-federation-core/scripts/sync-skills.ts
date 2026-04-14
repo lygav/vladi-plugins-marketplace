@@ -14,7 +14,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { mapWorktreesToBranches, listSquadBranches } from './lib/discovery.js';
+import { mapWorktreesToBranches, listSquadBranches } from './lib/registry/worktree-utils.js';
 
 const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
 const MAIN_BRANCH = process.env.SQUAD_MAIN_BRANCH || 'main';

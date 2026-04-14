@@ -11,7 +11,7 @@
  *   npx tsx scripts/query-learnings.ts --type discovery --since 2025-01-01 --json
  */
 
-import { LearningLog, LearningEntry } from './lib/learning-log.js';
+import { LearningLog, LearningEntry } from './lib/knowledge/learning-log.js';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';

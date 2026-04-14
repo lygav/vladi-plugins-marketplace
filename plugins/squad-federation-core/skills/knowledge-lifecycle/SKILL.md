@@ -158,7 +158,7 @@ interface LearningEntry {
 Domain agents use the `LearningLog` class:
 
 ```typescript
-import { LearningLog } from '${CLAUDE_PLUGIN_ROOT}/scripts/lib/learning-log.js';
+import { LearningLog } from '${CLAUDE_PLUGIN_ROOT}/scripts/lib/knowledge/learning-log.js';
 
 const log = new LearningLog(squadRoot);
 
@@ -209,7 +209,7 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/query-learnings.ts --since "2024-01-15" --
 The meta-squad can read any domain's learning log without a worktree checkout:
 
 ```typescript
-import { LearningLog } from '${CLAUDE_PLUGIN_ROOT}/scripts/lib/learning-log.js';
+import { LearningLog } from '${CLAUDE_PLUGIN_ROOT}/scripts/lib/knowledge/learning-log.js';
 
 // Read from a domain branch via git show
 const entries = LearningLog.readFromBranch('scan/payments', repoRoot);

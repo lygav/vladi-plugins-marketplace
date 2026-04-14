@@ -30,8 +30,8 @@ import {
   validateWorktree,
   initializeSignals,
   type DomainWorktree,
-} from './lib/signals.js';
-import { loadAndValidateConfig, type FederateConfig } from './lib/config.js';
+} from './lib/communication/signal-protocol.js';
+import { loadAndValidateConfig, type FederateConfig } from './lib/config/config.js';
 
 // ==================== Configuration ====================
 
@@ -66,7 +66,7 @@ function readDomainId(worktreePath: string, fallback: string): string {
 type RunType = 'first-run' | 'refresh' | 'reset';
 
 // ==================== Config Loading ====================
-// Config loading now uses validated config from lib/config.ts
+// Config loading now uses validated config from lib/config/config.ts
 
 // ==================== Helpers ====================
 

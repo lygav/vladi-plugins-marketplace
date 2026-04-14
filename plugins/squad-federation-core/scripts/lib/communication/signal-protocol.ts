@@ -10,7 +10,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { discoverDomains as discoverDomainsFromLib, type DomainWorktree } from './discovery.js';
+import { discoverDomains as discoverDomainsFromLib, type DomainWorktree } from '../registry/worktree-utils.js';
 
 // ==================== Types ====================
 
@@ -159,7 +159,7 @@ export function acknowledgeMessage(worktreePath: string, box: 'inbox' | 'outbox'
 // ==================== Worktree Discovery ====================
 
 // Re-export discoverDomains from discovery lib for backward compatibility
-export { discoverDomains } from './discovery.js';
+export { discoverDomains } from '../registry/worktree-utils.js';
 
 export function validateWorktree(worktreePath: string): { valid: boolean; issues: string[] } {
   const issues: string[] = [];

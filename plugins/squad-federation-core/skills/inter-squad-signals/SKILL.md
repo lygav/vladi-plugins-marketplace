@@ -75,7 +75,7 @@ Archetype plugins may define additional states or use a different state machine.
 Domain squads update status at each step transition and periodically within long steps:
 
 ```typescript
-import { writeStatus } from '${CLAUDE_PLUGIN_ROOT}/scripts/lib/signals.js';
+import { writeStatus } from '${CLAUDE_PLUGIN_ROOT}/scripts/lib/communication/signal-protocol.js';
 
 writeStatus(worktreePath, {
   domain: 'my-product',
@@ -96,7 +96,7 @@ The `writeStatus` function automatically sets `updated_at` to the current time.
 Meta-squad reads status to build the monitoring dashboard:
 
 ```typescript
-import { readStatus } from '${CLAUDE_PLUGIN_ROOT}/scripts/lib/signals.js';
+import { readStatus } from '${CLAUDE_PLUGIN_ROOT}/scripts/lib/communication/signal-protocol.js';
 
 const status = readStatus(worktreePath);
 if (status && status.state === 'failed') {
@@ -167,7 +167,7 @@ The timestamp prefix ensures natural chronological ordering when listing directo
 4. Domain squad acknowledges by updating the message file: sets `acknowledged: true` and `acknowledged_at`
 
 ```typescript
-import { sendMessage } from '${CLAUDE_PLUGIN_ROOT}/scripts/lib/signals.js';
+import { sendMessage } from '${CLAUDE_PLUGIN_ROOT}/scripts/lib/communication/signal-protocol.js';
 
 // Meta-squad sends
 sendMessage(domainWorktreePath, {
@@ -205,7 +205,7 @@ sendMessage(domainWorktreePath, {
 When a domain squad processes an inbox message, it should acknowledge:
 
 ```typescript
-import { readMessages, acknowledgeMessage } from '${CLAUDE_PLUGIN_ROOT}/scripts/lib/signals.js';
+import { readMessages, acknowledgeMessage } from '${CLAUDE_PLUGIN_ROOT}/scripts/lib/communication/signal-protocol.js';
 
 const messages = readMessages(worktreePath, 'inbox');
 for (const msg of messages) {
