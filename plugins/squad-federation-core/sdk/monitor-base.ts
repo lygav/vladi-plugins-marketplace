@@ -17,7 +17,8 @@
  */
 
 import type {
-  TeamTransport,
+  TeamPlacement,
+  TeamCommunication,
   ScanStatus,
   DashboardEntry,
   TeamEntry
@@ -35,8 +36,8 @@ import { OTelEmitter } from './otel-emitter.js';
  * class DeliverableMonitor extends MonitorBase<DeliverableData> {
  *   get archetypeName(): string { return 'deliverable'; }
  *   
- *   async collectArchetypeData(transport, status) {
- *     const fragments = await transport.listFiles(status.domain_id, '.squad/deliverable/fragments');
+ *   async collectArchetypeData(placement, communication, status) {
+ *     const fragments = await placement.listFiles(status.domain_id, '.squad/deliverable/fragments');
  *     return { fragmentCount: fragments.length };
  *   }
  *   
@@ -51,11 +52,13 @@ export abstract class MonitorBase<TArchetypeData = unknown> {
 
   /**
    * Create a monitor for a specific archetype.
-   * @param transportMap - Map of domainId to TeamTransport instances
+   * @param placementMap - Map of domainId to TeamPlacement instances
+   * @param communicationMap - Map of domainId to TeamCommunication instances
    * @param emitter - Optional OTel emitter for instrumentation
    */
   constructor(
-    protected readonly transportMap: Map<string, TeamTransport>,
+    protected readonly placementMap: Map<string, TeamPlacement>,
+    protected readonly communicationMap: Map<string, TeamCommunication>,
     emitter?: OTelEmitter
   ) {
     this.emitter = emitter || new OTelEmitter();
@@ -86,20 +89,21 @@ export abstract class MonitorBase<TArchetypeData = unknown> {
             'monitor.collectTeam',
             async () => {
               try {
-                const transport = this.transportMap.get(team.domainId);
-                if (!transport) {
-                  console.warn(`No transport found for team: ${team.domainId}`);
+                const placement = this.placementMap.get(team.domainId);
+                const communication = this.communicationMap.get(team.domainId);
+                if (!placement || !communication) {
+                  console.warn(`No placement or communication found for team: ${team.domainId}`);
                   return;
                 }
 
-                const status = await transport.readStatus(team.domainId);
+                const status = await communication.readStatus(team.domainId);
                 if (!status) {
                   console.warn(`No status found for team: ${team.domainId}`);
                   return;
                 }
 
                 // Collect archetype-specific data
-                const archetypeData = await this.collectArchetypeData(transport, status);
+                const archetypeData = await this.collectArchetypeData(placement, communication, status);
 
                 // Detect health status
                 const health = this.detectHealth(status);
@@ -247,15 +251,17 @@ export abstract class MonitorBase<TArchetypeData = unknown> {
   /**
    * Collect archetype-specific data from a team's workspace.
    * 
-   * Called once per team during collectAll(). Use the transport to read
-   * archetype-specific files and return structured data.
+   * Called once per team during collectAll(). Use placement for reading files
+   * and communication for reading signals/status.
    * 
-   * @param transport - Transport instance for reading team files
+   * @param placement - Placement instance for file operations
+   * @param communication - Communication instance for signal operations
    * @param status - Parsed status.json from the team
    * @returns Archetype-specific data to include in dashboard metadata
    */
   abstract collectArchetypeData(
-    transport: TeamTransport,
+    placement: TeamPlacement,
+    communication: TeamCommunication,
     status: ScanStatus
   ): Promise<TArchetypeData>;
 

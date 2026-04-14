@@ -180,7 +180,6 @@ export const TeamEntrySchema = z.object({
   archetypeId: z.string(),
   transport: z.enum(['worktree', 'directory', 'remote']),
   placementType: TeamPlacementTypeSchema.optional(),
-  communicationType: TeamCommunicationTypeSchema.optional(),
   location: z.string(),
   createdAt: z.string(),
   federation: z

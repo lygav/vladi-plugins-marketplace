@@ -9,7 +9,8 @@
  * ```typescript
  * import {
  *   TeamContext,
- *   TeamTransport,
+ *   TeamPlacement,
+ *   TeamCommunication,
  *   ScanStatus,
  *   SignalMessage,
  *   ArchetypeManifest,
