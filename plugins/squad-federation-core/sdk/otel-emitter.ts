@@ -106,31 +106,36 @@ export class OTelEmitter {
    * @param name - Span name (e.g., 'git.commit', 'monitor.collect')
    * @param fn - Async function to measure
    * @param attributes - Optional key-value attributes
+   * @returns The return value of the wrapped function
    * 
    * @example
    * ```typescript
    * await emitter.span('git.push', async () => {
    *   await execAsync('git push origin main');
    * }, { 'git.operation': 'push', 'git.branch': 'main' });
+   * 
+   * const result = await emitter.span('compute', async () => {
+   *   return 42;
+   * });
    * ```
    */
-  async span(
+  async span<T>(
     name: string,
-    fn: () => Promise<void>,
+    fn: () => Promise<T>,
     attributes?: Record<string, string | number>
-  ): Promise<void> {
+  ): Promise<T> {
     if (!this.endpoint) {
       // No-op when telemetry is disabled
-      await fn();
-      return;
+      return await fn();
     }
 
     const start = process.hrtime.bigint();
     let status: 'ok' | 'error' = 'ok';
     let errorAttrs: Record<string, string | number> = {};
+    let result: T;
 
     try {
-      await fn();
+      result = await fn();
     } catch (err) {
       status = 'error';
       errorAttrs = {
@@ -150,6 +155,8 @@ export class OTelEmitter {
         attributes: { ...attributes, ...errorAttrs },
       });
     }
+
+    return result;
   }
 
   /**
