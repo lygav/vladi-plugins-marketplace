@@ -209,6 +209,7 @@ export class DirectoryPlacement implements TeamPlacement {
           // Create .squad directory structure
           await fs.mkdir(path.join(basePath, '.squad/signals/inbox'), { recursive: true });
           await fs.mkdir(path.join(basePath, '.squad/signals/outbox'), { recursive: true });
+          await fs.mkdir(path.join(basePath, '.squad/learnings'), { recursive: true });
 
           // Initialize status.json with minimal bootstrap state
           const initialStatus = {
@@ -221,10 +222,10 @@ export class DirectoryPlacement implements TeamPlacement {
             archetype_id: archetypeId
           };
           
-          await this.writeFile(teamId, '.squad/signals/status.json', JSON.stringify(initialStatus, null, 2));
+          await this.writeFile(teamId, '.squad/status.json', JSON.stringify(initialStatus, null, 2));
 
           // Create empty learning log
-          await this.writeFile(teamId, '.squad/learning-log.jsonl', '');
+          await this.writeFile(teamId, '.squad/learnings/log.jsonl', '');
 
           // Write config if provided
           if (Object.keys(config).length > 0) {

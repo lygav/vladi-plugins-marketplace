@@ -94,7 +94,8 @@ export function createPlacement(
         config.basePath,
         config.branch,
         config.repoRoot,
-        emitter
+        emitter,
+        config.teamId
       );
     }
     case 'directory': {
@@ -158,13 +159,14 @@ function inferPlacementConfig(teamEntry: TeamEntry, repoRoot?: string): Placemen
     return {
       basePath: teamEntry.location,
       branch,
-      repoRoot
+      repoRoot,
+      teamId: teamEntry.domainId
     };
   } else {
     // Directory placement
     return {
       basePath: teamEntry.location,
-      teamId: teamEntry.domain
+      teamId: teamEntry.domainId
     };
   }
 }

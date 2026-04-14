@@ -3,7 +3,7 @@
  * Based on DESIGN.md specifications.
  */
 
-import type { ScanStatus, SignalMessage, LearningEntry } from './mock-transport.js';
+import type { ScanStatus, SignalMessage, LearningEntry } from '../../../sdk/types.js';
 
 /**
  * Create a test SignalMessage with optional overrides.
@@ -47,6 +47,7 @@ export function createTestLearning(overrides?: Partial<LearningEntry>): Learning
   const defaults: LearningEntry = {
     id: `learning-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     timestamp: new Date().toISOString(),
+    version: '1.0',
     type: 'pattern',
     content: 'Test learning content',
     confidence: 'medium',
@@ -93,7 +94,9 @@ export interface TeamEntry {
   domainId: string;
   location: string;
   archetypeId: string;
-  created_at: string;
+  transport: 'worktree' | 'directory' | 'remote';
+  placementType?: 'worktree' | 'directory';
+  createdAt: string;
 }
 
 /**
@@ -105,7 +108,9 @@ export function createTestTeamEntry(overrides?: Partial<TeamEntry>): TeamEntry {
     domainId: 'alpha',
     location: '/mock/team-alpha',
     archetypeId: 'deliverable',
-    created_at: new Date().toISOString(),
+    transport: 'worktree',
+    placementType: 'worktree',
+    createdAt: new Date().toISOString(),
   };
   
   return { ...defaults, ...overrides };
@@ -119,9 +124,9 @@ export function createTeamSeed(teamId: string, state: ScanStatus['state'] = 'idl
   
   return {
     '.squad/status.json': JSON.stringify(status, null, 2),
-    '.squad/learning.jsonl': '',
-    '.squad/inbox/': '',
-    '.squad/outbox/': '',
+    '.squad/learnings/log.jsonl': '',
+    '.squad/signals/inbox/': '',
+    '.squad/signals/outbox/': '',
   };
 }
 

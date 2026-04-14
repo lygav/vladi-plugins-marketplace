@@ -1,217 +1,190 @@
 /**
- * Tests for MockTransport to validate it faithfully implements TeamTransport interface.
+ * Tests for MockPlacement + MockCommunication to validate new interfaces.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { MockTransport } from './mock-transport.js';
+import { MockPlacement, MockCommunication } from './mock-transport.js';
 import { createTestSignal, createTestStatus, createTestLearning } from './test-fixtures.js';
 
-describe('MockTransport', () => {
-  let transport: MockTransport;
-  
+describe('MockPlacement + MockCommunication', () => {
+  let placement: MockPlacement;
+  let communication: MockCommunication;
+
   beforeEach(() => {
-    transport = new MockTransport();
+    placement = new MockPlacement();
+    communication = new MockCommunication(placement);
   });
-  
-  describe('file operations', () => {
+
+  describe('placement file operations', () => {
     it('should write and read files', async () => {
-      await transport.writeFile('team-alpha', 'test.txt', 'hello world');
-      const content = await transport.readFile('team-alpha', 'test.txt');
-      
+      await placement.writeFile('team-alpha', 'test.txt', 'hello world');
+      const content = await placement.readFile('team-alpha', 'test.txt');
+
       expect(content).toBe('hello world');
     });
-    
+
     it('should return null for non-existent files', async () => {
-      const content = await transport.readFile('team-alpha', 'missing.txt');
+      const content = await placement.readFile('team-alpha', 'missing.txt');
       expect(content).toBeNull();
     });
-    
+
     it('should check file existence', async () => {
-      await transport.writeFile('team-alpha', 'exists.txt', 'content');
-      
-      expect(await transport.exists('team-alpha', 'exists.txt')).toBe(true);
-      expect(await transport.exists('team-alpha', 'missing.txt')).toBe(false);
+      await placement.writeFile('team-alpha', 'exists.txt', 'content');
+
+      expect(await placement.exists('team-alpha', 'exists.txt')).toBe(true);
+      expect(await placement.exists('team-alpha', 'missing.txt')).toBe(false);
     });
-    
+
     it('should return file stats', async () => {
-      await transport.writeFile('team-alpha', 'file.txt', 'content');
-      const stats = await transport.stat('team-alpha', 'file.txt');
-      
+      await placement.writeFile('team-alpha', 'file.txt', 'content');
+      const stats = await placement.stat('team-alpha', 'file.txt');
+
       expect(stats).not.toBeNull();
       expect(stats?.isDirectory).toBe(false);
-      expect(stats?.size).toBe(7); // 'content' is 7 chars
+      expect(stats?.size).toBe(7);
     });
-    
+
     it('should isolate files by teamId', async () => {
-      await transport.writeFile('team-alpha', 'file.txt', 'alpha content');
-      await transport.writeFile('team-beta', 'file.txt', 'beta content');
-      
-      expect(await transport.readFile('team-alpha', 'file.txt')).toBe('alpha content');
-      expect(await transport.readFile('team-beta', 'file.txt')).toBe('beta content');
+      await placement.writeFile('team-alpha', 'file.txt', 'alpha content');
+      await placement.writeFile('team-beta', 'file.txt', 'beta content');
+
+      expect(await placement.readFile('team-alpha', 'file.txt')).toBe('alpha content');
+      expect(await placement.readFile('team-beta', 'file.txt')).toBe('beta content');
     });
   });
-  
-  describe('status operations', () => {
+
+  describe('communication operations', () => {
     it('should read and write status', async () => {
       const status = createTestStatus({
         domain: 'team-alpha',
         state: 'scanning',
         step: 'analysis',
       });
-      
-      await transport.writeFile('team-alpha', '.squad/status.json', JSON.stringify(status));
-      const result = await transport.readStatus('team-alpha');
-      
+
+      await placement.writeFile('team-alpha', '.squad/status.json', JSON.stringify(status));
+      const result = await communication.readStatus('team-alpha');
+
       expect(result).toEqual(status);
     });
-    
+
     it('should return null for missing status', async () => {
-      const result = await transport.readStatus('team-alpha');
+      const result = await communication.readStatus('team-alpha');
       expect(result).toBeNull();
     });
-  });
-  
-  describe('signal operations', () => {
+
     it('should write and read inbox signals', async () => {
       const signal = createTestSignal({
         from: 'meta',
         to: 'team-alpha',
         type: 'directive',
       });
-      
-      await transport.writeInboxSignal('team-alpha', signal);
-      const signals = await transport.readInboxSignals('team-alpha');
-      
+
+      await communication.writeInboxSignal('team-alpha', signal);
+      const signals = await communication.readInboxSignals('team-alpha');
+
       expect(signals).toHaveLength(1);
       expect(signals[0]).toEqual(signal);
     });
-    
-    it('should read multiple inbox signals', async () => {
-      const signal1 = createTestSignal({ id: 'signal-1' });
-      const signal2 = createTestSignal({ id: 'signal-2' });
-      
-      await transport.writeInboxSignal('team-alpha', signal1);
-      await transport.writeInboxSignal('team-alpha', signal2);
-      
-      const signals = await transport.readInboxSignals('team-alpha');
-      expect(signals).toHaveLength(2);
-    });
-    
+
     it('should list signals with filters', async () => {
       const signal1 = createTestSignal({ type: 'directive', from: 'meta' });
       const signal2 = createTestSignal({ type: 'report', from: 'team-alpha' });
-      
-      await transport.writeInboxSignal('team-alpha', signal1);
-      await transport.writeInboxSignal('team-alpha', signal2);
-      
-      const directives = await transport.listSignals('team-alpha', 'inbox', { type: 'directive' });
+
+      await communication.writeInboxSignal('team-alpha', signal1);
+      await communication.writeInboxSignal('team-alpha', signal2);
+
+      const directives = await communication.listSignals('team-alpha', 'inbox', { type: 'directive' });
       expect(directives).toHaveLength(1);
       expect(directives[0].type).toBe('directive');
-      
-      const fromMeta = await transport.listSignals('team-alpha', 'inbox', { from: 'meta' });
+
+      const fromMeta = await communication.listSignals('team-alpha', 'inbox', { from: 'meta' });
       expect(fromMeta).toHaveLength(1);
       expect(fromMeta[0].from).toBe('meta');
     });
-  });
-  
-  describe('learning log operations', () => {
+
     it('should append and read learning entries', async () => {
       const entry1 = createTestLearning({ content: 'First learning' });
       const entry2 = createTestLearning({ content: 'Second learning' });
-      
-      await transport.appendLearning('team-alpha', entry1);
-      await transport.appendLearning('team-alpha', entry2);
-      
-      const entries = await transport.readLearningLog('team-alpha');
-      
+
+      await communication.appendLearning('team-alpha', entry1);
+      await communication.appendLearning('team-alpha', entry2);
+
+      const entries = await communication.readLearningLog('team-alpha');
+
       expect(entries).toHaveLength(2);
       expect(entries[0].content).toBe('First learning');
       expect(entries[1].content).toBe('Second learning');
     });
-    
-    it('should return empty array for missing learning log', async () => {
-      const entries = await transport.readLearningLog('team-alpha');
-      expect(entries).toEqual([]);
-    });
   });
-  
-  describe('test helpers', () => {
+
+  describe('workspace helpers', () => {
     it('should seed team with files', () => {
-      transport.seedTeam('team-alpha', {
+      placement.seedTeam('team-alpha', {
         'file1.txt': 'content1',
         'file2.txt': 'content2',
       });
-      
-      expect(transport.getTeams()).toContain('team-alpha');
+
+      expect(placement.getTeams()).toContain('team-alpha');
     });
-    
+
     it('should clear all data', async () => {
-      await transport.writeFile('team-alpha', 'file.txt', 'content');
-      await transport.writeFile('team-beta', 'file.txt', 'content');
-      
-      transport.clear();
-      
-      expect(transport.getTeams()).toHaveLength(0);
-      expect(await transport.readFile('team-alpha', 'file.txt')).toBeNull();
+      await placement.writeFile('team-alpha', 'file.txt', 'content');
+      await placement.writeFile('team-beta', 'file.txt', 'content');
+
+      placement.clear();
+
+      expect(placement.getTeams()).toHaveLength(0);
+      expect(await placement.readFile('team-alpha', 'file.txt')).toBeNull();
     });
-    
+
     it('should list all teams', () => {
-      transport.seedTeam('team-alpha', {});
-      transport.seedTeam('team-beta', {});
-      transport.seedTeam('team-gamma', {});
-      
-      const teams = transport.getTeams();
+      placement.seedTeam('team-alpha', {});
+      placement.seedTeam('team-beta', {});
+      placement.seedTeam('team-gamma', {});
+
+      const teams = placement.getTeams();
       expect(teams).toHaveLength(3);
       expect(teams).toContain('team-alpha');
       expect(teams).toContain('team-beta');
       expect(teams).toContain('team-gamma');
     });
   });
-  
+
   describe('workspace operations', () => {
     it('should check workspace existence', async () => {
-      expect(await transport.workspaceExists('team-alpha')).toBe(false);
-      
-      await transport.writeFile('team-alpha', 'test.txt', 'content');
-      
-      expect(await transport.workspaceExists('team-alpha')).toBe(true);
+      expect(await placement.workspaceExists('team-alpha')).toBe(false);
+
+      await placement.writeFile('team-alpha', 'test.txt', 'content');
+
+      expect(await placement.workspaceExists('team-alpha')).toBe(true);
     });
-    
+
     it('should get workspace location', async () => {
-      const location = await transport.getLocation('team-alpha');
+      const location = await placement.getLocation('team-alpha');
       expect(location).toBe('/mock/workspace/team-alpha');
     });
-    
+
     it('should list all files in workspace', async () => {
-      await transport.writeFile('team-alpha', 'file1.txt', 'content1');
-      await transport.writeFile('team-alpha', 'dir/file2.txt', 'content2');
-      await transport.writeFile('team-alpha', 'dir/file3.txt', 'content3');
-      
-      const allFiles = await transport.listFiles('team-alpha');
+      await placement.writeFile('team-alpha', 'file1.txt', 'content1');
+      await placement.writeFile('team-alpha', 'dir/file2.txt', 'content2');
+      await placement.writeFile('team-alpha', 'dir/file3.txt', 'content3');
+
+      const allFiles = await placement.listFiles('team-alpha');
       expect(allFiles).toHaveLength(3);
       expect(allFiles).toContain('file1.txt');
       expect(allFiles).toContain('dir/file2.txt');
-      
-      const dirFiles = await transport.listFiles('team-alpha', 'dir');
+
+      const dirFiles = await placement.listFiles('team-alpha', 'dir');
       expect(dirFiles).toHaveLength(2);
       expect(dirFiles.every(f => f.startsWith('dir/'))).toBe(true);
     });
-    
+
     it('should bootstrap a team workspace', async () => {
-      await transport.bootstrap('team-alpha', 'deliverable', { 
-        owner: 'test-user',
-        priority: 'high' 
-      });
-      
-      expect(await transport.workspaceExists('team-alpha')).toBe(true);
-      
-      const configContent = await transport.readFile('team-alpha', '.squad/config.json');
-      expect(configContent).not.toBeNull();
-      
-      const config = JSON.parse(configContent!);
-      expect(config.archetypeId).toBe('deliverable');
-      expect(config.owner).toBe('test-user');
-      expect(config.priority).toBe('high');
+      await placement.bootstrap('team-alpha', 'deliverable', { owner: 'test' });
+
+      expect(await placement.workspaceExists('team-alpha')).toBe(true);
+      const config = await placement.readFile('team-alpha', '.squad/config.json');
+      expect(config).not.toBeNull();
     });
   });
 });

@@ -24,8 +24,17 @@ export interface TeamEntry {
   domain: string;
   /** Unique team identifier (UUID or slug) */
   domainId: string;
-  /** Transport type for team workspace access */
+  /** Archetype identifier for this team */
+  archetypeId: string;
+  /**
+   * @deprecated Use placementType + communicationType instead. Will be removed in v0.5.0.
+   */
   transport: 'worktree' | 'directory' | 'remote';
+  /**
+   * Placement type (where files live).
+   * @since v0.4.0
+   */
+  placementType?: 'worktree' | 'directory';
   /** Absolute path to team workspace or remote URL */
   location: string;
   /** ISO 8601 timestamp when team was registered */
@@ -57,7 +66,9 @@ interface RegistryFile {
 const TeamEntrySchema = z.object({
   domain: z.string().min(1),
   domainId: z.string().min(1),
+  archetypeId: z.string().min(1).default('unknown'),
   transport: z.enum(['worktree', 'directory', 'remote']),
+  placementType: z.enum(['worktree', 'directory']).optional(),
   location: z.string().min(1),
   createdAt: z.string().datetime(),
   federation: z.object({
@@ -128,18 +139,26 @@ export class TeamRegistry {
     await this.emitter.span(
       'registry.register',
       async () => {
+        const normalizedEntry: TeamEntry = {
+          ...entry,
+          placementType: entry.placementType || entry.transport,
+          archetypeId: entry.archetypeId || 'unknown',
+        };
         // Validate entry
-        TeamEntrySchema.parse(entry);
+        TeamEntrySchema.parse(normalizedEntry);
 
         await this.withLock(async () => {
           const registry = await this.load();
           
-          // Check for duplicate
-          if (registry.teams.some(t => t.domainId === entry.domainId)) {
-            const existingTeam = registry.teams.find(t => t.domainId === entry.domainId);
+          // Check for duplicate domain or domainId
+          const existingTeam = registry.teams.find(
+            (t) => t.domainId === normalizedEntry.domainId || t.domain === normalizedEntry.domain
+          );
+          if (existingTeam) {
+            const conflictField = existingTeam.domainId === normalizedEntry.domainId ? 'domainId' : 'domain';
             throw new Error(
-              `Team with domainId "${entry.domainId}" already registered.\n` +
-              `Existing team: ${existingTeam?.name || 'unknown'}\n` +
+              `Team with ${conflictField} "${conflictField === 'domainId' ? normalizedEntry.domainId : normalizedEntry.domain}" already registered.\n` +
+              `Existing team: ${existingTeam.domain || 'unknown'}\n` +
               `Recovery:\n` +
               `  1. Check existing teams:\n` +
               `     cat .squad/teams.json\n` +
@@ -154,14 +173,14 @@ export class TeamRegistry {
             );
           }
 
-          registry.teams.push(entry);
+          registry.teams.push(normalizedEntry);
           await this.save(registry);
 
           // Emit event for team registered
           await this.emitter.event('team.registered', {
-            'squad.domain': entry.domain,
-            'domain.id': entry.domainId,
-            'transport.type': entry.transport
+            'squad.domain': normalizedEntry.domain,
+            'domain.id': normalizedEntry.domainId,
+            'transport.type': normalizedEntry.transport
           });
         });
       },
@@ -175,21 +194,27 @@ export class TeamRegistry {
   /**
    * Unregister a team from the registry.
    * 
-   * @param domainId - Team identifier to remove
+   * @param domainOrId - Team identifier (domain or domainId) to remove
    * @returns True if team was found and removed, false otherwise
    */
-  async unregister(domainId: string): Promise<boolean> {
-    return await this.emitter.span(
+  async unregister(domainOrId: string): Promise<boolean> {
+    let removed = false;
+
+    await this.emitter.span(
       'registry.unregister',
       async () => {
-        return await this.withLock(async () => {
+        removed = await this.withLock(async () => {
           const registry = await this.load();
           const initialLength = registry.teams.length;
           
           // Find the team before removing for telemetry
-          const team = registry.teams.find(t => t.domainId === domainId);
+          const team = registry.teams.find(
+            t => t.domainId === domainOrId || t.domain === domainOrId
+          );
           
-          registry.teams = registry.teams.filter(t => t.domainId !== domainId);
+          registry.teams = registry.teams.filter(
+            t => t.domainId !== domainOrId && t.domain !== domainOrId
+          );
           
           if (registry.teams.length < initialLength) {
             await this.save(registry);
@@ -198,7 +223,7 @@ export class TeamRegistry {
             if (team) {
               await this.emitter.event('team.unregistered', {
                 'squad.domain': team.domain,
-                'domain.id': domainId,
+                'domain.id': team.domainId,
                 'transport.type': team.transport
               });
             }
@@ -209,20 +234,22 @@ export class TeamRegistry {
         });
       },
       {
-        'domain.id': domainId
+         'domain.id': domainOrId
       }
     );
+
+    return removed;
   }
 
   /**
-   * Get a team entry by domainId.
+   * Get a team entry by domain or domainId.
    * 
-   * @param domainId - Team identifier to lookup
+   * @param domainOrId - Team identifier to lookup
    * @returns Team entry if found, null otherwise
    */
-  async get(domainId: string): Promise<TeamEntry | null> {
+  async get(domainOrId: string): Promise<TeamEntry | null> {
     const registry = await this.load();
-    return registry.teams.find(t => t.domainId === domainId) ?? null;
+    return registry.teams.find(t => t.domainId === domainOrId || t.domain === domainOrId) ?? null;
   }
 
   /**
@@ -249,18 +276,22 @@ export class TeamRegistry {
   /**
    * Update a team entry with partial changes.
    * 
-   * @param domainId - Team identifier to update
+   * @param domainOrId - Team identifier (domain or domainId) to update
    * @param updates - Partial team entry with fields to update
    * @returns True if team was found and updated, false otherwise
    * @throws {z.ZodError} If updated entry fails validation
    */
-  async update(domainId: string, updates: Partial<TeamEntry>): Promise<boolean> {
-    return await this.emitter.span(
+  async update(domainOrId: string, updates: Partial<TeamEntry>): Promise<boolean> {
+    let updatedResult = false;
+
+    await this.emitter.span(
       'registry.update',
       async () => {
-        return await this.withLock(async () => {
+        updatedResult = await this.withLock(async () => {
           const registry = await this.load();
-          const index = registry.teams.findIndex(t => t.domainId === domainId);
+          const index = registry.teams.findIndex(
+            t => t.domainId === domainOrId || t.domain === domainOrId
+          );
           
           if (index === -1) return false;
 
@@ -274,7 +305,7 @@ export class TeamRegistry {
           // Emit event for team updated
           await this.emitter.event('team.updated', {
             'squad.domain': updated.domain,
-            'domain.id': domainId,
+            'domain.id': updated.domainId,
             'transport.type': updated.transport
           });
 
@@ -282,9 +313,11 @@ export class TeamRegistry {
         });
       },
       {
-        'domain.id': domainId
+        'domain.id': domainOrId
       }
     );
+
+    return updatedResult;
   }
 
   /**
@@ -330,12 +363,16 @@ export class TeamRegistry {
         // Read team.md to extract metadata
         const teamMd = await fs.readFile(teamMdPath, 'utf-8');
         const metadata = this.parseTeamMd(teamMd);
+        const inferredDomainId = metadata.domainId || wt.domain;
+        const inferredArchetype = metadata.archetypeId || 'unknown';
 
         // Register team
         await this.register({
           domain: wt.domain,
-          domainId: wt.domain, // Use domain as ID for v0.1.0 compatibility
+          domainId: inferredDomainId,
+          archetypeId: inferredArchetype,
           transport: 'worktree',
+          placementType: 'worktree',
           location: wt.path,
           createdAt: new Date().toISOString(),
           federation: metadata.federation,
@@ -557,12 +594,17 @@ export class TeamRegistry {
    */
   private parseTeamMd(content: string): {
     federation?: TeamEntry['federation'];
+    archetypeId?: string;
+    domainId?: string;
   } {
     const result: ReturnType<TeamRegistry['parseTeamMd']> = {};
     
     // Simple frontmatter extraction (between --- markers)
     const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
-    if (!frontmatterMatch) return result;
+    if (!frontmatterMatch) {
+      this.extractInlineMetadata(content, result);
+      return result;
+    }
     
     const frontmatter = frontmatterMatch[1];
     
@@ -577,7 +619,38 @@ export class TeamRegistry {
         role: roleMatch[1].trim() as 'team' | 'meta',
       };
     }
+
+    const archetypeMatch = frontmatter.match(/archetype:\s*(.+)/i);
+    if (archetypeMatch) {
+      result.archetypeId = archetypeMatch[1].trim();
+    }
+
+    const domainIdMatch = frontmatter.match(/domainId:\s*(.+)/i) || frontmatter.match(/domain_id:\s*(.+)/i);
+    if (domainIdMatch) {
+      result.domainId = domainIdMatch[1].trim();
+    }
+
+    this.extractInlineMetadata(content, result);
     
     return result;
+  }
+
+  private extractInlineMetadata(
+    content: string,
+    result: { archetypeId?: string; domainId?: string }
+  ): void {
+    if (!result.archetypeId) {
+      const archetypeMatch = content.match(/\*\*Archetype:\*\*\s*(.+)/i);
+      if (archetypeMatch) {
+        result.archetypeId = archetypeMatch[1].trim();
+      }
+    }
+
+    if (!result.domainId) {
+      const domainIdMatch = content.match(/\*\*Domain ID:\*\*\s*(.+)/i);
+      if (domainIdMatch) {
+        result.domainId = domainIdMatch[1].trim();
+      }
+    }
   }
 }

@@ -3,7 +3,7 @@
  * Onboard — Create a new federated domain squad
  *
  * Implements the "start empty, add what's needed" model:
- * - Creates team workspace via transport abstraction (worktree or directory)
+ * - Creates team workspace via placement abstraction (worktree or directory)
  * - Seeds ONLY team/ directory from archetype (not entire archetype)
  * - Registers team in TeamRegistry (replaces git worktree list discovery)
  * - Initializes minimal .squad/ state (signals, learnings, status)
@@ -19,7 +19,7 @@
  *   # Worktree in sibling directory:
  *   npx tsx scripts/onboard.ts --name "my-product" --domain-id "abc-123" --archetype "squad-archetype-deliverable" --worktree-dir ../
  *   
- *   # Directory transport:
+ *   # Directory placement:
  *   npx tsx scripts/onboard.ts --name "my-product" --domain-id "abc-123" --archetype "squad-archetype-deliverable" --transport directory --path /custom/path
  */
 
@@ -33,6 +33,7 @@ import { loadAndValidateConfig, type FederateConfig } from './lib/config.js';
 import { WorktreePlacement } from './lib/worktree-placement.js';
 import { DirectoryPlacement } from './lib/directory-placement.js';
 import { TeamRegistry } from './lib/team-registry.js';
+import { createCommunication } from './lib/team-context.js';
 import type { TeamEntry } from '../sdk/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -74,9 +75,10 @@ function parseArgs(args: string[]): ParsedArgs {
       case '--base-branch': parsed.baseBranch = value; i++; break;
       case '--description': parsed.description = value; i++; break;
       case '--archetype': parsed.archetype = value; i++; break;
-      case '--transport': 
+      case '--transport':
+      case '--placement':
         if (value !== 'worktree' && value !== 'directory') {
-          console.error('Error: --transport must be "worktree" or "directory"');
+          console.error('Error: --transport/--placement must be "worktree" or "directory"');
           console.error(`  Received: "${value}"`);
           console.error('\nRecovery:');
           console.error('  1. Use "worktree" for git-based teams (recommended):');
@@ -178,16 +180,15 @@ async function copyDirectory(src: string, dest: string): Promise<void> {
   }
 }
 
-// ==================== Transport Creation ====================
+// ==================== Placement Creation ====================
 
 /**
- * Create transport for team workspace based on transport type.
+ * Create placement for team workspace based on placement type.
  */
-async function createTeamTransport(
+async function createTeamPlacement(
   args: ParsedArgs,
-  config: FederateConfig,
   repoRoot: string
-): Promise<{ transport: WorktreePlacement | DirectoryPlacement; location: string; branch?: string }> {
+): Promise<{ placement: WorktreePlacement | DirectoryPlacement; location: string; branch?: string }> {
   if (args.transport === 'worktree') {
     // Worktree transport: create git branch + worktree
     const branchName = `${BRANCH_PREFIX}${args.name}`;
@@ -210,12 +211,14 @@ async function createTeamTransport(
       process.exit(1);
     } catch { /* doesn't exist — good */ }
     
-    console.log(`Creating worktree transport for branch: ${branchName}`);
-    const transport = await WorktreePlacement.create(
+    console.log(`Creating worktree placement for branch: ${branchName}`);
+    const placement = await WorktreePlacement.create(
       repoRoot, 
       args.name, 
       args.baseBranch,
-      args.worktreeDir  // Optional worktree base directory
+      args.worktreeDir,
+      undefined,
+      args.domainId
     );
     
     // Calculate actual location based on worktreeDir
@@ -224,7 +227,7 @@ async function createTeamTransport(
       ? path.join(baseDir, args.name)
       : path.join(repoRoot, baseDir, args.name);
     
-    return { transport, location, branch: branchName };
+    return { placement, location, branch: branchName };
   } else {
     // Directory transport: create directory at specified path
     const location = path.resolve(repoRoot, args.path!, args.name);
@@ -243,14 +246,14 @@ async function createTeamTransport(
       process.exit(1);
     }
     
-    console.log(`Creating directory transport at: ${location}`);
+    console.log(`Creating directory placement at: ${location}`);
     await fsp.mkdir(location, { recursive: true });
     
     const basePathMap = new Map<string, string>();
-    basePathMap.set(args.name, location);
-    const transport = new DirectoryPlacement(basePathMap);
+    basePathMap.set(args.domainId, location);
+    const placement = new DirectoryPlacement(basePathMap);
     
-    return { transport, location };
+    return { placement, location };
   }
 }
 
@@ -286,12 +289,6 @@ function scaffoldFederation(teamLocation: string, repoRoot: string, args: Parsed
   console.log('Scaffolding federation state...');
 
   const squadDir = path.join(teamLocation, '.squad');
-  const signalsDir = path.join(squadDir, 'signals');
-
-  // Signal protocol directories
-  fs.mkdirSync(path.join(signalsDir, 'inbox'), { recursive: true });
-  fs.mkdirSync(path.join(signalsDir, 'outbox'), { recursive: true });
-  fs.mkdirSync(path.join(squadDir, 'learnings'), { recursive: true });
 
   // Try to read version from archetype's plugin.json
   const pluginJsonPath = path.join(repoRoot, 'plugins', archetypeName, 'plugin.json');
@@ -342,15 +339,15 @@ ${args.description ? `**Description:** ${args.description}` : ''}
 ## Signal Protocol
 This squad uses the inter-squad signal protocol:
 - Read .squad/signals/inbox/ before each major step
-- Write progress to .squad/signals/status.json
+- Write progress to .squad/status.json
 - Report blockers/findings to .squad/signals/outbox/
 `;
-  fs.writeFileSync(path.join(worktreePath, 'DOMAIN_CONTEXT.md'), contextMd);
+  fs.writeFileSync(path.join(teamLocation, 'DOMAIN_CONTEXT.md'), contextMd);
 
   console.log('✓ Federation state scaffolded');
 
   // Scaffold archetype (always required for federated teams)
-  scaffoldArchetype(worktreePath, repoRoot, args.archetype);
+  scaffoldArchetype(teamLocation, repoRoot, args.archetype);
 }
 
 function cleanMetaSquadFiles(worktreePath: string): void {
@@ -374,21 +371,25 @@ async function main(): Promise<void> {
 
   console.log(`\n🏗️  Onboarding domain: ${domainTitle}`);
   console.log(`   Domain ID: ${args.domainId}`);
-  console.log(`   Transport: ${args.transport}`);
+  console.log(`   Placement: ${args.transport}`);
   if (args.description) console.log(`   Description: ${args.description}`);
   console.log('');
 
-  // Step 1: Create team transport (worktree or directory)
-  const { transport, location, branch } = await createTeamTransport(args, config, REPO_ROOT);
+  // Step 1: Create team placement (worktree or directory)
+  const { placement, location, branch } = await createTeamPlacement(args, REPO_ROOT);
   console.log(`✓ Team workspace created: ${location}`);
 
   // Step 2: Seed team/ directory from archetype (skills, templates, archetype.json)
   await seedTeamDirectory(args.archetype, location, REPO_ROOT);
 
-  // Step 3: Scaffold federation state (signals, learnings, ceremonies, telemetry, archetype.json)
+  // Step 3: Initialize .squad/ bootstrap state
+  createCommunication(config.communicationType, { placement });
+  await placement.bootstrap(args.domainId, args.archetype, { communicationType: config.communicationType });
+
+  // Step 4: Scaffold federation state (ceremonies, telemetry, archetype.json)
   scaffoldFederation(location, REPO_ROOT, args, config, args.archetype);
 
-  // Step 4: Write DOMAIN_CONTEXT.md
+  // Step 5: Write DOMAIN_CONTEXT.md
   const contextMd = `# ${domainTitle} Domain
 
 **Domain ID:** ${args.domainId}
@@ -413,12 +414,12 @@ ${args.description || 'This domain squad is responsible for...'}
 `;
   fs.writeFileSync(path.join(location, 'DOMAIN_CONTEXT.md'), contextMd);
 
-  // Step 5: Clean up meta-squad files for worktree teams
+  // Step 6: Clean up meta-squad files for worktree teams
   if (args.transport === 'worktree') {
     cleanMetaSquadFiles(location);
   }
 
-  // Step 6: Let Squad handle team casting
+  // Step 7: Let Squad handle team casting
   console.log('Initializing squad (team casting handled by Squad)...');
   try {
     exec('squad init', { cwd: location });
@@ -427,22 +428,24 @@ ${args.description || 'This domain squad is responsible for...'}
     console.log('  ⚠️  squad init not available — team will be cast on first session');
   }
 
-  // Step 7: Register team in TeamRegistry
+  // Step 8: Register team in TeamRegistry
   console.log('Registering team in registry...');
   const registry = new TeamRegistry(REPO_ROOT);
   
   const teamEntry: TeamEntry = {
     domain: args.name,
     domainId: args.domainId,
+    archetypeId: args.archetype,
     transport: args.transport,
-    location: location,
+    placementType: args.transport,
+    location,
     createdAt: new Date().toISOString(),
   };
   
   await registry.register(teamEntry);
   console.log('✓ Team registered');
 
-  // Step 8: Commit for worktree transport
+  // Step 9: Commit for worktree transport
   if (args.transport === 'worktree') {
     console.log('Creating initial commit...');
     exec('git add -A', { cwd: location });
