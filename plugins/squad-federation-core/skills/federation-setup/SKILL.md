@@ -110,24 +110,7 @@ Walk through each step in order. One question at a time. Provide sensible defaul
 
 Accept whatever the user gives. Don't try to normalize it.
 
-### Step 2: Data sources (MCP stack)
-
-**Ask:** "What data sources or tools do your teams need access to?"
-
-**Explain:** MCP servers provide tools to headless agent sessions running in each team's workspace. Common examples:
-
-- `filesystem` — read/write files in the worktree
-- `fetch` — make HTTP requests to external APIs
-- `otel` — emit traces, metrics, and logs
-- Custom servers you've built
-
-**Default:** empty array `[]` — teams use whatever tools are available in the project's MCP configuration.
-
-**Say:** "If you're not sure, start with an empty list. Teams inherit whatever MCP servers are configured in the project. You can always add more later by editing the config."
-
-**Store as:** `mcpStack` array in config.
-
-### Step 3: Telemetry
+### Step 2: Telemetry
 
 **Context:** Copilot CLI has no built-in telemetry — headless team sessions are black boxes by default. This plugin includes a special OTel integration that bridges this gap: a custom MCP server that gives agents trace, metric, event, and log tools, feeding into a central dashboard where you can watch all teams in real time.
 
@@ -157,6 +140,24 @@ Confirm it's running: "✅ Monitoring dashboard live at http://localhost:18888. 
 
 No endpoint, port, or service name in config. The runtime uses sensible defaults. The OTel MCP server auto-starts with each team session via the plugin's `.mcp.json`.
 
+### Step 3: Data sources (MCP stack)
+
+**Ask:** "What additional data sources or tools do your teams need access to?"
+
+**Explain:** MCP servers provide tools to headless agent sessions running in each team's workspace. Common examples:
+
+- `filesystem` — read/write files in the workspace
+- `fetch` — make HTTP requests to external APIs
+- Custom servers you've built
+
+**Auto-include OTel:** If telemetry was enabled in Step 2, automatically add the OTel MCP server to the stack. Don't ask — it's required for telemetry to work. Say: "I've added the OTel telemetry server to the MCP stack since you enabled monitoring."
+
+**Default:** If telemetry enabled, `["otel"]`. Otherwise empty array `[]`.
+
+**Say:** "If you're not sure, start with the defaults. Teams inherit whatever MCP servers are configured in the project. You can always add more later by editing the config."
+
+**Store as:** `mcpStack` array in config.
+
 ### Step 4: Generate config
 
 Assemble `federate.config.json` at the repository root with **only** core fields:
@@ -164,7 +165,7 @@ Assemble `federate.config.json` at the repository root with **only** core fields
 ```json
 {
   "description": "...",
-  "mcpStack": [],
+  "mcpStack": ["otel"],
   "telemetry": {
     "enabled": true
   }
@@ -173,8 +174,8 @@ Assemble `federate.config.json` at the repository root with **only** core fields
 
 **Rules for this config:**
 - `description` — from Step 1, verbatim
-- `mcpStack` — from Step 2, or empty array
-- `telemetry.enabled` — from Step 3
+- `telemetry.enabled` — from Step 2
+- `mcpStack` — from Step 3 (auto-includes "otel" if telemetry enabled)
 
 **Nothing else goes in this file.** No deliverable, no schema, no universe, no importHook, no steps, no roles, no team definitions. Those are archetype or team-level concerns.
 
