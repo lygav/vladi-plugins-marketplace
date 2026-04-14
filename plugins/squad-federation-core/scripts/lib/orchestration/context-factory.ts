@@ -42,7 +42,7 @@ type CommunicationFactory = (
 const communicationAdapters = new Map<string, CommunicationFactory>();
 
 /**
- * Register the file-signal adapter (v0.4.0 default and only option).
+ * Register the file-signal adapter (v0.4.0 default).
  */
 communicationAdapters.set('file-signal', (config, emitter) => {
   const placement = config.placement as TeamPlacement | undefined;
@@ -53,11 +53,24 @@ communicationAdapters.set('file-signal', (config, emitter) => {
 });
 
 /**
- * Future adapters:
- * communicationAdapters.set('teams-channel', (config, emitter) => 
- *   new TeamsChannelCommunication(config, emitter)
- * );
+ * Register the teams-channel adapter (v0.5.0).
+ * Lazy-loads the TeamsChannelCommunication class to avoid import errors
+ * if the implementation isn't available yet.
  */
+communicationAdapters.set('teams-channel', (config, emitter) => {
+  // TODO: Lazy import once TeamsChannelCommunication is merged (#117)
+  // For now, this registration exists but will fail at runtime if called
+  try {
+    const { TeamsChannelCommunication } = require('../communication/teams-channel-communication.js');
+    return new TeamsChannelCommunication(config, emitter);
+  } catch (err) {
+    throw new Error(
+      'TeamsChannelCommunication is not available yet. ' +
+      'This adapter will be functional after #117 merges. ' +
+      `Original error: ${(err as Error).message}`
+    );
+  }
+});
 
 /**
  * Register a custom communication adapter.
@@ -223,11 +236,19 @@ export function createTeamContext(
 function buildCommunicationConfig(
   type: string,
   placement: TeamPlacement,
-  _federationConfig: FederateConfig
+  federationConfig: FederateConfig
 ): Record<string, unknown> {
   switch (type) {
     case 'file-signal':
       return { placement };
+    case 'teams-channel':
+      if (!federationConfig.teamsConfig) {
+        throw new Error('teamsConfig is required when communicationType is teams-channel');
+      }
+      return {
+        teamId: federationConfig.teamsConfig.teamId,
+        channelId: federationConfig.teamsConfig.channelId,
+      };
     default:
       return {};
   }

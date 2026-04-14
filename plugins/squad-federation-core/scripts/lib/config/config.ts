@@ -15,8 +15,13 @@ export interface FederateConfig {
     enabled: boolean;
     aspire?: boolean;
   };
-  /** Communication type for team signaling (v0.4.0: file-signal only) */
-  communicationType: 'file-signal';
+  /** Communication type for team signaling (v0.4.0: file-signal, v0.5.0: teams-channel) */
+  communicationType: 'file-signal' | 'teams-channel';
+  /** Teams channel configuration (required when communicationType is 'teams-channel') */
+  teamsConfig?: {
+    teamId: string;
+    channelId: string;
+  };
   /** Playbook skill name (default: "domain-playbook") */
   playbookSkill?: string;
   /** Deliverable filename for archetype (optional) */
@@ -27,7 +32,7 @@ export interface FederateConfig {
   importHook?: string;
 }
 
-const DEFAULT_CONFIG: FederateConfig = {
+const DEFAULT_CONFIG: Partial<FederateConfig> & { telemetry: { enabled: boolean }; communicationType: 'file-signal' } = {
   telemetry: { enabled: true },
   communicationType: 'file-signal',
   playbookSkill: 'domain-playbook',
@@ -88,6 +93,7 @@ export function validateConfig(raw: unknown): FederateConfig {
     'description',
     'telemetry',
     'communicationType',
+    'teamsConfig',
     'playbookSkill',
     'deliverable',
     'deliverableSchema',
@@ -137,10 +143,32 @@ export function validateConfig(raw: unknown): FederateConfig {
   // Validate communicationType
   if ('communicationType' in config) {
     const commType = validateString(config.communicationType, 'communicationType');
-    if (commType !== 'file-signal') {
-      throw new ConfigValidationError('communicationType must be "file-signal" (v0.4.0 only supports file-signal)');
+    if (commType !== 'file-signal' && commType !== 'teams-channel') {
+      throw new ConfigValidationError('communicationType must be "file-signal" or "teams-channel"');
     }
-    result.communicationType = commType as 'file-signal';
+    result.communicationType = commType as 'file-signal' | 'teams-channel';
+  }
+
+  // Validate teamsConfig (required when communicationType is 'teams-channel')
+  if ('teamsConfig' in config) {
+    const teamsConfig = validateObject(config.teamsConfig, 'teamsConfig');
+    
+    if (!('teamId' in teamsConfig)) {
+      throw new ConfigValidationError('teamsConfig.teamId is required');
+    }
+    if (!('channelId' in teamsConfig)) {
+      throw new ConfigValidationError('teamsConfig.channelId is required');
+    }
+    
+    result.teamsConfig = {
+      teamId: validateString(teamsConfig.teamId, 'teamsConfig.teamId'),
+      channelId: validateString(teamsConfig.channelId, 'teamsConfig.channelId'),
+    };
+  }
+
+  // Validate that teamsConfig is provided when communicationType is 'teams-channel'
+  if (result.communicationType === 'teams-channel' && !result.teamsConfig) {
+    throw new ConfigValidationError('teamsConfig is required when communicationType is "teams-channel"');
   }
 
   // Validate optional playbookSkill

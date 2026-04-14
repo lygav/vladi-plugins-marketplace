@@ -169,7 +169,7 @@ export const TeamPlacementTypeSchema = z.enum(['worktree', 'directory']);
  * TeamCommunicationType Schema — Validates communication type for team signaling.
  * @since v0.4.0
  */
-export const TeamCommunicationTypeSchema = z.enum(['file-signals']);
+export const TeamCommunicationTypeSchema = z.enum(['file-signal', 'teams-channel']);
 
 /**
  * TeamEntry Schema — Validates team registry entries
@@ -205,12 +205,22 @@ export const FederateConfigSchema = z.object({
       aspire: z.boolean().optional(),
     })
     .default({ enabled: true }),
-  communicationType: z.enum(['file-signal']).default('file-signal'),
+  communicationType: z.enum(['file-signal', 'teams-channel']).default('file-signal'),
+  teamsConfig: z.object({
+    teamId: z.string().describe('Teams workspace ID (GUID)'),
+    channelId: z.string().describe('Teams channel ID')
+  }).optional(),
   playbookSkill: z.string().optional().default('domain-playbook'),
   deliverable: z.string().optional(),
   deliverableSchema: z.string().optional(),
   importHook: z.string().optional(),
-});
+}).refine(
+  (config) => config.communicationType !== 'teams-channel' || config.teamsConfig !== undefined,
+  {
+    message: 'teamsConfig is required when communicationType is teams-channel',
+    path: ['teamsConfig'],
+  }
+);
 
 /**
  * MonitorResult Schema — Validates monitoring script output

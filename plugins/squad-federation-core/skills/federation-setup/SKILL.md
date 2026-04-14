@@ -144,14 +144,53 @@ No endpoint, port, or service name in config. The runtime uses sensible defaults
 
 **Context:** All teams in a federation use the same communication protocol. Communication transport is federation-scoped, not team-scoped.
 
-**For v0.4.0:** This is automatically set to `file-signal` — the only supported option. v0.5.0 will add `teams-channel` as an alternative.
+**Ask:** "How should your teams communicate?"
+- **File signals** (default) — Fast, local, no setup needed. Teams write/read signal files in a shared directory.
+- **Teams channel** — Human-accessible message stream in Microsoft Teams. Requires channel details but lets you observe team discussions in real-time.
 
-**No user interaction needed.** The setup automatically writes `"communicationType": "file-signal"` to the config.
+**Default:** File signals (fastest, simplest, no dependencies).
+
+**If Teams channel selected:**
+
+Ask for the Teams workspace ID and channel ID. Help them find these if needed:
+
+> "To use a Teams channel for team communication, I need two pieces of information:
+> 1. **Teams workspace ID** (GUID) — the ID of your Microsoft Teams workspace
+> 2. **Channel ID** — the ID of the specific channel where teams will communicate
+>
+> You can find these by running:
+> - List your Teams workspaces: `teams-list_workspaces`
+> - List channels in a workspace: `teams-list_channels --workspace-id <GUID>`
+>
+> Or provide the IDs if you already have them."
+
+Once you have both values, validate they're non-empty GUIDs (basic format check). Store them in the config.
+
+**Store as:**
+
+For file-signal:
+```json
+{
+  "communicationType": "file-signal"
+}
+```
+
+For teams-channel:
+```json
+{
+  "communicationType": "teams-channel",
+  "teamsConfig": {
+    "teamId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "channelId": "19:xxxxx@thread.tacv2"
+  }
+}
+```
 
 ### Step 4: Generate config
 
 Assemble `federate.config.json` at the repository root with **only** core fields:
 
+For file-signal:
 ```json
 {
   "description": "...",
@@ -162,10 +201,26 @@ Assemble `federate.config.json` at the repository root with **only** core fields
 }
 ```
 
+For teams-channel:
+```json
+{
+  "description": "...",
+  "telemetry": {
+    "enabled": true
+  },
+  "communicationType": "teams-channel",
+  "teamsConfig": {
+    "teamId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "channelId": "19:xxxxx@thread.tacv2"
+  }
+}
+```
+
 **Rules for this config:**
 - `description` — from Step 1, verbatim
 - `telemetry.enabled` — from Step 2
-- `communicationType` — always `"file-signal"` for v0.4.0 (v0.5.0 will add `teams-channel` option)
+- `communicationType` — from Step 3 (`'file-signal'` or `'teams-channel'`)
+- `teamsConfig` — only if `communicationType` is `'teams-channel'`
 
 **Nothing else goes in this file.** No deliverable, no schema, no universe, no importHook, no steps, no roles, no team definitions. Those are archetype or team-level concerns. MCP servers are configured via `.mcp.json` at the project level and teams inherit automatically.
 
@@ -263,15 +318,22 @@ interface FederateConfig {
     enabled: boolean;
   };
 
-  /** Communication type for team signaling (v0.4.0: file-signal only) */
-  communicationType: 'file-signal';
+  /** Communication type for team signaling */
+  communicationType: 'file-signal' | 'teams-channel';
+
+  /** Teams channel configuration (required when communicationType is 'teams-channel') */
+  teamsConfig?: {
+    teamId: string;
+    channelId: string;
+  };
 }
 ```
 
 No other fields in core config. Archetype-specific settings live in the team's workspace, managed by the archetype plugin. MCP servers are configured via `.mcp.json` at the project level and teams inherit automatically.
 
-### Example
+### Examples
 
+**File signal communication:**
 ```json
 {
   "description": "Inventory all Azure services across the organization",
@@ -279,6 +341,21 @@ No other fields in core config. Archetype-specific settings live in the team's w
     "enabled": true
   },
   "communicationType": "file-signal"
+}
+```
+
+**Teams channel communication:**
+```json
+{
+  "description": "Coordinate security audits across 12 microservices",
+  "telemetry": {
+    "enabled": true
+  },
+  "communicationType": "teams-channel",
+  "teamsConfig": {
+    "teamId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "channelId": "19:xxxxx@thread.tacv2"
+  }
 }
 ```
 
