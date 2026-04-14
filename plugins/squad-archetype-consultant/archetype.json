@@ -1,6 +1,6 @@
 {
   "name": "squad-archetype-consultant",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Domain expert teams that answer questions about codebases and specialized domains",
   "coreCompatibility": ">=0.2.0",
   "meta": {
