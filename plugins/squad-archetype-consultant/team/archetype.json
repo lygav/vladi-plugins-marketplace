@@ -1,9 +1,4 @@
 {
-  "id": "consultant",
-  "name": "Consultant",
-  "description": "Domain expert teams that answer questions about codebases and specialized domains",
-  "version": "0.3.2",
-  "coreCompatibility": ">=0.2.0",
   "states": {
     "lifecycle": [
       "onboarding",

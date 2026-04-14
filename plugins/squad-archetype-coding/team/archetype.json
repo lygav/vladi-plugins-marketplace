@@ -1,9 +1,4 @@
 {
-  "id": "coding",
-  "name": "Coding",
-  "description": "Teams that write code and open pull requests",
-  "version": "0.3.2",
-  "coreCompatibility": ">=0.2.0",
   "states": {
     "lifecycle": [
       "preparing",

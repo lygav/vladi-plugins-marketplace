@@ -282,11 +282,6 @@ function generateFiles(ctx: TemplateContext): FileEntry[] {
     path: 'team/archetype.json',
     content: JSON.stringify(
       {
-        id: ctx.name,
-        name: ctx.Name,
-        description: ctx.description,
-        version: ctx.version,
-        coreCompatibility: '>=0.2.0',
         states: {
           lifecycle: ctx.states,
           terminal: ctx.terminalStates,
