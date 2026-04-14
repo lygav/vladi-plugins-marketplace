@@ -12,6 +12,7 @@ import * as fsSync from 'fs';
 import * as path from 'path';
 import { z } from 'zod';
 import { execSync } from 'child_process';
+import { OTelEmitter } from '../../sdk/otel-emitter.js';
 
 // ==================== Types & Schema ====================
 
@@ -99,16 +100,19 @@ export class TeamRegistry {
   private registryPath: string;
   private lockPath: string;
   private lockTimeout = 5000; // 5 seconds
+  private emitter: OTelEmitter;
 
   /**
    * Create a new TeamRegistry instance.
    * 
    * @param repoRoot - Absolute path to repository root
+   * @param emitter - Optional OTel emitter for instrumentation
    */
-  constructor(repoRoot: string) {
+  constructor(repoRoot: string, emitter?: OTelEmitter) {
     const squadDir = path.join(repoRoot, '.squad');
     this.registryPath = path.join(squadDir, 'teams.json');
     this.lockPath = `${this.registryPath}.lock`;
+    this.emitter = emitter || new OTelEmitter();
   }
 
   // ==================== Public API ====================
@@ -121,35 +125,51 @@ export class TeamRegistry {
    * @throws {z.ZodError} If entry fails validation
    */
   async register(entry: TeamEntry): Promise<void> {
-    // Validate entry
-    TeamEntrySchema.parse(entry);
+    await this.emitter.span(
+      'registry.register',
+      async () => {
+        // Validate entry
+        TeamEntrySchema.parse(entry);
 
-    await this.withLock(async () => {
-      const registry = await this.load();
-      
-      // Check for duplicate
-      if (registry.teams.some(t => t.domainId === entry.domainId)) {
-        const existingTeam = registry.teams.find(t => t.domainId === entry.domainId);
-        throw new Error(
-          `Team with domainId "${entry.domainId}" already registered.\n` +
-          `Existing team: ${existingTeam?.name || 'unknown'}\n` +
-          `Recovery:\n` +
-          `  1. Check existing teams:\n` +
-          `     cat .squad/teams.json\n` +
-          `  2. If duplicate is a mistake, remove it manually:\n` +
-          `     vim .squad/teams.json  # Remove duplicate entry\n` +
-          `  3. Or use a different domain ID:\n` +
-          `     npx tsx scripts/onboard.ts --name <name> --domain-id <unique-id> --archetype <arch>\n` +
-          `  4. List all teams to see conflicts:\n` +
-          `     npx tsx scripts/monitor.ts\n` +
-          `  5. If teams.json is corrupted, restore from git:\n` +
-          `     git checkout HEAD -- .squad/teams.json`
-        );
+        await this.withLock(async () => {
+          const registry = await this.load();
+          
+          // Check for duplicate
+          if (registry.teams.some(t => t.domainId === entry.domainId)) {
+            const existingTeam = registry.teams.find(t => t.domainId === entry.domainId);
+            throw new Error(
+              `Team with domainId "${entry.domainId}" already registered.\n` +
+              `Existing team: ${existingTeam?.name || 'unknown'}\n` +
+              `Recovery:\n` +
+              `  1. Check existing teams:\n` +
+              `     cat .squad/teams.json\n` +
+              `  2. If duplicate is a mistake, remove it manually:\n` +
+              `     vim .squad/teams.json  # Remove duplicate entry\n` +
+              `  3. Or use a different domain ID:\n` +
+              `     npx tsx scripts/onboard.ts --name <name> --domain-id <unique-id> --archetype <arch>\n` +
+              `  4. List all teams to see conflicts:\n` +
+              `     npx tsx scripts/monitor.ts\n` +
+              `  5. If teams.json is corrupted, restore from git:\n` +
+              `     git checkout HEAD -- .squad/teams.json`
+            );
+          }
+
+          registry.teams.push(entry);
+          await this.save(registry);
+
+          // Emit event for team registered
+          await this.emitter.event('team.registered', {
+            'squad.domain': entry.domain,
+            'domain.id': entry.domainId,
+            'transport.type': entry.transport
+          });
+        });
+      },
+      {
+        'squad.domain': entry.domain,
+        'transport.type': entry.transport
       }
-
-      registry.teams.push(entry);
-      await this.save(registry);
-    });
+    );
   }
 
   /**
@@ -159,18 +179,39 @@ export class TeamRegistry {
    * @returns True if team was found and removed, false otherwise
    */
   async unregister(domainId: string): Promise<boolean> {
-    return await this.withLock(async () => {
-      const registry = await this.load();
-      const initialLength = registry.teams.length;
-      
-      registry.teams = registry.teams.filter(t => t.domainId !== domainId);
-      
-      if (registry.teams.length < initialLength) {
-        await this.save(registry);
-        return true;
+    return await this.emitter.span(
+      'registry.unregister',
+      async () => {
+        return await this.withLock(async () => {
+          const registry = await this.load();
+          const initialLength = registry.teams.length;
+          
+          // Find the team before removing for telemetry
+          const team = registry.teams.find(t => t.domainId === domainId);
+          
+          registry.teams = registry.teams.filter(t => t.domainId !== domainId);
+          
+          if (registry.teams.length < initialLength) {
+            await this.save(registry);
+
+            // Emit event for team unregistered
+            if (team) {
+              await this.emitter.event('team.unregistered', {
+                'squad.domain': team.domain,
+                'domain.id': domainId,
+                'transport.type': team.transport
+              });
+            }
+
+            return true;
+          }
+          return false;
+        });
+      },
+      {
+        'domain.id': domainId
       }
-      return false;
-    });
+    );
   }
 
   /**
@@ -214,20 +255,36 @@ export class TeamRegistry {
    * @throws {z.ZodError} If updated entry fails validation
    */
   async update(domainId: string, updates: Partial<TeamEntry>): Promise<boolean> {
-    return await this.withLock(async () => {
-      const registry = await this.load();
-      const index = registry.teams.findIndex(t => t.domainId === domainId);
-      
-      if (index === -1) return false;
+    return await this.emitter.span(
+      'registry.update',
+      async () => {
+        return await this.withLock(async () => {
+          const registry = await this.load();
+          const index = registry.teams.findIndex(t => t.domainId === domainId);
+          
+          if (index === -1) return false;
 
-      // Merge updates and validate result
-      const updated = { ...registry.teams[index], ...updates };
-      TeamEntrySchema.parse(updated);
+          // Merge updates and validate result
+          const updated = { ...registry.teams[index], ...updates };
+          TeamEntrySchema.parse(updated);
 
-      registry.teams[index] = updated;
-      await this.save(registry);
-      return true;
-    });
+          registry.teams[index] = updated;
+          await this.save(registry);
+
+          // Emit event for team updated
+          await this.emitter.event('team.updated', {
+            'squad.domain': updated.domain,
+            'domain.id': domainId,
+            'transport.type': updated.transport
+          });
+
+          return true;
+        });
+      },
+      {
+        'domain.id': domainId
+      }
+    );
   }
 
   /**

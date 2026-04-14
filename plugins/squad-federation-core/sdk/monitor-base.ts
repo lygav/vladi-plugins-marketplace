@@ -22,6 +22,7 @@ import type {
   DashboardEntry,
   TeamEntry
 } from './types.js';
+import { OTelEmitter } from './otel-emitter.js';
 
 /**
  * MonitorBase — Abstract base class for monitoring scripts.
@@ -46,11 +47,19 @@ import type {
  * ```
  */
 export abstract class MonitorBase<TArchetypeData = unknown> {
+  protected readonly emitter: OTelEmitter;
+
   /**
    * Create a monitor for a specific archetype.
    * @param transportMap - Map of domainId to TeamTransport instances
+   * @param emitter - Optional OTel emitter for instrumentation
    */
-  constructor(protected readonly transportMap: Map<string, TeamTransport>) {}
+  constructor(
+    protected readonly transportMap: Map<string, TeamTransport>,
+    emitter?: OTelEmitter
+  ) {
+    this.emitter = emitter || new OTelEmitter();
+  }
 
   /**
    * Collect status from all teams of this archetype type.
@@ -65,51 +74,82 @@ export abstract class MonitorBase<TArchetypeData = unknown> {
    * @returns Array of dashboard entries with archetype-specific data
    */
   async collectAll(teams: TeamEntry[]): Promise<DashboardEntry[]> {
-    const entries: DashboardEntry[] = [];
+    return await this.emitter.span(
+      'monitor.collectAll',
+      async () => {
+        const entries: DashboardEntry[] = [];
+        let stallCount = 0;
 
-    for (const team of teams) {
-      try {
-        const transport = this.transportMap.get(team.domainId);
-        if (!transport) {
-          console.warn(`No transport found for team: ${team.domainId}`);
-          continue;
+        for (const team of teams) {
+          // Instrument per-team collection
+          await this.emitter.span(
+            'monitor.collectTeam',
+            async () => {
+              try {
+                const transport = this.transportMap.get(team.domainId);
+                if (!transport) {
+                  console.warn(`No transport found for team: ${team.domainId}`);
+                  return;
+                }
+
+                const status = await transport.readStatus(team.domainId);
+                if (!status) {
+                  console.warn(`No status found for team: ${team.domainId}`);
+                  return;
+                }
+
+                // Collect archetype-specific data
+                const archetypeData = await this.collectArchetypeData(transport, status);
+
+                // Detect health status
+                const health = this.detectHealth(status);
+                if (health === 'stalled') {
+                  stallCount++;
+                }
+
+                // Calculate progress
+                const progress = status.progress_pct !== undefined
+                  ? status.progress_pct
+                  : status.step;
+
+                entries.push({
+                  domain: team.domain,
+                  domainId: team.domainId,
+                  archetypeId: team.archetypeId,
+                  state: status.state,
+                  health,
+                  progress,
+                  lastUpdate: status.updated_at,
+                  error: status.error,
+                  metadata: archetypeData as Record<string, unknown>
+                });
+              } catch (error) {
+                console.error(`Error collecting status for ${team.domain}:`, error);
+                // Continue processing other teams — one team failing doesn't crash the dashboard
+              }
+            },
+            {
+              'squad.domain': team.domain,
+              'archetype.id': team.archetypeId
+            }
+          );
         }
 
-        const status = await transport.readStatus(team.domainId);
-        if (!status) {
-          console.warn(`No status found for team: ${team.domainId}`);
-          continue;
-        }
-
-        // Collect archetype-specific data
-        const archetypeData = await this.collectArchetypeData(transport, status);
-
-        // Detect health status
-        const health = this.detectHealth(status);
-
-        // Calculate progress
-        const progress = status.progress_pct !== undefined
-          ? status.progress_pct
-          : status.step;
-
-        entries.push({
-          domain: team.domain,
-          domainId: team.domainId,
-          archetypeId: team.archetypeId,
-          state: status.state,
-          health,
-          progress,
-          lastUpdate: status.updated_at,
-          error: status.error,
-          metadata: archetypeData as Record<string, unknown>
+        // Emit metrics for collection
+        await this.emitter.metric('teams.scanned', teams.length, {
+          'archetype.name': this.archetypeName
         });
-      } catch (error) {
-        console.error(`Error collecting status for ${team.domain}:`, error);
-        // Continue processing other teams — one team failing doesn't crash the dashboard
-      }
-    }
+        await this.emitter.metric('teams.stalled', stallCount, {
+          'archetype.name': this.archetypeName
+        });
 
-    return entries;
+        return entries;
+      },
+      {
+        'archetype.name': this.archetypeName,
+        'teams.count': teams.length
+      }
+    );
   }
 
   /**
