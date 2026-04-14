@@ -12,20 +12,20 @@
  *   npx tsx scripts/monitor.ts --send my-product --directive "Skip repo legacy-utils"
  */
 
-import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import { randomUUID } from 'crypto';
 import {
-  discoverDomains,
-  readStatus,
-  readMessages,
-  sendMessage,
+  createTeamContext
+} from './lib/index.js';
+import { loadAndValidateConfig } from './lib/config.js';
+import { TeamRegistry } from './lib/team-registry.js';
+import type {
   ScanStatus,
   SignalMessage,
-  DomainWorktree,
-} from './lib/signals.js';
-import { loadAndValidateConfig } from './lib/config.js';
+  TeamCommunication
+} from '../sdk/types.js';
 
 // ==================== Configuration ====================
 
@@ -34,12 +34,14 @@ const __dirname = path.dirname(__filename);
 // REPO_ROOT must be the user's project, not the plugin install directory.
 const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
 const DEFAULT_INTERVAL = 30; // seconds
+const FEDERATION_CONFIG = loadAndValidateConfig(path.join(REPO_ROOT, 'federate.config.json'));
 
 // ==================== Types ====================
 
 interface DomainStatus {
   domain: string;
-  worktreePath: string;
+  domainId: string;
+  location: string;
   status: ScanStatus | null;
   deliverableExists: boolean;
   logExists: boolean;
@@ -67,65 +69,72 @@ function getMinutesSince(isoTimestamp: string): number {
   return Math.floor((now.getTime() - then.getTime()) / (1000 * 60));
 }
 
-function readRecentLearnings(worktreePath: string, limit: number = 3): string[] {
-  const logPath = path.join(worktreePath, '.squad', 'learnings', 'log.jsonl');
-
-  if (!fs.existsSync(logPath)) {
-    return [];
-  }
-
+async function readRecentLearnings(
+  communication: TeamCommunication,
+  teamId: string,
+  limit: number = 3
+): Promise<string[]> {
   try {
-    const content = fs.readFileSync(logPath, 'utf-8');
-    const lines = content.trim().split('\n').filter(l => l.trim());
-    const entries = lines
-      .map(line => {
-        try {
-          return JSON.parse(line);
-        } catch {
-          return null;
-        }
-      })
-      .filter(e => e !== null)
-      .slice(-limit);
+    const entries = await communication.readLearningLog(teamId);
+    if (entries.length === 0) {
+      return [];
+    }
 
-    return entries.map((e: any) =>
-      `[${e.agent || 'unknown'}] ${e.title?.substring(0, 60) || e.body?.substring(0, 60) || 'No content'}${(e.title || e.body || '').length > 60 ? '...' : ''}`
-    );
+    const recent = entries.slice(-limit);
+    return recent.map(entry => {
+      const snippet = entry.content?.substring(0, 60) || 'No content';
+      const suffix = entry.content && entry.content.length > 60 ? '...' : '';
+      return `[${entry.type}] ${snippet}${suffix}`;
+    });
   } catch {
     return [];
   }
 }
 
 function getDeliverableFilename(): string {
-  // Use validated config
-  const config = loadAndValidateConfig(path.join(REPO_ROOT, 'federate.config.json'));
-  return config.deliverable || process.env.FEDERATE_DELIVERABLE || 'deliverable.json';
+  return FEDERATION_CONFIG.deliverable || process.env.FEDERATE_DELIVERABLE || 'deliverable.json';
 }
 
-function gatherStatus(): DomainStatus[] {
-  const worktrees = discoverDomains(REPO_ROOT);
+async function gatherStatus(): Promise<DomainStatus[]> {
+  const registry = new TeamRegistry(REPO_ROOT);
+  const teams = (await registry.list()).filter(team => team.federation?.role !== 'meta');
   const deliverableFile = getDeliverableFilename();
 
-  return worktrees.map(wt => {
-    const status = readStatus(wt.path);
-    const deliverablePath = path.join(wt.path, deliverableFile);
-    const logPath = path.join(wt.path, 'run-output.log');
+  if (teams.length === 0) {
+    return [];
+  }
 
-    let lastUpdateMinutes: number | undefined;
-    if (status && status.updated_at) {
-      lastUpdateMinutes = getMinutesSince(status.updated_at);
+  const statuses = await Promise.all(teams.map(async team => {
+    try {
+      const context = createTeamContext(team, FEDERATION_CONFIG, REPO_ROOT);
+      const status = await context.communication.readStatus(team.domainId);
+
+      let lastUpdateMinutes: number | undefined;
+      if (status?.updated_at) {
+        lastUpdateMinutes = getMinutesSince(status.updated_at);
+      }
+
+      const deliverableExists = await context.placement.exists(team.domainId, deliverableFile);
+      const logExists = await context.placement.exists(team.domainId, 'run-output.log');
+      const recentLearnings = await readRecentLearnings(context.communication, team.domainId, 3);
+
+      return {
+        domain: team.domain,
+        domainId: team.domainId,
+        location: team.location,
+        status,
+        deliverableExists,
+        logExists,
+        recentLearnings,
+        lastUpdateMinutes,
+      };
+    } catch (error) {
+      console.error(`Error collecting status for ${team.domain}:`, error);
+      return null;
     }
+  }));
 
-    return {
-      domain: wt.domain,
-      worktreePath: wt.path,
-      status,
-      deliverableExists: fs.existsSync(deliverablePath),
-      logExists: fs.existsSync(logPath),
-      recentLearnings: readRecentLearnings(wt.path, 3),
-      lastUpdateMinutes,
-    };
-  });
+  return statuses.filter((status): status is DomainStatus => status !== null);
 }
 
 function displayDashboard(statuses: DomainStatus[]): void {
@@ -219,28 +228,30 @@ function displayDashboard(statuses: DomainStatus[]): void {
   console.log('');
 }
 
-function watchMode(intervalSeconds: number): void {
+async function watchMode(intervalSeconds: number): Promise<void> {
   console.log(`👀 Watch mode: updating every ${intervalSeconds}s (Ctrl+C to exit)\n`);
 
-  const statuses = gatherStatus();
+  const statuses = await gatherStatus();
   displayDashboard(statuses);
 
   setInterval(() => {
-    const statuses = gatherStatus();
-    displayDashboard(statuses);
+    void gatherStatus()
+      .then(displayDashboard)
+      .catch(error => console.error('Error updating dashboard:', error));
   }, intervalSeconds * 1000);
 }
 
-function sendDirective(domain: string, directiveText: string): void {
+async function sendDirective(domain: string, directiveText: string): Promise<void> {
   console.log(`📤 Sending directive to ${domain}...\n`);
 
-  const worktrees = discoverDomains(REPO_ROOT);
-  const target = worktrees.find(wt => wt.domain === domain);
+  const registry = new TeamRegistry(REPO_ROOT);
+  const teams = await registry.list();
+  const target = teams.find(team => team.domain === domain);
 
   if (!target) {
     console.error(`❌ Domain not found: ${domain}`);
     console.log('\nAvailable domains:');
-    worktrees.forEach(wt => console.log(`  - ${wt.domain}`));
+    teams.forEach(team => console.log(`  - ${team.domain}`));
     console.error('\nRecovery:');
     console.error('  1. List all teams to see available domains:');
     console.error('     npx tsx scripts/monitor.ts');
@@ -254,21 +265,28 @@ function sendDirective(domain: string, directiveText: string): void {
     process.exit(1);
   }
 
-  const signalId = sendMessage(target.path, {
+  const context = createTeamContext(target, FEDERATION_CONFIG, REPO_ROOT);
+  const signal: SignalMessage = {
+    id: randomUUID(),
+    timestamp: new Date().toISOString(),
     from: 'meta-squad',
+    to: target.domain,
     type: 'directive',
     subject: 'Directive from meta-squad',
     body: directiveText,
-  });
+    protocol: 'v1',
+  };
 
-  console.log(`✅ Directive sent (ID: ${signalId})`);
-  console.log(`   Location: ${target.path}/.squad/signals/inbox/`);
+  await context.communication.writeInboxSignal(target.domainId, signal);
+
+  console.log(`✅ Directive sent (ID: ${signal.id})`);
+  console.log(`   Location: ${target.location}/.squad/signals/inbox/`);
   console.log(`   Message: "${directiveText}"\n`);
 }
 
 // ==================== CLI Entry Point ====================
 
-function main() {
+async function main() {
   const args = process.argv.slice(2);
 
   const watchIndex = args.indexOf('--watch');
@@ -279,17 +297,20 @@ function main() {
   if (sendIndex >= 0 && args[sendIndex + 1] && directiveIndex >= 0 && args[directiveIndex + 1]) {
     const domain = args[sendIndex + 1];
     const directive = args[directiveIndex + 1];
-    sendDirective(domain, directive);
+    await sendDirective(domain, directive);
   } else if (watchIndex >= 0) {
     let interval = DEFAULT_INTERVAL;
     if (intervalIndex >= 0 && args[intervalIndex + 1]) {
       interval = parseInt(args[intervalIndex + 1], 10) || DEFAULT_INTERVAL;
     }
-    watchMode(interval);
+    await watchMode(interval);
   } else {
-    const statuses = gatherStatus();
+    const statuses = await gatherStatus();
     displayDashboard(statuses);
   }
 }
 
-main();
+main().catch(error => {
+  console.error('Monitor failed:', error);
+  process.exit(1);
+});

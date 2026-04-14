@@ -7,9 +7,12 @@
  */
 
 import { MonitorBase } from '@squad/federation-core/sdk';
-import type { TeamTransport, ScanStatus, DashboardEntry } from '@squad/federation-core/sdk/types.js';
-import fs from 'fs/promises';
-import path from 'path';
+import type {
+  TeamPlacement,
+  TeamCommunication,
+  ScanStatus,
+  DashboardEntry
+} from '@squad/federation-core/sdk/types.js';
 
 interface ConsultantData {
   questionsAnswered: number;
@@ -33,7 +36,8 @@ export class ConsultantMonitor extends MonitorBase<ConsultantData> {
    * @returns Archetype-specific data to enrich dashboard entry
    */
   async collectArchetypeData(
-    transport: TeamTransport,
+    placement: TeamPlacement,
+    communication: TeamCommunication,
     status: ScanStatus
   ): Promise<ConsultantData> {
     const data: ConsultantData = {
@@ -43,47 +47,40 @@ export class ConsultantMonitor extends MonitorBase<ConsultantData> {
 
     try {
       // Read archetype config for domain coverage setting
-      const configPath = path.join(transport.rootPath, '.squad/archetype-config.json');
-      const configContent = await fs.readFile(configPath, 'utf-8');
-      const config = JSON.parse(configContent);
-      data.domainCoverage = config.settings?.indexingDepth || 'unknown';
+      const configContent = await placement.readFile(status.domain_id, '.squad/archetype-config.json');
+      if (configContent) {
+        const config = JSON.parse(configContent);
+        data.domainCoverage = config.settings?.indexingDepth || 'unknown';
+      }
     } catch (e) {
       // Config not found or invalid — skip
     }
 
     try {
       // Count learnings
-      const logPath = path.join(transport.rootPath, '.squad/learnings/log.jsonl');
-      const logContent = await fs.readFile(logPath, 'utf-8');
-      const lines = logContent.trim().split('\n').filter(l => l.trim());
-      data.learningsCount = lines.length;
+      const learningEntries = await communication.readLearningLog(status.domain_id);
+      data.learningsCount = learningEntries.length;
     } catch (e) {
       // Learning log not found — team may not have started indexing
     }
 
     try {
       // Count Q&A from outbox signals (type="report" from consultant)
-      const outboxPath = path.join(transport.rootPath, '.squad/signals/outbox');
-      const files = await fs.readdir(outboxPath);
-      const reports = files.filter(f => f.includes('-report-'));
+      const reports = await communication.listSignals(status.domain_id, 'outbox', { type: 'report' });
       data.questionsAnswered = reports.length;
 
       // Find most recent question timestamp
       if (reports.length > 0) {
         const timestamps = reports
-          .map(f => {
-            const match = f.match(/^(\d+)-/);
-            return match ? parseInt(match[1], 10) : 0;
-          })
-          .filter(t => t > 0);
+          .map(report => new Date(report.timestamp).getTime())
+          .filter(ts => !Number.isNaN(ts));
         
         if (timestamps.length > 0) {
-          const lastTs = Math.max(...timestamps);
-          data.lastQuestionAt = new Date(lastTs * 1000).toISOString();
+          const lastMs = Math.max(...timestamps);
+          data.lastQuestionAt = new Date(lastMs).toISOString();
           
           // Calculate idle time
           const nowMs = Date.now();
-          const lastMs = lastTs * 1000;
           data.idleSinceMinutes = Math.floor((nowMs - lastMs) / (1000 * 60));
         }
       }
