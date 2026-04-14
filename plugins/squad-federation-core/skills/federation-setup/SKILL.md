@@ -47,7 +47,7 @@ If neither exists:
 git --version
 ```
 
-Worktree support requires git 2.20+. If missing or too old, stop with install/upgrade instructions.
+Must be 2.20+ for modern git features. If missing or too old, stop with install/upgrade instructions.
 
 ### Required: Node.js 20+
 
@@ -72,7 +72,7 @@ git rev-parse --is-inside-work-tree
 git status --porcelain
 ```
 
-Must be inside a git repo. Warn (don't block) on uncommitted changes — onboarding creates branches and worktrees, so a clean state is recommended.
+Must be inside a git repo. Warn (don't block) on uncommitted changes — a clean state is recommended.
 
 ### Report Summary
 
@@ -114,7 +114,7 @@ Accept whatever the user gives. Don't try to normalize it.
 
 **Ask:** "What data sources or tools do your teams need access to?"
 
-**Explain:** MCP servers provide tools to headless agent sessions running in each team's worktree. Common examples:
+**Explain:** MCP servers provide tools to headless agent sessions running in each team's workspace. Common examples:
 
 - `filesystem` — read/write files in the worktree
 - `fetch` — make HTTP requests to external APIs
@@ -157,36 +157,13 @@ Confirm it's running: "✅ Monitoring dashboard live at http://localhost:18888. 
 
 No endpoint, port, or service name in config. The runtime uses sensible defaults. The OTel MCP server auto-starts with each team session via the plugin's `.mcp.json`.
 
-### Step 4: Branch prefix
-
-**Ask:** "Team worktrees use git branches. The default prefix is `squad/` (e.g., `squad/frontend-team`, `squad/payments`). Want to change it?"
-
-**Default:** `squad/`
-
-Most users keep the default. Only change if there's a naming conflict or organizational convention.
-
-### Step 5: Worktree location
-
-**Ask:** "Where should team worktrees live?"
-
-**Choices:**
-- **Parallel** *(default)* — next to your project: `../your-project-team-name/`
-- **Inside** — inside your project: `.worktrees/team-name/`
-- **Custom path** — you specify a directory
-
-**Default:** `parallel`
-
-**Parallel** keeps worktrees visible as sibling folders — easy to find and open separately. **Inside** keeps everything contained in the project but adds clutter. Suggest parallel unless the user has a reason to contain them.
-
-### Step 6: Generate config
+### Step 4: Generate config
 
 Assemble `federate.config.json` at the repository root with **only** core fields:
 
 ```json
 {
   "description": "...",
-  "branchPrefix": "squad/",
-  "worktreeDir": "parallel",
   "mcpStack": [],
   "telemetry": {
     "enabled": true
@@ -196,10 +173,8 @@ Assemble `federate.config.json` at the repository root with **only** core fields
 
 **Rules for this config:**
 - `description` — from Step 1, verbatim
-- `branchPrefix` — from Step 5.5, default `"squad/"`
-- `worktreeDir` — from Step 5.6, default `"parallel"`
-- `mcpStack` — from Step 4, or empty array
-- `telemetry.enabled` — from Step 5
+- `mcpStack` — from Step 2, or empty array
+- `telemetry.enabled` — from Step 3
 
 **Nothing else goes in this file.** No deliverable, no schema, no universe, no importHook, no steps, no roles, no team definitions. Those are archetype or team-level concerns.
 
@@ -213,7 +188,6 @@ If the user wants to change something, make the edit and show the updated config
 cat > federate.config.json << 'EOF'
 {
   "description": "...",
-  "branchPrefix": "squad/",
   "mcpStack": [],
   "telemetry": {
     "enabled": true
@@ -222,7 +196,7 @@ cat > federate.config.json << 'EOF'
 EOF
 ```
 
-### Step 7: Cast the meta-squad
+### Step 5: Cast the meta-squad
 
 Check if the meta-squad actually has members:
 
@@ -241,9 +215,9 @@ Use the user's description from Step 1 to inform the casting proposal. The meta-
 
 **If team.md doesn't exist:** Run `squad init` first, then cast.
 
-Don't prescribe specific roles. Let Squad's casting handle composition. But ensure casting COMPLETES — verify at least one member appears in the Members table before moving to Step 8.
+Don't prescribe specific roles. Let Squad's casting handle composition. But ensure casting COMPLETES — verify at least one member appears in the Members table before moving to Step 6.
 
-### Step 8: Onboard first team
+### Step 6: Onboard first team
 
 **Ask:** "Ready to spin up your first team? What should it work on?"
 
@@ -270,11 +244,11 @@ After the config is written and confirmed, provide these reference notes:
 
 ### Adding teams
 
-> Say **"spin up a team for X"** anytime to onboard a new team. Each team gets its own branch, worktree, and agent crew — cast automatically by Squad based on what the team needs to do.
+> Say **"spin up a team for X"** anytime to onboard a new team. Each team gets its own workspace and agent crew — transport (worktree, directory, or Teams channel) is chosen during onboarding, and the crew is cast automatically by Squad based on what the team needs to do.
 
 ### Changing configuration
 
-> Edit `federate.config.json` directly. The schema is minimal — `description`, `branchPrefix`, `mcpStack`, and `telemetry`. Changes take effect on the next team onboard or launch.
+> Edit `federate.config.json` directly. The schema is minimal — `description`, `mcpStack`, and `telemetry`. Changes take effect on the next team onboard or launch.
 
 ### Adding archetypes
 
@@ -298,9 +272,6 @@ interface FederateConfig {
   /** What this federation is trying to accomplish */
   description: string;
 
-  /** Branch prefix for team worktrees (default: "squad/") */
-  branchPrefix: string;
-
   /** MCP servers available to team sessions */
   mcpStack: string[];
 
@@ -311,14 +282,13 @@ interface FederateConfig {
 }
 ```
 
-No other fields in core config. Archetype-specific settings live in the team's worktree, managed by the archetype plugin.
+No other fields in core config. Archetype-specific settings live in the team's workspace, managed by the archetype plugin.
 
 ### Example
 
 ```json
 {
   "description": "Inventory all Azure services across the organization",
-  "branchPrefix": "squad/",
   "mcpStack": ["filesystem", "fetch"],
   "telemetry": {
     "enabled": true
@@ -344,8 +314,8 @@ No other fields in core config. Archetype-specific settings live in the team's w
 - **User gives ambiguous archetype choice:** Ask a clarifying follow-up. Don't guess.
 
 ### During Onboarding
-- **Onboard agent not available:** Provide manual instructions (branch, worktree, agent setup).
-- **Branch prefix conflicts:** If `squad/*` branches already exist, list them and ask if the user wants to incorporate or ignore them.
+- **Onboard agent not available:** Provide manual instructions (workspace setup, agent configuration).
+- **Transport conflicts:** Defer to onboarding agent to handle transport-specific issues.
 
 ---
 
@@ -355,6 +325,7 @@ To keep the boundary clean, this skill explicitly avoids:
 
 - **Asking for team rosters or roles** — Squad's casting handles composition
 - **Selecting archetypes** — archetype is a team property, chosen during onboarding
+- **Selecting transport mechanisms** — transport (worktree, directory, Teams channel) is chosen per-team during onboarding
 - **Collecting deliverable filenames or schemas** — that's archetype config, handled by the archetype's setup skill during onboarding
 - **Defining pipeline steps** — archetype concern
 - **Setting up import hooks** — archetype concern
