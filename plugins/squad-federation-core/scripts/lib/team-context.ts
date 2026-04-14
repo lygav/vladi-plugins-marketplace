@@ -32,8 +32,7 @@ export interface PlacementConfig {
  * CommunicationFactory — Function that creates a TeamCommunication instance.
  */
 type CommunicationFactory = (
-  placement: TeamPlacement, 
-  config?: Record<string, unknown>,
+  config: Record<string, unknown>,
   emitter?: OTelEmitter
 ) => TeamCommunication;
 
@@ -45,14 +44,18 @@ const communicationAdapters = new Map<string, CommunicationFactory>();
 /**
  * Register the file-signal adapter (v0.4.0 default and only option).
  */
-communicationAdapters.set('file-signal', (placement, _config, emitter) => 
-  new FileSignalCommunication(placement, emitter)
-);
+communicationAdapters.set('file-signal', (config, emitter) => {
+  const placement = config.placement as TeamPlacement | undefined;
+  if (!placement) {
+    throw new Error('FileSignalCommunication requires placement in config');
+  }
+  return new FileSignalCommunication(placement, emitter);
+});
 
 /**
  * Future adapters:
- * communicationAdapters.set('teams-channel', (placement, config, emitter) => 
- *   new TeamsChannelCommunication(placement, config, emitter)
+ * communicationAdapters.set('teams-channel', (config, emitter) => 
+ *   new TeamsChannelCommunication(config, emitter)
  * );
  */
 
@@ -108,19 +111,17 @@ export function createPlacement(
 }
 
 /**
- * Create a TeamCommunication instance based on type and placement.
+ * Create a TeamCommunication instance based on type and config.
  * 
  * @param type - Communication type (e.g., 'file-signal')
- * @param placement - TeamPlacement instance for file I/O
- * @param config - Optional communication-specific configuration
+ * @param config - Communication-specific configuration
  * @param emitter - Optional OTel emitter for instrumentation
  * @returns TeamCommunication instance
  * @throws Error if communication type is unknown
  */
 export function createCommunication(
   type: string, 
-  placement: TeamPlacement,
-  config?: Record<string, unknown>,
+  config: Record<string, unknown>,
   emitter?: OTelEmitter
 ): TeamCommunication {
   const factory = communicationAdapters.get(type);
@@ -128,7 +129,7 @@ export function createCommunication(
     const available = Array.from(communicationAdapters.keys()).join(', ');
     throw new Error(`Unknown communication type: ${type}. Available: ${available}`);
   }
-  return factory(placement, config, emitter);
+  return factory(config, emitter);
 }
 
 /**
@@ -198,10 +199,14 @@ export function createTeamContext(
   const placement = createPlacement(placementType, placementConfig, emitter);
   
   // Create communication adapter (federation-scoped)
-  const communication = createCommunication(
+  const communicationConfig = buildCommunicationConfig(
     federationConfig.communicationType,
     placement,
-    undefined,
+    federationConfig
+  );
+  const communication = createCommunication(
+    federationConfig.communicationType,
+    communicationConfig,
     emitter
   );
   
@@ -213,4 +218,17 @@ export function createTeamContext(
     placement,
     communication
   };
+}
+
+function buildCommunicationConfig(
+  type: string,
+  placement: TeamPlacement,
+  _federationConfig: FederateConfig
+): Record<string, unknown> {
+  switch (type) {
+    case 'file-signal':
+      return { placement };
+    default:
+      return {};
+  }
 }
