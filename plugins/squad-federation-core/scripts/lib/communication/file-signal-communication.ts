@@ -17,8 +17,8 @@ import type {
   ScanStatus,
   SignalMessage,
   LearningEntry
-} from '../../sdk/types';
-import { OTelEmitter } from '../../sdk/otel-emitter.js';
+} from '../../../sdk/types';
+import { OTelEmitter } from '../../../sdk/otel-emitter.js';
 
 /**
  * Zod schema for ScanStatus validation.

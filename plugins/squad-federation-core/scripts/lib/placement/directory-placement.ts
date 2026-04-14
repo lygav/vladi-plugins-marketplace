@@ -7,8 +7,8 @@
 
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import type { TeamPlacement } from '../../sdk/types';
-import { OTelEmitter } from '../../sdk/otel-emitter.js';
+import type { TeamPlacement } from '../../../sdk/types';
+import { OTelEmitter } from '../../../sdk/otel-emitter.js';
 
 /**
  * DirectoryPlacement implementation.

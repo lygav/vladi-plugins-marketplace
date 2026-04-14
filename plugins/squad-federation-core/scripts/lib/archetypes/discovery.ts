@@ -11,7 +11,7 @@
 import { execSync } from 'child_process';
 import { readFileSync, existsSync } from 'fs';
 import path from 'path';
-import { OTelEmitter } from '../../sdk/otel-emitter.js';
+import { OTelEmitter } from '../../../sdk/otel-emitter.js';
 
 // ==================== Types ====================
 

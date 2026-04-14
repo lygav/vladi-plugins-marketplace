@@ -8,7 +8,7 @@
 import { execSync } from 'child_process';
 import * as path from 'path';
 import { DirectoryPlacement } from './directory-placement';
-import { OTelEmitter } from '../../sdk/otel-emitter.js';
+import { OTelEmitter } from '../../../sdk/otel-emitter.js';
 
 /**
  * WorktreeInfo — Metadata about a git worktree.

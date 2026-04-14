@@ -7,12 +7,12 @@
  * @since v0.4.0
  */
 
-import type { TeamPlacement, TeamCommunication, TeamContext, TeamEntry } from '../../sdk/types.js';
+import type { TeamPlacement, TeamCommunication, TeamContext, TeamEntry } from '../../../sdk/types.js';
 import type { FederateConfig } from '../config/config.js';
 import { WorktreePlacement } from '../placement/worktree-placement.js';
 import { DirectoryPlacement } from '../placement/directory-placement.js';
 import { FileSignalCommunication } from '../communication/file-signal-communication.js';
-import { OTelEmitter } from '../../sdk/otel-emitter.js';
+import { OTelEmitter } from '../../../sdk/otel-emitter.js';
 
 /**
  * PlacementConfig — Configuration for TeamPlacement instantiation.
