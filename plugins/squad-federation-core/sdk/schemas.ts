@@ -160,6 +160,18 @@ export const ArchetypeManifestSchema = z.object({
 });
 
 /**
+ * TeamPlacementType Schema — Validates placement type for team workspaces.
+ * @since v0.4.0
+ */
+export const TeamPlacementTypeSchema = z.enum(['worktree', 'directory']);
+
+/**
+ * TeamCommunicationType Schema — Validates communication type for team signaling.
+ * @since v0.4.0
+ */
+export const TeamCommunicationTypeSchema = z.enum(['file-signals']);
+
+/**
  * TeamEntry Schema — Validates team registry entries
  */
 export const TeamEntrySchema = z.object({
@@ -167,6 +179,7 @@ export const TeamEntrySchema = z.object({
   domainId: z.string(),
   archetypeId: z.string(),
   transport: z.enum(['worktree', 'directory', 'remote']),
+  placementType: TeamPlacementTypeSchema.optional(),
   location: z.string(),
   createdAt: z.string(),
   federation: z
@@ -251,4 +264,3 @@ export const DashboardEntrySchema = z.object({
   error: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
-

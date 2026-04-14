@@ -9,7 +9,7 @@
  * @module sdk/recovery-base
  */
 
-import type { TeamTransport } from './types.js';
+import type { TeamPlacement, TeamCommunication } from './types.js';
 import type { RecoveryAction } from './triage-base.js';
 
 /**
@@ -36,8 +36,10 @@ export interface RecoveryContext {
   teamId: string;
   /** Team domain name */
   domain: string;
-  /** Transport instance for team operations */
-  transport: TeamTransport;
+  /** Placement instance for file operations */
+  placement: TeamPlacement;
+  /** Communication instance for signal operations */
+  communication: TeamCommunication;
   /** Recovery action to execute */
   action: RecoveryAction;
   /** Dry-run mode (validate only, don't execute) */
