@@ -119,22 +119,36 @@ copilot plugin list | grep squad-archetype-deliverable
 
 **Store as:** archetype name (e.g., `squad-archetype-deliverable`)
 
-### Step 4: Select Transport
+### Step 4: Team Placement
+
+**Note:** This step determines WHERE the team's workspace lives. Communication transport (how teams coordinate) is a separate concern — for now, all teams use file-based signals regardless of placement.
 
 **Ask:** "Where should this team's workspace live?"
 
 **Explain the choices:**
 
-- **worktree** *(recommended)* — Git worktree in a parallel directory. Each team gets its own branch and isolated workspace. Best for most teams.
+- **worktree** *(recommended)* — Git worktree with dedicated branch. Best for most teams. Provides version control and parallel work isolation.
 - **directory** — Standalone directory without git branching. Use when the team doesn't need version control or git integration.
 
 **Default:** worktree
 
-**If user chooses directory, ask:** "Where should the directory be created? (provide a path, or I'll use `.teams/NAME`)"
+**If user chooses worktree, ask:** "Where should the worktree be placed?"
+
+**Explain worktree placement options:**
+
+- **Inside repo** *(recommended)* — `.worktrees/NAME` directory within the repository. Standard Squad convention. Best for most cases.
+- **Sibling directory** — Parallel to the repo (e.g., `../NAME/`). Use when you need to keep team workspaces separate from the main repository tree.
+
+**Default:** Inside repo at `.worktrees/NAME`
+
+**If user chooses "sibling directory":** Ask for the base path (e.g., `../` to place sibling to repo, or custom path). The team name will be appended to this path.
+
+**If user chooses directory transport, ask:** "Where should the directory be created? (provide a path, or I'll use `.teams/NAME`)"
 
 **Store as:**
-- transport type: `worktree` or `directory`
-- path (if directory): custom path or default to `.teams/NAME`
+- Placement type: `worktree` or `directory`
+- Worktree directory (if worktree): `.worktrees` (default inside repo) or custom base path for sibling
+- Path (if directory): custom path or default to `.teams/NAME`
 
 ### Step 5: Confirm Summary
 
@@ -145,11 +159,14 @@ Present a summary of all collected parameters:
    Name: payments
    Mission: Audit the payments API for security issues
    Archetype: deliverable
-   Transport: worktree
+   Placement: worktree (inside repo)
+   Location: .worktrees/payments
    Branch: squad/payments
 
 Ready to create this team? [Y/n]
 ```
+
+(Adjust the summary based on the actual placement choice — show "worktree (sibling)" or "directory" as appropriate)
 
 **If user confirms:** Proceed to Step 6.
 
@@ -159,9 +176,14 @@ Ready to create this team? [Y/n]
 
 Now that we have all parameters, call the mechanical script with fully resolved values.
 
-For worktree transport, run the onboard script from the plugin root with appropriate parameters. The script is located at `scripts/onboard.ts` relative to the plugin root.
+The onboard script is located at `scripts/onboard.ts` relative to the plugin root.
 
-For directory transport, add the `--path` parameter.
+**For worktree placement:**
+- If worktree should be placed **inside repo** (default): Do NOT pass `--worktree-dir` flag (script defaults to `.worktrees`)
+- If worktree should be in a **sibling directory**: Pass `--worktree-dir` with the base path (e.g., `--worktree-dir ../` or custom path)
+
+**For directory placement:**
+- Add `--path` parameter with the full directory path
 
 **Monitor the script output for errors.** The script runs autonomously and requires NO user interaction — all parameters are passed via CLI flags.
 
@@ -209,10 +231,12 @@ Tell the user the team is ready and how to launch it (use the actual team name, 
 - **User is unsure which archetype:** Show all options with brief descriptions. Let them pick.
 - **Archetype install fails:** Show the error. Offer to retry, or proceed with manual installation instructions.
 
-### During Transport Selection
+### During Team Placement Selection
 
 - **User chooses directory but doesn't provide path:** Use default `.teams/NAME`.
+- **User chooses sibling worktree but doesn't provide base path:** Use default `../` (sibling to repo).
 - **Path already exists:** Error and ask for a different path or name.
+- **Worktree directory doesn't exist:** Script will create it automatically.
 
 ### During Script Execution
 

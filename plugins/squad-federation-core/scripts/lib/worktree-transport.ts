@@ -54,6 +54,7 @@ export class WorktreeTransport extends DirectoryTransport {
    * @param repoRoot - Repository root directory
    * @param branchName - Branch name for the new worktree
    * @param baseBranch - Base branch to fork from (default: current branch)
+   * @param worktreeDir - Base directory for worktree placement (default: '.worktrees')
    * @param emitter - Optional OTel emitter for instrumentation
    * @returns WorktreeTransport instance for the new worktree
    */
@@ -61,6 +62,7 @@ export class WorktreeTransport extends DirectoryTransport {
     repoRoot: string,
     branchName: string,
     baseBranch?: string,
+    worktreeDir?: string,
     emitter?: OTelEmitter
   ): Promise<WorktreeTransport> {
     const emit = emitter || new OTelEmitter();
@@ -69,8 +71,15 @@ export class WorktreeTransport extends DirectoryTransport {
       'worktree.create',
       async () => {
         try {
-          // Generate worktree path: {repoRoot}/.worktrees/{branchName}
-          const worktreePath = path.join(repoRoot, '.worktrees', branchName);
+          // Determine worktree base directory (default to .worktrees inside repo)
+          const baseDir = worktreeDir || '.worktrees';
+          
+          // Generate worktree path: {repoRoot}/{baseDir}/{branchName}
+          // If baseDir is absolute or starts with ../, it's relative/absolute path
+          // Otherwise, it's relative to repoRoot
+          const worktreePath = path.isAbsolute(baseDir) || baseDir.startsWith('../')
+            ? path.join(baseDir, branchName)
+            : path.join(repoRoot, baseDir, branchName);
 
           // Build git worktree add command
           const baseRef = baseBranch || 'HEAD';
