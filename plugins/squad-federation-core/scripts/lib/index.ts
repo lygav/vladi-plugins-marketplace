@@ -2,7 +2,9 @@
  * Core library exports.
  */
 
-export { DirectoryTransport } from './directory-transport';
+export { DirectoryPlacement } from './directory-placement';
+export { WorktreePlacement } from './worktree-placement';
+export type { WorktreeInfo } from './worktree-placement';
 export { FileSignalCommunication } from './file-signal-communication';
 export { signals } from './signals';
 export { learningLog } from './learning-log';
