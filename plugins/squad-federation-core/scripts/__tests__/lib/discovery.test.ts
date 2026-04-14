@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { WorktreeInfo, DomainWorktree } from '../../lib/discovery.js';
+import type { WorktreeInfo, DomainWorktree } from '../../lib/registry/worktree-utils.js';
 
 // Mock child_process
 const mockExecSync = vi.fn();
@@ -12,7 +12,7 @@ vi.mock('child_process', () => ({
 }));
 
 // Import after mocking
-const { getAllWorktrees, discoverDomains, getWorktreeForBranch, listSquadBranches } = await import('../../lib/discovery.js');
+const { getAllWorktrees, discoverDomains, getWorktreeForBranch, listSquadBranches } = await import('../../lib/registry/worktree-utils.js');
 
 describe('discovery.ts', () => {
   beforeEach(() => {

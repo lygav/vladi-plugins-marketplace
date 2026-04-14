@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { FederateConfig } from '../../lib/config.js';
+import type { FederateConfig } from '../../lib/config/config.js';
 
 // Mock fs
 const mockReadFileSync = vi.fn();
@@ -16,7 +16,7 @@ vi.mock('fs', () => ({
   existsSync: vi.fn(() => true),
 }));
 
-const { validateConfig, loadAndValidateConfig, ConfigValidationError } = await import('../../lib/config.js');
+const { validateConfig, loadAndValidateConfig, ConfigValidationError } = await import('../../lib/config/config.js');
 
 describe('config.ts', () => {
   beforeEach(() => {

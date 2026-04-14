@@ -28,17 +28,17 @@ import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { generateCeremoniesMarkdown } from './lib/ceremonies.js';
-import { loadAndValidateConfig, type FederateConfig } from './lib/config.js';
-import { createTeamContext } from './lib/team-context.js';
-import { TeamRegistry } from './lib/team-registry.js';
+import { generateCeremoniesMarkdown } from './lib/orchestration/ceremonies.js';
+import { loadAndValidateConfig, type FederateConfig } from './lib/config/config.js';
+import { createTeamContext } from './lib/orchestration/context-factory.js';
+import { TeamRegistry } from './lib/registry/team-registry.js';
 import type { TeamEntry } from '../sdk/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // ==================== Config ====================
-// Config loading now uses validated config from lib/config.ts
+// Config loading now uses validated config from lib/config/config.ts
 
 // Branch prefix for team worktrees (placement-level concern, not federation config)
 const BRANCH_PREFIX = 'squad/';

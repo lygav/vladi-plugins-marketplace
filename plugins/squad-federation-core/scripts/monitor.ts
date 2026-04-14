@@ -24,8 +24,8 @@ import {
   ScanStatus,
   SignalMessage,
   DomainWorktree,
-} from './lib/signals.js';
-import { loadAndValidateConfig } from './lib/config.js';
+} from './lib/communication/signal-protocol.js';
+import { loadAndValidateConfig } from './lib/config/config.js';
 
 // ==================== Configuration ====================
 

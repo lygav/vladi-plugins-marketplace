@@ -15,8 +15,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { LearningLog, LearningEntry } from './lib/learning-log.js';
-import { listSquadBranches } from './lib/discovery.js';
+import { LearningLog, LearningEntry } from './lib/knowledge/learning-log.js';
+import { listSquadBranches } from './lib/registry/worktree-utils.js';
 
 const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
 const BRANCH_PREFIX = process.env.FEDERATE_BRANCH_PREFIX || 'squad/';
