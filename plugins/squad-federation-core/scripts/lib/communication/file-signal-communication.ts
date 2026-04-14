@@ -4,13 +4,12 @@
  * Implements TeamCommunication interface by delegating all file I/O to TeamPlacement.
  * Works with any placement type (worktree, directory) — no direct filesystem access.
  * 
- * Signal/status/learning operations extracted from legacy transport classes.
+ * Signal/status/learning operations for file-based communication.
  * Same file formats: JSON signals in inbox/outbox dirs, JSONL learning log, status.json.
  * 
  * @since v0.4.0
  */
 
-import * as path from 'path';
 import { z } from 'zod';
 import type {
   TeamPlacement,
@@ -68,7 +67,7 @@ const LearningEntrySchema = z.object({
   graduated: z.boolean().optional(),
   graduated_to: z.string().optional(),
   supersedes: z.string().optional()
-});
+}).passthrough();
 
 /**
  * FileSignalCommunication implementation.
@@ -144,10 +143,19 @@ export class FileSignalCommunication implements TeamCommunication {
   }
 
   /**
+   * Write signal message to outbox.
+   */
+  async writeOutboxSignal(teamId: string, signal: SignalMessage): Promise<void> {
+    await this.writeSignal(teamId, 'outbox', signal);
+  }
+
+  /**
    * Read signal messages from specified direction.
    */
   private async readSignals(teamId: string, direction: 'inbox' | 'outbox'): Promise<SignalMessage[]> {
-    return await this.emitter.span(
+    let signals: SignalMessage[] = [];
+
+    await this.emitter.span(
       'communication.readSignals',
       async () => {
         try {
@@ -163,23 +171,23 @@ export class FileSignalCommunication implements TeamCommunication {
           const files = await this.placement.listFiles(teamId, signalsDir);
           const jsonFiles = files.filter(f => f.endsWith('.json'));
 
-          const signals: SignalMessage[] = [];
+          const collected: SignalMessage[] = [];
           for (const file of jsonFiles) {
             const content = await this.placement.readFile(teamId, file);
             if (!content) continue;
             
             const parsed = JSON.parse(content);
             const validated = SignalMessageSchema.parse(parsed);
-            signals.push(validated);
+            collected.push(validated);
           }
 
           // Emit metric for signals read
-          await this.emitter.metric('signals.read', signals.length, {
+          await this.emitter.metric('signals.read', collected.length, {
             'squad.domain': teamId,
             'signal.direction': direction
           });
 
-          return signals;
+          signals = collected;
         } catch (error) {
           throw new Error(`Failed to read ${direction} signals for team ${teamId}: ${(error as Error).message}`);
         }
@@ -189,6 +197,8 @@ export class FileSignalCommunication implements TeamCommunication {
         'signal.direction': direction
       }
     );
+
+    return signals;
   }
 
   /**
@@ -268,21 +278,17 @@ export class FileSignalCommunication implements TeamCommunication {
    */
   async readLearningLog(teamId: string): Promise<LearningEntry[]> {
     try {
-      const content = await this.placement.readFile(teamId, '.squad/learning-log.jsonl');
+      const logPath = '.squad/learnings/log.jsonl';
+      const content = await this.placement.readFile(teamId, logPath);
       if (!content) {
         return [];
       }
 
       const lines = content.trim().split('\n').filter(line => line.trim());
-      const entries: LearningEntry[] = [];
-
-      for (const line of lines) {
+      return lines.map(line => {
         const parsed = JSON.parse(line);
-        const validated = LearningEntrySchema.parse(parsed);
-        entries.push(validated);
-      }
-
-      return entries;
+        return LearningEntrySchema.parse(parsed);
+      });
     } catch (error) {
       if ((error as Error).message?.includes('Failed to read file') ||
           (error as Error).message?.includes('ENOENT')) {
@@ -301,14 +307,16 @@ export class FileSignalCommunication implements TeamCommunication {
       LearningEntrySchema.parse(entry);
 
       // Read existing log
-      const existingContent = await this.placement.readFile(teamId, '.squad/learning-log.jsonl') || '';
+      const logPath = '.squad/learnings/log.jsonl';
+      const existingContent = await this.placement.readFile(teamId, logPath) || '';
       
       // Append new entry as JSONL line
       const line = JSON.stringify(entry);
-      const newContent = existingContent ? `${existingContent}\n${line}` : line;
+      const existingTrimmed = existingContent.trimEnd();
+      const newContent = existingTrimmed ? `${existingTrimmed}\n${line}` : line;
       
       // Write back to placement
-      await this.placement.writeFile(teamId, '.squad/learning-log.jsonl', newContent);
+      await this.placement.writeFile(teamId, logPath, `${newContent}\n`);
     } catch (error) {
       throw new Error(`Failed to append learning for team ${teamId}: ${(error as Error).message}`);
     }

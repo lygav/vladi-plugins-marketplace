@@ -94,7 +94,8 @@ export function createPlacement(
         config.basePath,
         config.branch,
         config.repoRoot,
-        emitter
+        emitter,
+        config.teamId
       );
     }
     case 'directory': {
@@ -144,14 +145,12 @@ export function createCommunication(
  * @returns PlacementConfig for createPlacement
  */
 function inferPlacementConfig(teamEntry: TeamEntry, repoRoot?: string): PlacementConfig {
-  const placementType = teamEntry.placementType || teamEntry.transport;
-  
-  if (placementType === 'worktree') {
+  if (teamEntry.placementType === 'worktree') {
+    // Extract branch name from location path
+    // Location format: /path/to/repo/.worktrees/{branch} or ../worktrees/{branch}
     const branchOverride = typeof teamEntry.metadata?.branch === 'string'
       ? teamEntry.metadata.branch
       : undefined;
-    // Extract branch name from location path
-    // Location format: /path/to/repo/.worktrees/{branch} or ../worktrees/{branch}
     const branch = branchOverride || teamEntry.location.split('/').pop() || teamEntry.domain;
     
     if (!repoRoot) {
@@ -161,13 +160,14 @@ function inferPlacementConfig(teamEntry: TeamEntry, repoRoot?: string): Placemen
     return {
       basePath: teamEntry.location,
       branch,
-      repoRoot
+      repoRoot,
+      teamId: teamEntry.domainId
     };
   } else {
     // Directory placement
     return {
       basePath: teamEntry.location,
-      teamId: teamEntry.domain
+      teamId: teamEntry.domainId
     };
   }
 }
@@ -195,11 +195,8 @@ export function createTeamContext(
   // Infer placement config from team entry
   const placementConfig = inferPlacementConfig(teamEntry, repoRoot);
   
-  // Use placementType if available, fall back to deprecated transport field
-  const placementType = teamEntry.placementType || teamEntry.transport;
-  
   // Create placement adapter (per-team)
-  const placement = createPlacement(placementType, placementConfig, emitter);
+  const placement = createPlacement(teamEntry.placementType, placementConfig, emitter);
   
   // Create communication adapter (federation-scoped)
   const communicationConfig = buildCommunicationConfig(

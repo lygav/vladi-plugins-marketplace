@@ -38,13 +38,14 @@ export class WorktreePlacement extends DirectoryPlacement {
     basePath: string,
     private readonly branch: string,
     private readonly repoRoot: string,
-    emitter?: OTelEmitter
+    emitter?: OTelEmitter,
+    teamId?: string
   ) {
     // Create basePathMap with a single team entry for this worktree
     // In federation context, each worktree typically represents one team
     const basePathMap = new Map<string, string>();
-    const teamId = path.basename(basePath);
-    basePathMap.set(teamId, basePath);
+    const resolvedTeamId = teamId || path.basename(basePath);
+    basePathMap.set(resolvedTeamId, basePath);
     
     super(basePathMap, emitter);
   }
@@ -63,7 +64,8 @@ export class WorktreePlacement extends DirectoryPlacement {
     branchName: string,
     baseBranch?: string,
     worktreeDir?: string,
-    emitter?: OTelEmitter
+    emitter?: OTelEmitter,
+    teamId?: string
   ): Promise<WorktreePlacement> {
     const emit = emitter || new OTelEmitter();
     
@@ -99,7 +101,7 @@ export class WorktreePlacement extends DirectoryPlacement {
             'worktree.path': worktreePath
           });
 
-          return new WorktreePlacement(worktreePath, branchName, repoRoot, emitter);
+        return new WorktreePlacement(worktreePath, branchName, repoRoot, emitter, teamId);
         } catch (error) {
           throw new Error(
             `Failed to create worktree for branch ${branchName}: ${(error as Error).message}\n` +

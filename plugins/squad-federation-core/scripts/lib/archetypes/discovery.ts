@@ -2,14 +2,14 @@
  * Archetype Discovery Library
  *
  * Dynamic archetype discovery for the federation-setup wizard. Discovers available
- * archetypes from marketplace.json (preferred) or filesystem scan (fallback).
+ * archetypes from marketplace.json.
  * 
  * Archetypes are plugins with category="archetype" that define team lifecycle states
  * and provide meta-squad and team-level skills/agents/scripts.
  */
 
 import { execSync } from 'child_process';
-import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import path from 'path';
 import { OTelEmitter } from '../../sdk/otel-emitter.js';
 
@@ -36,12 +36,11 @@ export interface DiscoveredArchetype {
 // ==================== Core Discovery ====================
 
 /**
- * Discover available archetypes — tries marketplace.json first, falls back to directory scan.
+ * Discover available archetypes from marketplace.json.
  * 
  * Discovery strategy:
- * 1. Try reading .github/plugin/marketplace.json (fastest, most reliable)
- * 2. Fall back to filesystem scan of plugins/ directory (slower but complete)
- * 3. If both fail, return empty array with warning
+ * 1. Read .github/plugin/marketplace.json
+ * 2. If empty or missing, return empty array with warning
  * 
  * Emits OTel event 'archetype.discovered' with count on success.
  * 
@@ -68,7 +67,6 @@ export function discoverArchetypes(
   const emit = emitter || new OTelEmitter();
 
   try {
-    // Try marketplace.json first (preferred)
     const marketplaceArchetypes = discoverFromMarketplace(root);
     if (marketplaceArchetypes.length > 0) {
       emit.event('archetype.discovered', {
@@ -78,18 +76,7 @@ export function discoverArchetypes(
       return marketplaceArchetypes;
     }
 
-    // Fallback to filesystem scan
-    const filesystemArchetypes = discoverFromFilesystem(root);
-    if (filesystemArchetypes.length > 0) {
-      emit.event('archetype.discovered', {
-        'discovery.source': 'filesystem',
-        'archetype.count': filesystemArchetypes.length,
-      });
-      return filesystemArchetypes;
-    }
-
-    // Both failed — return empty array with warning
-    console.warn('[archetype-discovery] No archetypes found via marketplace.json or filesystem scan.');
+    console.warn('[archetype-discovery] No archetypes found via marketplace.json.');
     emit.event('archetype.discovered', {
       'discovery.source': 'none',
       'archetype.count': 0,
@@ -136,66 +123,6 @@ function discoverFromMarketplace(repoRoot: string): DiscoveredArchetype[] {
         source: plugin.source,
         states,
         category: plugin.category,
-      });
-    }
-
-    return archetypes;
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Scan plugins/ directory for folders containing archetype.json.
- * 
- * This is a fallback when marketplace.json is missing or incomplete.
- * Slower than marketplace discovery but catches all installed archetypes.
- * 
- * @param repoRoot - Repository root path
- * @returns Array of discovered archetypes
- */
-function discoverFromFilesystem(repoRoot: string): DiscoveredArchetype[] {
-  try {
-    const pluginsDir = path.join(repoRoot, 'plugins');
-    if (!existsSync(pluginsDir)) {
-      return [];
-    }
-
-    const entries = readdirSync(pluginsDir);
-    const archetypes: DiscoveredArchetype[] = [];
-
-    for (const entry of entries) {
-      const pluginPath = path.join(pluginsDir, entry);
-      const stat = statSync(pluginPath);
-
-      if (!stat.isDirectory()) continue;
-
-      // Check for archetype marker files
-      const archetypeJsonPath = path.join(pluginPath, 'archetype.json');
-      const teamArchetypeJsonPath = path.join(pluginPath, 'team', 'archetype.json');
-
-      if (!existsSync(archetypeJsonPath) && !existsSync(teamArchetypeJsonPath)) {
-        continue; // Not an archetype
-      }
-
-      // Read plugin.json for metadata
-      const pluginJsonPath = path.join(pluginPath, 'plugin.json');
-      if (!existsSync(pluginJsonPath)) {
-        continue; // Skip if no plugin.json
-      }
-
-      const pluginData = JSON.parse(readFileSync(pluginJsonPath, 'utf-8'));
-
-      // Read lifecycle states
-      const states = readArchetypeStates(repoRoot, `plugins/${entry}`);
-
-      archetypes.push({
-        name: pluginData.name || entry,
-        description: pluginData.description || 'No description',
-        version: pluginData.version || '0.0.0',
-        source: `plugins/${entry}`,
-        states,
-        category: 'archetype',
       });
     }
 
