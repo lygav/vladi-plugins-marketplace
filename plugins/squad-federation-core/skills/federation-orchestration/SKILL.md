@@ -165,9 +165,7 @@ The `federate.config.json` file at the repo root controls federation behavior:
 
 ```json
 {
-  "mcpStack": ["filesystem", "otel"],
-  "playbookSkill": "domain-playbook",
-  "branchPrefix": "scan/",
+  "description": "Inventory all Azure services across the organization",
   "telemetry": { "enabled": true }
 }
 ```

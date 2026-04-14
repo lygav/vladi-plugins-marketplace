@@ -26,7 +26,6 @@ describe('config.ts', () => {
   describe('validateConfig', () => {
     it('should accept valid minimal config', () => {
       const config = {
-        mcpStack: [],
         telemetry: { enabled: true },
       };
 
@@ -41,7 +40,6 @@ describe('config.ts', () => {
     it('should accept config with all optional fields', () => {
       const config = {
         description: 'Test federation',
-        mcpStack: ['@modelcontextprotocol/server-filesystem'],
         telemetry: { enabled: true, aspire: true },
         playbookSkill: 'custom-playbook',
         deliverable: 'DELIVERABLE.md',
@@ -54,28 +52,13 @@ describe('config.ts', () => {
     });
 
     it('should reject config with missing required fields', () => {
-      const invalidConfig = {
-        mcpStack: [],
-      };
+      const invalidConfig = {};
 
       expect(() => validateConfig(invalidConfig)).toThrow(ConfigValidationError);
-    });
-
-    it('should reject config with invalid mcpStack type', () => {
-      const invalidConfig = {
-        mcpStack: 'not-an-array',
-        telemetry: { enabled: true },
-      };
-
-      expect(() => validateConfig(invalidConfig)).toThrow(ConfigValidationError);
-      expect(() => validateConfig(invalidConfig)).toThrow(/mcpStack must be an array/);
     });
 
     it('should reject config with invalid telemetry object', () => {
       const invalidConfig = {
-        branchPrefix: 'squad/',
-        worktreeDir: 'parallel',
-        mcpStack: [],
         telemetry: 'invalid',
       };
 
@@ -85,7 +68,6 @@ describe('config.ts', () => {
 
     it('should reject config with invalid telemetry.enabled type', () => {
       const invalidConfig = {
-        mcpStack: [],
         telemetry: { enabled: 'yes' },
       };
 
@@ -95,7 +77,6 @@ describe('config.ts', () => {
 
     it('should handle unknown fields gracefully', () => {
       const configWithUnknown = {
-        mcpStack: [],
         telemetry: { enabled: true },
         unknownField: 'should-be-ignored',
         anotherUnknown: 123,
@@ -111,9 +92,6 @@ describe('config.ts', () => {
   describe('loadAndValidateConfig', () => {
     it('should load and validate config from file', () => {
       const mockConfig = {
-        branchPrefix: 'squad/',
-        worktreeDir: 'parallel',
-        mcpStack: ['mcp-server-1'],
         telemetry: { enabled: true },
       };
       mockReadFileSync.mockReturnValue(JSON.stringify(mockConfig));
@@ -138,7 +116,6 @@ describe('config.ts', () => {
 
     it('should apply default values for optional fields', () => {
       const minimalConfig = {
-        mcpStack: [],
         telemetry: { enabled: false },
       };
       mockReadFileSync.mockReturnValue(JSON.stringify(minimalConfig));
@@ -150,7 +127,6 @@ describe('config.ts', () => {
 
     it('should preserve user-specified optional values', () => {
       const configWithOptionals = {
-        mcpStack: [],
         telemetry: { enabled: true, aspire: true },
         playbookSkill: 'custom-skill',
         deliverable: 'OUTPUT.md',

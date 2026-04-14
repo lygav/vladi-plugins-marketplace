@@ -10,8 +10,6 @@ import * as fs from 'fs';
 export interface FederateConfig {
   /** Brief description of this federation (optional) */
   description?: string;
-  /** MCP servers to load for team sessions */
-  mcpStack: string[];
   /** OTel observability */
   telemetry: {
     enabled: boolean;
@@ -28,7 +26,6 @@ export interface FederateConfig {
 }
 
 const DEFAULT_CONFIG: FederateConfig = {
-  mcpStack: [],
   telemetry: { enabled: true },
   playbookSkill: 'domain-playbook',
 };
@@ -86,7 +83,6 @@ export function validateConfig(raw: unknown): FederateConfig {
   // Track known fields for unknown field warnings
   const knownFields = new Set([
     'description',
-    'mcpStack',
     'telemetry',
     'playbookSkill',
     'deliverable',
@@ -106,16 +102,6 @@ export function validateConfig(raw: unknown): FederateConfig {
     result.description = validateString(config.description, 'description');
     if (result.description.trim() === '') {
       throw new ConfigValidationError('description cannot be empty string');
-    }
-  }
-
-  // Validate mcpStack
-  if ('mcpStack' in config) {
-    result.mcpStack = validateArray(config.mcpStack, 'mcpStack');
-    for (const item of result.mcpStack) {
-      if (typeof item !== 'string') {
-        throw new ConfigValidationError(`mcpStack items must be strings (got ${typeof item})`);
-      }
     }
   }
 
@@ -198,7 +184,6 @@ export function loadAndValidateConfig(configPath: string): FederateConfig {
       console.error('  2. Validate your config structure:');
       console.error('     cat federate.config.json');
       console.error('  3. Common issues to check:');
-      console.error('     - mcpStack: must be an array of strings');
       console.error('     - telemetry: must have enabled boolean field');
       console.error('     - playbookSkill: must be a non-empty string');
       console.error('  4. Restore from example:');
