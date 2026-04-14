@@ -5,6 +5,9 @@
  * Meta-squad launches domain squads in detached Copilot sessions.
  * Domain squads write status updates and reports.
  * Meta-squad reads status and sends directives.
+ *
+ * NOTE: Modern implementations should use FileSignalCommunication class
+ * which provides the same functionality with proper abstraction.
  */
 
 import * as fs from 'fs';
@@ -63,22 +66,8 @@ function getOutboxDir(worktreePath: string): string {
 
 // ==================== Status Operations ====================
 
-export function readStatus(worktreePath: string): ScanStatus | null {
-  const statusPath = getStatusPath(worktreePath);
-  if (!fs.existsSync(statusPath)) return null;
-  try {
-    return JSON.parse(fs.readFileSync(statusPath, 'utf-8'));
-  } catch {
-    return null;
-  }
-}
-
-export function writeStatus(worktreePath: string, status: ScanStatus): void {
-  const statusPath = getStatusPath(worktreePath);
-  ensureDir(path.dirname(statusPath));
-  status.updated_at = new Date().toISOString();
-  fs.writeFileSync(statusPath, JSON.stringify(status, null, 2));
-}
+// NOTE: Use FileSignalCommunication for modern implementations.
+// This module provides low-level signal protocol helpers.
 
 export function initializeSignals(worktreePath: string, domain: string, domainId: string): void {
   const signalsDir = getSignalsDir(worktreePath);
@@ -94,7 +83,12 @@ export function initializeSignals(worktreePath: string, domain: string, domainId
     started_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
-  writeStatus(worktreePath, initialStatus);
+  
+  // Write initial status
+  const statusPath = getStatusPath(worktreePath);
+  ensureDir(path.dirname(statusPath));
+  initialStatus.updated_at = new Date().toISOString();
+  fs.writeFileSync(statusPath, JSON.stringify(initialStatus, null, 2));
 }
 
 // ==================== Message Operations ====================

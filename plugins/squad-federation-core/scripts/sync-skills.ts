@@ -14,12 +14,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { mapWorktreesToBranches, listSquadBranches } from './lib/registry/worktree-utils.js';
+import { TeamRegistry } from './lib/registry/team-registry.js';
 
 const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
 const MAIN_BRANCH = process.env.SQUAD_MAIN_BRANCH || 'main';
 const SKILLS_DIR = '.squad/skills';
-const BRANCH_PREFIX = process.env.FEDERATE_BRANCH_PREFIX || 'squad/';
 
 interface SyncState {
   last_sync_from: string;
@@ -28,9 +27,9 @@ interface SyncState {
   skills_synced: string[];
 }
 
-interface DomainBranch {
-  name: string;
-  branch: string;
+interface TeamSyncInfo {
+  domain: string;
+  teamId: string;
   worktree: string | null;
   needsSync: boolean;
   lastSyncCommit?: string;
@@ -47,12 +46,47 @@ const flags = {
 
 // ==================== Discovery ====================
 
-function discoverWorktrees(): Map<string, string> {
-  return mapWorktreesToBranches(REPO_ROOT, BRANCH_PREFIX);
-}
+async function discoverTeams(): Promise<TeamSyncInfo[]> {
+  const registry = new TeamRegistry(REPO_ROOT);
+  const teams = await registry.list();
 
-function discoverBranches(): string[] {
-  return listSquadBranches(REPO_ROOT, BRANCH_PREFIX);
+  if (teams.length === 0) {
+    console.warn(`⚠️  No teams found in TeamRegistry.`);
+    return [];
+  }
+
+  const teamInfos: TeamSyncInfo[] = [];
+  const mainSkillsCommit = getLatestCommitForPath(MAIN_BRANCH, SKILLS_DIR);
+
+  for (const team of teams) {
+    const worktreePath = team.location && fs.existsSync(team.location) ? team.location : null;
+    
+    // Read sync state from team's worktree if it exists
+    const syncStatePath = worktreePath ? path.join(worktreePath, '.squad', 'sync-state.json') : null;
+    const syncState = syncStatePath && fs.existsSync(syncStatePath) 
+      ? JSON.parse(fs.readFileSync(syncStatePath, 'utf-8')) 
+      : null;
+
+    const needsSync = !syncState ||
+                      !!(mainSkillsCommit && syncState.last_sync_commit !== mainSkillsCommit);
+
+    const conflicts: string[] = [];
+
+    if (flags.skill && worktreePath) {
+      conflicts.push(...checkForModifiedFiles(worktreePath, flags.skill, team.domain));
+    }
+
+    teamInfos.push({
+      domain: team.domain,
+      teamId: team.domainId,
+      worktree: worktreePath,
+      needsSync,
+      lastSyncCommit: syncState?.last_sync_commit,
+      conflicts,
+    });
+  }
+
+  return teamInfos;
 }
 
 function getLatestCommitForPath(branch: string, filePath: string): string | null {
@@ -64,20 +98,6 @@ function getLatestCommitForPath(branch: string, filePath: string): string | null
     }).trim();
 
     return commit || null;
-  } catch {
-    return null;
-  }
-}
-
-function readSyncState(branch: string): SyncState | null {
-  try {
-    const content = execSync(`git show ${branch}:.squad/sync-state.json`, {
-      cwd: REPO_ROOT,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'ignore'],
-    });
-
-    return JSON.parse(content);
   } catch {
     return null;
   }
@@ -97,12 +117,8 @@ function discoverSkills(branch: string): string[] {
   }
 }
 
-function checkForModifiedFiles(branch: string, worktree: string | null, skillName: string): string[] {
+function checkForModifiedFiles(worktree: string, skillName: string, domain: string): string[] {
   const conflicts: string[] = [];
-
-  if (!worktree) {
-    return conflicts;
-  }
 
   try {
     const mainHash = execSync(`git hash-object ${MAIN_BRANCH}:${SKILLS_DIR}/${skillName}/SKILL.md`, {
@@ -111,6 +127,7 @@ function checkForModifiedFiles(branch: string, worktree: string | null, skillNam
       stdio: ['pipe', 'pipe', 'ignore'],
     }).trim();
 
+    const branch = `squad/${domain}`;
     const branchHash = execSync(`git hash-object ${branch}:${SKILLS_DIR}/${skillName}/SKILL.md`, {
       cwd: REPO_ROOT,
       encoding: 'utf-8',
@@ -118,7 +135,11 @@ function checkForModifiedFiles(branch: string, worktree: string | null, skillNam
     }).trim();
 
     if (mainHash !== branchHash) {
-      const syncState = readSyncState(branch);
+      // Read sync state from the worktree's filesystem
+      const syncStatePath = path.join(worktree, '.squad', 'sync-state.json');
+      const syncState = fs.existsSync(syncStatePath)
+        ? JSON.parse(fs.readFileSync(syncStatePath, 'utf-8'))
+        : null;
 
       // Check if domain modified after last sync
       if (syncState && syncState.skills_synced.includes(skillName)) {
@@ -130,45 +151,6 @@ function checkForModifiedFiles(branch: string, worktree: string | null, skillNam
   }
 
   return conflicts;
-}
-
-function discoverDomains(): DomainBranch[] {
-  const worktreeMap = discoverWorktrees();
-  const branches = discoverBranches();
-
-  if (branches.length === 0) {
-    console.warn(`⚠️  No ${BRANCH_PREFIX}* branches found.`);
-    return [];
-  }
-
-  const domains: DomainBranch[] = [];
-  const mainSkillsCommit = getLatestCommitForPath(MAIN_BRANCH, SKILLS_DIR);
-
-  for (const branch of branches) {
-    const domainName = branch.substring(BRANCH_PREFIX.length);
-    const worktreePath = worktreeMap.get(branch) || null;
-    const syncState = readSyncState(branch);
-
-    const needsSync = !syncState ||
-                      !!(mainSkillsCommit && syncState.last_sync_commit !== mainSkillsCommit);
-
-    const conflicts: string[] = [];
-
-    if (flags.skill) {
-      conflicts.push(...checkForModifiedFiles(branch, worktreePath, flags.skill));
-    }
-
-    domains.push({
-      name: domainName,
-      branch,
-      worktree: worktreePath,
-      needsSync,
-      lastSyncCommit: syncState?.last_sync_commit,
-      conflicts,
-    });
-  }
-
-  return domains;
 }
 
 // ==================== Sync ====================
@@ -328,7 +310,7 @@ function syncSkillsToBranch(
 // ==================== Reporting ====================
 
 function printReport(
-  domains: DomainBranch[],
+  teams: TeamSyncInfo[],
   syncResults: Map<string, { success: boolean; conflicts: string[] }>
 ): void {
   const mainCommit = getLatestCommitForPath(MAIN_BRANCH, SKILLS_DIR);
@@ -341,26 +323,26 @@ function printReport(
   console.log(`Main skills commit: ${mainCommit?.substring(0, 7)} (${mainDate.substring(0, 10)})`);
   console.log('');
 
-  for (const domain of domains) {
-    const result = syncResults.get(domain.name);
+  for (const team of teams) {
+    const result = syncResults.get(team.domain);
 
     if (!result) {
-      if (domain.needsSync) {
-        console.log(`⚪ ${domain.name.padEnd(30)} ready to sync`);
+      if (team.needsSync) {
+        console.log(`⚪ ${team.domain.padEnd(30)} ready to sync`);
       } else {
-        console.log(`⚪ ${domain.name.padEnd(30)} already up-to-date`);
+        console.log(`⚪ ${team.domain.padEnd(30)} already up-to-date`);
       }
     } else if (result.success) {
-      const oldCommit = domain.lastSyncCommit?.substring(0, 7) || '(never)';
+      const oldCommit = team.lastSyncCommit?.substring(0, 7) || '(never)';
       const newCommit = mainCommit?.substring(0, 7) || 'unknown';
-      console.log(`✅ ${domain.name.padEnd(30)} synced (was ${oldCommit} → now ${newCommit})`);
+      console.log(`✅ ${team.domain.padEnd(30)} synced (was ${oldCommit} → now ${newCommit})`);
     } else if (result.conflicts.length > 0) {
-      console.log(`⚠️  ${domain.name.padEnd(30)} conflict: ${result.conflicts[0]}`);
+      console.log(`⚠️  ${team.domain.padEnd(30)} conflict: ${result.conflicts[0]}`);
       for (let i = 1; i < result.conflicts.length; i++) {
         console.log(`${''.padEnd(33)} ${result.conflicts[i]}`);
       }
     } else {
-      console.log(`❌ ${domain.name.padEnd(30)} sync failed`);
+      console.log(`❌ ${team.domain.padEnd(30)} sync failed`);
     }
   }
 
@@ -369,51 +351,50 @@ function printReport(
 
 // ==================== Main ====================
 
-function main(): void {
-  console.log('🔍 Discovering domains...');
+async function main(): Promise<void> {
+  console.log('🔍 Discovering teams...');
 
-  let domains = discoverDomains();
+  let teams = await discoverTeams();
 
-  if (domains.length === 0) {
-    console.error(`❌ No ${BRANCH_PREFIX}* branches found.`);
+  if (teams.length === 0) {
+    console.error(`❌ No teams found in TeamRegistry.`);
     console.error('\nRecovery:');
     console.error('  1. Check if federation is configured:');
     console.error('     cat federate.config.json');
-    console.error('  2. List all git branches:');
-    console.error('     git branch --all');
-    console.error(`  3. Verify branch prefix is correct (expected: ${BRANCH_PREFIX})`);
-    console.error('  4. If no domains exist, onboard a domain first:');
+    console.error('  2. Check team registry:');
+    console.error('     cat .squad/teams.json');
+    console.error('  3. If no teams exist, onboard a team first:');
     console.error('     npx tsx scripts/onboard.ts --name <domain> --domain-id <id> --archetype <name>');
-    console.error('  5. Check git worktrees:');
+    console.error('  4. Check git worktrees:');
     console.error('     git worktree list');
     process.exit(1);
   }
 
   // Filter by --team flag if provided
   if (flags.domain) {
-    domains = domains.filter(d => d.name === flags.domain);
+    teams = teams.filter(t => t.domain === flags.domain);
 
-    if (domains.length === 0) {
-      console.error(`❌ Domain not found: ${flags.domain}`);
+    if (teams.length === 0) {
+      console.error(`❌ Team not found: ${flags.domain}`);
       console.error('\nRecovery:');
-      console.error('  1. List all available domains:');
-      console.error('     git branch --list "squad/*"');
+      console.error('  1. List all available teams:');
+      console.error('     cat .squad/teams.json');
       console.error('  2. Or view all teams:');
       console.error('     npx tsx scripts/monitor.ts');
       console.error('  3. Verify domain name spelling (case-sensitive)');
-      console.error('  4. If domain should exist, check team registry:');
+      console.error('  4. If team should exist, check team registry:');
       console.error('     cat .squad/teams.json');
-      console.error('  5. To onboard this domain:');
+      console.error('  5. To onboard this team:');
       console.error(`     npx tsx scripts/onboard.ts --name ${flags.domain} --domain-id <id> --archetype <name>`);
       process.exit(1);
     }
   }
 
-  console.log(`✅ Found ${domains.length} domain(s)`);
+  console.log(`✅ Found ${teams.length} team(s)`);
 
   if (flags.dryRun) {
     console.log('\n🏃 Dry run mode — showing what would be synced\n');
-    printReport(domains, new Map());
+    printReport(teams, new Map());
     return;
   }
 
@@ -422,30 +403,33 @@ function main(): void {
 
   const syncResults = new Map<string, { success: boolean; conflicts: string[] }>();
 
-  for (const domain of domains) {
-    if (!domain.needsSync && !flags.skill) {
+  for (const team of teams) {
+    if (!team.needsSync && !flags.skill) {
       continue;
     }
 
-    if (domain.conflicts.length > 0) {
-      syncResults.set(domain.name, {
+    if (team.conflicts.length > 0) {
+      syncResults.set(team.domain, {
         success: false,
-        conflicts: domain.conflicts,
+        conflicts: team.conflicts,
       });
       continue;
     }
 
-    console.log(`📦 Syncing ${domain.name}...`);
+    if (!team.worktree) {
+      console.log(`⚠️  Skipping ${team.domain} — no worktree available`);
+      continue;
+    }
 
-    const result = domain.worktree
-      ? syncSkillsToWorktree(domain.worktree, domain.branch, flags.skill)
-      : syncSkillsToBranch(domain.branch, flags.skill);
+    console.log(`📦 Syncing ${team.domain}...`);
 
-    syncResults.set(domain.name, result);
+    const result = syncSkillsToWorktree(team.worktree, MAIN_BRANCH, flags.skill);
+
+    syncResults.set(team.domain, result);
   }
 
   // Print report
-  printReport(domains, syncResults);
+  printReport(teams, syncResults);
 }
 
 // Run
