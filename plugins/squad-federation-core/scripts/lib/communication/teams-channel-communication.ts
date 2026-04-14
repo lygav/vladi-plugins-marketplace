@@ -169,38 +169,17 @@ export class TeamsChannelCommunication implements TeamCommunication {
     try {
       const content = message.body.content;
       
-      // Try to parse entire content as JSON first (Adaptive Card format)
+      // Try to extract JSON payload
       let payload: any;
-      try {
-        payload = JSON.parse(content);
-        
-        // Check if it's an Adaptive Card - extract signal from card body
-        if (payload.type === 'AdaptiveCard' && payload.body) {
-          // Find TextBlock with ```json content
-          let foundSignal = false;
-          for (const element of payload.body) {
-            if (element.type === 'TextBlock' && element.text) {
-              const cardJsonMatch = element.text.match(/```json\s*([\s\S]*?)\s*```/);
-              if (cardJsonMatch) {
-                payload = JSON.parse(cardJsonMatch[1]);
-                foundSignal = true;
-                break;
-              }
-            }
-          }
-          // If we didn't find a signal in the card, return null
-          if (!foundSignal) {
-            return null;
-          }
-        }
-        // If it's JSON but not an Adaptive Card, treat as signal payload
-      } catch {
-        // Not JSON, try to extract from ```json code block
-        const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
-        if (jsonMatch) {
-          payload = JSON.parse(jsonMatch[1]);
-        } else {
-          // Parse as plain text signal
+      const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        payload = JSON.parse(jsonMatch[1]);
+      } else {
+        // Try to parse entire content as JSON
+        try {
+          payload = JSON.parse(content);
+        } catch {
+          // Not JSON, parse as plain text signal
           const hashtags = this.extractHashtags(content);
           const typeMatch = content.match(/\b(directive|question|report|alert)\b/i);
           

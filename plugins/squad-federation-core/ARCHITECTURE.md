@@ -310,32 +310,39 @@ Default adapter. Signals stored as JSON files in `.squad/signals/`:
 
 **Lifecycle:** Meta-squad writes to `.squad/signals/inbox/`, team consumes. Team writes to `.squad/signals/outbox/`, meta-squad consumes.
 
+### TeamsChannelCommunication (lib/communication/teams-channel-communication.ts)
+
+Teams Microsoft Graph API adapter. Implements `TeamCommunication` over Microsoft Teams channels, enabling federation-scoped coordination within a Teams workspace.
+
+**Architecture:**
+
+- **Hashtag protocol:** Structured channel-based signal routing
+  - `#meta` — human federation strategy discussions
+  - `#meta-status` — team status reports and updates
+  - `#meta-error` — team errors, blockers, and failure recovery
+  - `#{teamId}` — federation-scoped team-specific channel (all domains use same channel)
+
+- **Flat message design:** Messages are not threaded. Each message contains full signal context.
+
+- **Adaptive Cards:** Structured signals (status, learning, directives) rendered as Adaptive Cards for rich presentation in Teams.
+
+- **Federation-scoped:** All teams in a federation share the same Teams workspace and channels. Routing uses `#{teamId}` for team-specific visibility, but communication is not isolated per team.
+
+- **Testability:** Accepts injected `TeamsClient` interface, enabling mocks for unit tests without live Teams API calls.
+
+**Signal flow:**
+
+1. Meta-squad writes signal to `#meta` or `#{teamId}`
+2. `TeamsChannelCommunication.readInboxSignals()` polls Teams Graph API, parses hashtags from message text and Adaptive Card metadata
+3. Team session processes signal (same `SignalMessage` interface as file-based adapter)
+4. Team writes status/error to `#meta-status` or `#meta-error`
+5. Meta-squad consumes via `readOutboxSignals()`, aggregates findings
+
+**Learning log:** Shared across all adapters. Teams append learning entries; meta-squad reads via `readLearningLog()` regardless of communication type.
+
 ### Future Communication Adapters
 
-**v0.5.0 — TeamsChannelCommunication**
-
-Teams channels as first-class signal protocol:
-
-- **Hashtag protocol:** All signal types use structured hashtags
-  - `#meta` — humans discuss federation strategy
-  - `#meta-status` — teams report status
-  - `#meta-error` — teams report errors/blockers
-  - `#{teamId}` — team-specific channel for human oversight
-  
-- **Async human participation:** Humans @mention teams in channel to send directives; teams read channel as signal input
-
-- **Example flow:**
-  ```
-  [Meta-squad]: "Team Alpha, investigate inventory discrepancies"
-     (posts in #inventory-team)
-  
-  [Team Alpha]: Receives as signal in session, processes
-  [Team Alpha]: "Discrepancy found in region-3 data"
-     (posts in #meta-status)
-  
-  [Meta-squad]: Reads #meta-status, aggregates findings
-  [Human]: Reviews in #meta, replies with guidance
-  ```
+Additional adapters can implement `TeamCommunication` and register with the runtime registry. Core is protocol-agnostic.
 
 ### Context Factory (lib/orchestration/context-factory.ts)
 

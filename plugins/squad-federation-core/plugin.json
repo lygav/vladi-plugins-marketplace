@@ -24,6 +24,7 @@
   "peerDependencies": {
     "@opentelemetry/api": ">=1.0.0"
   },
+  "install": "cd scripts && npm install",
   "agents": "agents/",
   "skills": "skills/",
   "hooks": "hooks.json",
