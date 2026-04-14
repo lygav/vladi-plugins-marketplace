@@ -1,0 +1,33 @@
+{
+  "name": "squad-archetype-consultant",
+  "description": "Domain expert consultant teams — answer questions about codebases and specialized domains",
+  "version": "0.1.0",
+  "author": {
+    "name": "Vladi Lyga",
+    "email": "vladi@example.com"
+  },
+  "keywords": [
+    "squad",
+    "archetype",
+    "consultant",
+    "domain-expert",
+    "q-and-a",
+    "knowledge-base"
+  ],
+  "engines": {
+    "node": ">=20.0.0",
+    "git": ">=2.20.0"
+  },
+  "peerDependencies": {
+    "squad-federation-core": ">=0.2.0"
+  },
+  "archetype": "archetype.json",
+  "meta": {
+    "skills": "meta/skills/",
+    "scripts": "meta/scripts/"
+  },
+  "team": {
+    "skills": "team/skills/",
+    "templates": "team/templates/"
+  }
+}

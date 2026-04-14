@@ -1,0 +1,19 @@
+{
+  "name": "squad-archetype-consultant",
+  "version": "0.1.0",
+  "description": "Domain expert teams that answer questions about codebases and specialized domains",
+  "coreCompatibility": ">=0.2.0",
+  "meta": {
+    "skills": "meta/skills/",
+    "scripts": "meta/scripts/"
+  },
+  "team": {
+    "skills": "team/skills/",
+    "templates": "team/templates/"
+  },
+  "states": {
+    "lifecycle": ["onboarding", "indexing", "ready", "researching", "waiting-for-feedback"],
+    "terminal": ["retired", "failed"],
+    "pauseable": true
+  }
+}

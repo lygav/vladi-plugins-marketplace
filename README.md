@@ -37,7 +37,7 @@ Each layer installs separately and owns its config:
 | Layer | Plugin | What it owns | When you install |
 |-------|--------|--------------|------------------|
 | **Core** | [squad-federation-core](plugins/squad-federation-core/) | `federate.config.json` — worktrees, signal protocol, knowledge flow, OTel monitoring, headless launch | First — setup wizard auto-installs archetype |
-| **Archetype** | [squad-archetype-deliverable](plugins/squad-archetype-deliverable/)<br>[squad-archetype-coding](plugins/squad-archetype-coding/) | `.squad/archetype-config.json` in each team — playbook, state machine, aggregation logic | Auto-installed by core based on work pattern |
+| **Archetype** | [squad-archetype-deliverable](plugins/squad-archetype-deliverable/)<br>[squad-archetype-coding](plugins/squad-archetype-coding/)<br>[squad-archetype-consultant](plugins/squad-archetype-consultant/) | `.squad/archetype-config.json` in each team — playbook, state machine, aggregation logic | Auto-installed by core based on work pattern |
 | **Project** | *(your .squad/ dir)* | Domain playbook skills, schemas, import hooks | Never — you write this |
 
 **Quick start:** Install core, describe your goal → setup wizard picks the right archetype:
