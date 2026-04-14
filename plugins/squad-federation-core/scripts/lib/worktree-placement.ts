@@ -1,13 +1,13 @@
 /**
- * WorktreeTransport — Git worktree-based transport implementation.
+ * WorktreePlacement — Git worktree-based placement implementation.
  * 
- * Extends DirectoryTransport with git worktree operations for team workspaces.
+ * Extends DirectoryPlacement with git worktree operations for team workspaces.
  * Inherits all filesystem operations and adds git-specific capabilities.
  */
 
 import { execSync } from 'child_process';
 import * as path from 'path';
-import { DirectoryTransport } from './directory-transport';
+import { DirectoryPlacement } from './directory-placement';
 import { OTelEmitter } from '../../sdk/otel-emitter.js';
 
 /**
@@ -21,14 +21,14 @@ export interface WorktreeInfo {
 }
 
 /**
- * WorktreeTransport implementation.
+ * WorktreePlacement implementation.
  * 
- * Extends DirectoryTransport to add git worktree-specific operations.
+ * Extends DirectoryPlacement to add git worktree-specific operations.
  * Filesystem operations are inherited; this class adds git capabilities.
  */
-export class WorktreeTransport extends DirectoryTransport {
+export class WorktreePlacement extends DirectoryPlacement {
   /**
-   * Create a new WorktreeTransport.
+   * Create a new WorktreePlacement.
    * @param basePath - Base directory path for the worktree
    * @param branch - Git branch name for this worktree
    * @param repoRoot - Repository root directory
@@ -56,7 +56,7 @@ export class WorktreeTransport extends DirectoryTransport {
    * @param baseBranch - Base branch to fork from (default: current branch)
    * @param worktreeDir - Base directory for worktree placement (default: '.worktrees')
    * @param emitter - Optional OTel emitter for instrumentation
-   * @returns WorktreeTransport instance for the new worktree
+   * @returns WorktreePlacement instance for the new worktree
    */
   static async create(
     repoRoot: string,
@@ -64,7 +64,7 @@ export class WorktreeTransport extends DirectoryTransport {
     baseBranch?: string,
     worktreeDir?: string,
     emitter?: OTelEmitter
-  ): Promise<WorktreeTransport> {
+  ): Promise<WorktreePlacement> {
     const emit = emitter || new OTelEmitter();
     
     return await emit.span(
@@ -99,26 +99,26 @@ export class WorktreeTransport extends DirectoryTransport {
             'worktree.path': worktreePath
           });
 
-          return new WorktreeTransport(worktreePath, branchName, repoRoot, emitter);
+          return new WorktreePlacement(worktreePath, branchName, repoRoot, emitter);
         } catch (error) {
           throw new Error(
             `Failed to create worktree for branch ${branchName}: ${(error as Error).message}\n` +
             `Recovery:\n` +
             `  1. Check if worktree path already exists:\n` +
-            `     ls -la ${worktreePath}\n` +
+            `     ls -la {worktreePath}\n` +
             `  2. Check git status:\n` +
             `     cd ${repoRoot} && git status\n` +
             `  3. List existing worktrees:\n` +
             `     git worktree list\n` +
             `  4. If worktree exists but is stale, remove it:\n` +
-            `     git worktree remove ${worktreePath} --force\n` +
+            `     git worktree remove {worktreePath} --force\n` +
             `     git worktree prune\n` +
             `  5. If branch doesn't exist, create it first:\n` +
             `     git checkout -b ${branchName}\n` +
             `  6. Check disk space:\n` +
             `     df -h\n` +
             `  7. Ensure parent directory is writable:\n` +
-            `     ls -la $(dirname ${worktreePath})`
+            `     ls -la $(dirname {worktreePath})`
           );
         }
       },

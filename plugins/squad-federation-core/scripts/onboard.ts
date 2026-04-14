@@ -30,8 +30,8 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { generateCeremoniesMarkdown } from './lib/ceremonies.js';
 import { loadAndValidateConfig, type FederateConfig } from './lib/config.js';
-import { WorktreeTransport } from './lib/worktree-transport.js';
-import { DirectoryTransport } from './lib/directory-transport.js';
+import { WorktreePlacement } from './lib/worktree-placement.js';
+import { DirectoryPlacement } from './lib/directory-placement.js';
 import { TeamRegistry } from './lib/team-registry.js';
 import type { TeamEntry } from '../sdk/types.js';
 
@@ -187,7 +187,7 @@ async function createTeamTransport(
   args: ParsedArgs,
   config: FederateConfig,
   repoRoot: string
-): Promise<{ transport: WorktreeTransport | DirectoryTransport; location: string; branch?: string }> {
+): Promise<{ transport: WorktreePlacement | DirectoryPlacement; location: string; branch?: string }> {
   if (args.transport === 'worktree') {
     // Worktree transport: create git branch + worktree
     const branchName = `${BRANCH_PREFIX}${args.name}`;
@@ -211,7 +211,7 @@ async function createTeamTransport(
     } catch { /* doesn't exist — good */ }
     
     console.log(`Creating worktree transport for branch: ${branchName}`);
-    const transport = await WorktreeTransport.create(
+    const transport = await WorktreePlacement.create(
       repoRoot, 
       args.name, 
       args.baseBranch,
@@ -248,7 +248,7 @@ async function createTeamTransport(
     
     const basePathMap = new Map<string, string>();
     basePathMap.set(args.name, location);
-    const transport = new DirectoryTransport(basePathMap);
+    const transport = new DirectoryPlacement(basePathMap);
     
     return { transport, location };
   }
