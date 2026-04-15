@@ -1,9 +1,9 @@
 {
   "_note": "Plugin manifest — used by archetype-discovery to identify this as an archetype. The team/ directory has a separate archetype.json with the runtime state machine that gets copied to each onboarded team.",
   "name": "squad-archetype-deliverable",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Teams that produce file artifacts",
-  "coreCompatibility": ">=0.5.0",
+  "coreCompatibility": ">=0.6.0",
   "meta": {
     "skills": "meta/skills/",
     "agents": "meta/agents/",

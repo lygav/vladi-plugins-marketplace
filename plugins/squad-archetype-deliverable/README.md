@@ -69,5 +69,5 @@ copilot plugin install squad-archetype-deliverable@vladi-plugins-marketplace
 
 ## Requires
 
-- [squad-federation-core](../squad-federation-core/) — the federation plumbing layer (>=0.5.0)
+- [squad-federation-core](../squad-federation-core/) — the federation plumbing layer (>=0.6.0)
 
