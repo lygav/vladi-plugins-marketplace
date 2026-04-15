@@ -41,18 +41,54 @@ async function confirm(prompt: string, ni: boolean, force: boolean): Promise<boo
   return new Promise((resolve) => { rl.question(`${prompt} (y/N): `, (a) => { rl.close(); resolve(a.toLowerCase() === "y"); }); });
 }
 
-async function graduateLearnings(loc: string): Promise<number> {
+interface GraduationResult { graduated: number; skipped: number; ids: string[]; }
+
+async function graduateLearnings(loc: string): Promise<GraduationResult> {
   const src = path.join(loc, ".squad", "learnings");
   const dst = path.join(REPO_ROOT, ".squad", "learnings");
-  if (!fs.existsSync(src)) return 0;
+  if (!fs.existsSync(src)) return { graduated: 0, skipped: 0, ids: [] };
   await fsp.mkdir(dst, { recursive: true });
-  let c = 0;
-  for (const f of await fsp.readdir(src)) {
-    if (!f.endsWith(".jsonl") && !f.endsWith(".json") && !f.endsWith(".md")) continue;
-    const d = path.join(dst, f);
-    if (!fs.existsSync(d)) { await fsp.copyFile(path.join(src, f), d); c++; }
+
+  const logFile = path.join(src, "log.jsonl");
+  const mainLog = path.join(dst, "log.jsonl");
+  const result: GraduationResult = { graduated: 0, skipped: 0, ids: [] };
+
+  if (fs.existsSync(logFile)) {
+    const raw = await fsp.readFile(logFile, "utf-8");
+    const lines = raw.trim().split("\n").filter(Boolean);
+    const now = new Date().toISOString();
+    const toAppend: string[] = [];
+    const updatedLines: string[] = [];
+
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line);
+        if (entry.graduated) { updatedLines.push(line); result.skipped++; continue; }
+        entry.graduated = true;
+        entry.graduated_to = "main";
+        entry.graduatedAt = now;
+        toAppend.push(JSON.stringify(entry));
+        updatedLines.push(JSON.stringify(entry));
+        result.graduated++;
+        result.ids.push(entry.id ?? "unknown");
+      } catch { updatedLines.push(line); result.skipped++; }
+    }
+
+    if (toAppend.length > 0) {
+      await fsp.appendFile(mainLog, toAppend.join("\n") + "\n");
+      await fsp.writeFile(logFile, updatedLines.join("\n") + "\n");
+    }
   }
-  return c;
+
+  // Copy non-JSONL learning files (markdown summaries, etc.)
+  for (const f of await fsp.readdir(src)) {
+    if (f === "log.jsonl") continue;
+    if (!f.endsWith(".json") && !f.endsWith(".md")) continue;
+    const d = path.join(dst, f);
+    if (!fs.existsSync(d)) await fsp.copyFile(path.join(src, f), d);
+  }
+
+  return result;
 }
 
 async function archiveSignals(loc: string): Promise<number> {
@@ -85,7 +121,10 @@ async function retireTeam(reg: TeamRegistry, name: string, args: ParsedArgs, emi
   if (!args.force && !args.nonInteractive && !await confirm(`Retire "${name}"?`, args.nonInteractive, args.force))
     return { success: false, team: name, mode: "retire", message: "Cancelled", details: {} };
   const details: Record<string, unknown> = {};
-  details.learningsGraduated = await graduateLearnings(t.location);
+  const graduation = await graduateLearnings(t.location);
+  details.learningsGraduated = graduation.graduated;
+  details.learningsSkipped = graduation.skipped;
+  details.graduatedIds = graduation.ids;
   details.signalsArchived = await archiveSignals(t.location);
   await reg.updateStatus(name, "retired");
   details.statusUpdated = true;

@@ -1,6 +1,6 @@
 ---
 name: "federation-orchestration"
-description: "The user wants to manage an EXISTING federation — launch teams, monitor progress, send directives, sync skills, or understand how the federation works. Only activates when federate.config.json already exists. Triggers on: launch team, monitor teams, send directive, sync skills, sweep learnings, how does federation work, federation architecture, manage my teams."
+description: "The user wants to manage an EXISTING federation — launch teams, monitor progress, send directives, sync skills, retire/pause/resume teams, or understand how the federation works. Only activates when federate.config.json already exists. Triggers on: launch team, monitor teams, send directive, sync skills, sweep learnings, how does federation work, federation architecture, manage my teams, retire team, pause team, resume team, decommission team, shut down team, suspend team, reactivate team."
 version: "0.1.0"
 ---
 
@@ -232,6 +232,58 @@ Never reset when a refresh would suffice — resets discard learnings and signal
 - If a worktree is corrupted, remove and re-onboard: `git worktree remove` → `onboard.ts`.
 - Stale domains (no status update for >30 minutes during a run) likely indicate a hung session. Kill the process and re-launch with `--step`.
 - If output collection reports missing files, check the archetype's expected output configuration matches what the domain actually wrote.
+
+## Team Lifecycle Management
+
+### Retire a Team
+
+Retiring permanently deactivates a team: graduates its learnings to the main log, archives signals, and removes the worktree (if applicable). This is irreversible.
+
+When the user says **"retire the payments team"**, **"decommission payments"**, **"shut down the payments squad"**:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs && npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/offboard.ts --team payments --mode retire --non-interactive --output-format json
+```
+
+Parse the JSON output and present:
+- How many learnings were graduated to the main log
+- How many signals were archived
+- Whether the worktree was removed
+- Final status confirmation
+
+### Pause a Team
+
+Pausing temporarily suspends a team. The workspace is preserved so work can resume later. Only active teams can be paused.
+
+When the user says **"pause team alpha"**, **"suspend the alpha team"**, **"put alpha on hold"**:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs && npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/offboard.ts --team alpha --mode pause --non-interactive --output-format json
+```
+
+Parse the JSON output and confirm the pause timestamp.
+
+### Resume a Team
+
+Resuming reactivates a paused team, returning it to active status. Only paused teams can be resumed.
+
+When the user says **"resume team alpha"**, **"reactivate alpha"**, **"unpause the alpha team"**:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs && npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/offboard.ts --team alpha --mode resume --non-interactive --output-format json
+```
+
+Parse the JSON output and confirm the team is active again.
+
+### Force Mode
+
+If the user says **"force retire"** or needs to bypass warnings:
+
+```bash
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/offboard.ts --team payments --mode retire --force --non-interactive --output-format json
+```
+
+The `--force` flag skips confirmation prompts and warning checks.
 
 ## Heartbeat Management
 

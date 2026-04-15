@@ -152,6 +152,67 @@ npx tsx scripts/monitor.ts \
 
 ---
 
+### `offboard.ts`
+
+**What it does:** Manages team lifecycle transitions — retire, pause, or resume teams. Implements the **script-drives-skill** model (ADR-001).
+
+**Called by:** `federation-orchestration` skill
+
+**Parameters:**
+- `--team <name>` — Team domain name *(required)*
+- `--mode <retire|pause|resume>` — Lifecycle action (default: `retire`)
+- `--force` — Skip confirmation prompts
+- `--non-interactive` — No stdin prompts; all params via flags *(for CI/skill use)*
+- `--output-format <text|json>` — Output format; `json` produces structured `OffboardResult`
+
+**What each mode does:**
+
+| Mode | Status Change | Learnings | Signals | Workspace |
+|------|--------------|-----------|---------|-----------|
+| `retire` | → retired | Graduated to main | Archived | Removed (worktree) |
+| `pause` | → paused | Preserved | Preserved | Preserved |
+| `resume` | → active | Preserved | Preserved | Preserved |
+
+**Guard rails:**
+- Cannot retire a retired team
+- Cannot pause a non-active team
+- Cannot resume a non-paused team
+
+**Example (retire with JSON output):**
+```bash
+npx tsx scripts/offboard.ts \
+  --team backend-api \
+  --mode retire \
+  --non-interactive \
+  --output-format json
+```
+
+**JSON output structure (`OffboardResult`):**
+```json
+{
+  "success": true,
+  "team": "backend-api",
+  "mode": "retire",
+  "message": "Team \"backend-api\" retired successfully",
+  "details": {
+    "learningsGraduated": 5,
+    "learningsSkipped": 2,
+    "graduatedIds": ["learn-1", "learn-2"],
+    "signalsArchived": 3,
+    "statusUpdated": true,
+    "worktreeRemoved": true
+  }
+}
+```
+
+**Example (pause/resume):**
+```bash
+npx tsx scripts/offboard.ts --team backend-api --mode pause
+npx tsx scripts/offboard.ts --team backend-api --mode resume
+```
+
+---
+
 ### `sweep-learnings.ts`
 
 **What it does:** Analyzes learning logs across teams, detects cross-domain patterns, suggests graduation to skills.
