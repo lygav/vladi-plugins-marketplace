@@ -26,7 +26,8 @@ The federation-setup skill asks which communication type you want. Your choice d
 - No external dependencies
 - Clean audit trail via git history
 
-**Configuration:**
+**Generated config:**
+The federation-setup skill creates this configuration:
 ```json
 {
   "communicationType": "file-signal"
@@ -48,7 +49,8 @@ The federation-setup skill asks which communication type you want. Your choice d
 - Existing Teams workflows
 - Cross-functional coordination
 
-**Configuration:**
+**Generated config:**
+The federation-setup skill creates this configuration:
 ```json
 {
   "communicationType": "teams-channel",
@@ -201,11 +203,11 @@ Teams poll the channel for new messages via the Microsoft Graph API. The communi
 
 ### Before Teams Exist
 
-Edit `federate.config.json` and change `communicationType`. New team launches use the updated protocol.
+Run the federation-setup skill again to change the communication type. New team launches will use the updated protocol.
 
 ### With Running Teams
 
-1. Update `federate.config.json`
+1. Run federation-setup again to update the configuration
 2. Restart team sessions:
    > "Restart all teams"
 
@@ -294,20 +296,10 @@ The timestamp (Unix milliseconds) ensures chronological ordering.
 
 ### File Signals
 
-**List inbox signals:**
-```bash
-ls -la .worktrees/frontend/.squad/signals/inbox/
-```
+Ask the monitoring skill to show signal status:
+> "Show me signals for the frontend team"
 
-**Read a signal:**
-```bash
-cat .worktrees/frontend/.squad/signals/inbox/1706611200000-directive-focus-on-auth.json | jq
-```
-
-**Check acknowledgments:**
-```bash
-ls .worktrees/frontend/.squad/signals/inbox/*.ack
-```
+You can also inspect signals directly in the team's workspace at `.worktrees/frontend/.squad/signals/inbox/` to see unprocessed messages and acknowledgments.
 
 ### Teams Channel
 
@@ -348,7 +340,7 @@ Check the `to` field in the signal matches the team's `domainId` in `.squad/team
 1. Create Teams team and channel
 2. Get channel link from Teams
 3. Run federation setup again, choose Teams communication
-4. Skill updates `federate.config.json` with `teamsConfig`
+4. The setup skill updates the configuration with Teams settings
 5. Restart all teams
 
 **Note:** Existing file signals are not migrated. Teams start fresh with Teams channel.
@@ -359,7 +351,7 @@ Check the `to` field in the signal matches the team's `domainId` in `.squad/team
 
 **Steps:**
 1. Run federation setup again, choose file signals
-2. Skill removes `teamsConfig` from `federate.config.json`
+2. The setup skill updates the configuration to use file signals
 3. Restart all teams
 
 **Note:** Teams messages remain in channel but are no longer monitored.

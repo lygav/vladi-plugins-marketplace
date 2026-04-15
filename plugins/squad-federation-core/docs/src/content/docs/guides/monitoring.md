@@ -167,10 +167,10 @@ Teams maintain `.squad/status.json` with current state:
 - `failed` - Error occurred
 - `paused` - Manually paused
 
-You can read this file directly:
-```bash
-cat .worktrees/frontend/.squad/signals/status.json | jq
-```
+Ask the orchestration skill to show detailed status for a specific team:
+> "What's the frontend team status?"
+
+The status file is also available at `.worktrees/frontend/.squad/signals/status.json`.
 
 ## Archetype-Specific Monitoring
 
@@ -201,80 +201,35 @@ These metrics flow to the telemetry dashboard if enabled.
 
 ### Team Not Appearing in Dashboard
 
-Through Copilot:
+Ask the orchestration skill:
 > "Why isn't the frontend team showing?"
 
-Or check registry manually:
-```bash
-cat .squad/teams.json | jq '.teams[] | select(.domain == "frontend")'
-```
+The skill will check the team registry and help diagnose the issue.
 
-If missing, re-run onboarding:
+If the team is missing, re-run onboarding:
 > "Onboard a team for frontend"
 
 ### Team Shows "Stalled"
 
-Check if the session is running:
-```bash
-ps aux | grep copilot | grep frontend
-```
+Ask the orchestration skill to check the team:
+> "Why is the frontend team stalled?"
 
-If not running, view the error log:
-```bash
-tail -100 .worktrees/frontend/run-output.log
-```
+The skill will check the session status and error logs.
 
-Restart the team:
+To restart:
 > "Restart the frontend team"
 
 ### Telemetry Not Appearing
 
-**Check endpoint:**
-```bash
-echo $OTEL_EXPORTER_OTLP_ENDPOINT
-```
+Ask the orchestration skill to check telemetry:
+> "Is telemetry working for my teams?"
 
-**Test connection:**
-```bash
-curl http://localhost:4318/v1/traces
-```
+The skill will verify the dashboard is running and teams are exporting telemetry.
 
-**Verify dashboard running:**
-```bash
-docker ps | grep aspire-dashboard
-```
-
-**Check team MCP config:**
-```bash
-cat .worktrees/frontend/.mcp.json
-```
-
-If missing, telemetry wasn't enabled during launch. Re-launch with telemetry:
-> "Launch the frontend team"
-
-## Script Reference
-
-While the skills handle monitoring conversationally, you can run the script directly:
-
-**One-time dashboard check:**
-```bash
-npx tsx path/to/squad-federation-core/scripts/monitor.ts
-```
-
-**Continuous monitoring:**
-```bash
-npx tsx path/to/squad-federation-core/scripts/monitor.ts --watch --interval 30
-```
-
-**Send directive:**
-```bash
-npx tsx path/to/squad-federation-core/scripts/monitor.ts \
-  --send frontend \
-  --directive "Focus on login flow first"
-```
+If telemetry wasn't enabled, you can enable it by running federation setup again and choosing telemetry, then restarting teams.
 
 ## Next Steps
 
-- [Send directives to guide teams](/vladi-plugins-marketplace/guides/federation-setup#step-5-send-a-directive-optional)
+- [Send directives to guide teams](/vladi-plugins-marketplace/getting-started/first-federation#step-5-send-a-directive-optional)
 - [Learn about knowledge lifecycle](/vladi-plugins-marketplace/guides/knowledge-lifecycle)
 - [Understand communication protocols](/vladi-plugins-marketplace/guides/communication-transports)

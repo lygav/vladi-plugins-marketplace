@@ -145,36 +145,21 @@ Now that you have one team running, you can:
 
 Each of these is handled conversationally through the federation skills.
 
-## Hybrid Model: Skills + Scripts
+## How It Works
 
-While you interact through conversational skills, the system uses scripts behind the scenes for mechanical work. You can see what happened by checking:
+While you interact through conversational skills, the system manages files and directories behind the scenes. You can see what was created:
 
-**Team registry:**
-```bash
-cat .squad/teams.json
-```
+**Team registry:** `.squad/teams.json`
 
-**Team workspace:**
-```bash
-ls .worktrees/frontend/.squad/
-```
+**Team workspace:** `.worktrees/frontend/.squad/`
 
-**Team status:**
-```bash
-cat .worktrees/frontend/.squad/signals/status.json
-```
+**Team status:** `.worktrees/frontend/.squad/signals/status.json`
 
-This hybrid approach gives you conversational simplicity with full transparency into the underlying mechanics.
+This gives you conversational simplicity with full transparency into the underlying mechanics.
 
-### Script Reference
+### Advanced Use Cases
 
-If you need to run operations outside conversational context (e.g., in CI/CD), the scripts are available:
-
-- `scripts/launch.ts --team <name>` - Launch a team session
-- `scripts/monitor.ts` - Show dashboard
-- `scripts/monitor.ts --send <team> --directive "<message>"` - Send directive
-
-See [Federation Orchestration](/vladi-plugins-marketplace/guides/federation-setup) for complete script documentation.
+For advanced use cases like CI/CD integration, you can access the underlying mechanics directly through the files and directories the system creates. All operations that the skills perform are also possible through direct file manipulation, though the conversational interface is recommended for most users.
 
 ## Next Steps
 

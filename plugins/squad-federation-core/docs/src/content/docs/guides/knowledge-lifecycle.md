@@ -252,26 +252,7 @@ cat .squad/skills/parallel-testing.md
 
 ## Learning Log Maintenance
 
-The learning log grows over time. Periodically archive old entries:
-
-```bash
-# Keep last 1000 learnings
-tail -1000 .squad/learnings/log.jsonl > .squad/learnings/log-recent.jsonl
-mv .squad/learnings/log-recent.jsonl .squad/learnings/log.jsonl
-```
-
-Or move to archive:
-```bash
-mkdir -p .squad/learnings/archive
-mv .squad/learnings/log.jsonl .squad/learnings/archive/log-2025-01.jsonl
-touch .squad/learnings/log.jsonl
-```
-
-Query across archives:
-```bash
-cat .squad/learnings/archive/*.jsonl .squad/learnings/log.jsonl | \
-  jq '. | select(.tags[] == "performance")'
-```
+The learning log at `.squad/learnings/log.jsonl` grows over time as teams capture insights. For very large projects with extensive learning histories, you may want to periodically archive older entries to keep the active log focused and performant. The knowledge-lifecycle skill can help identify which learnings have been graduated to skills and may be candidates for archiving.
 
 ## Telemetry
 
@@ -319,21 +300,17 @@ If telemetry is enabled, knowledge events flow to the dashboard:
 
 ### Learning Not Appearing
 
-Check format (must be valid JSON on single line):
-```bash
-tail -1 .squad/learnings/log.jsonl | jq .
-```
+Ask the knowledge-lifecycle skill to check recent learnings:
+> "What have my teams learned recently?"
 
-If error, fix the JSON and re-append.
+The skill will show the latest learnings and help identify any issues with the learning log format.
 
 ### Sweep Finds No Patterns
 
-Ensure teams use common tags:
-```bash
-cat .squad/learnings/log.jsonl | jq -r '.tags[]' | sort | uniq -c | sort -rn
-```
+Ask the skill to analyze tag usage:
+> "What tags are teams using in their learnings?"
 
-Align tags if fragmented (e.g., `perf` vs `performance`).
+The skill will show common tags and help identify if tag fragmentation (e.g., `perf` vs `performance`) is preventing pattern detection.
 
 ### Skill Not Syncing
 
@@ -342,36 +319,23 @@ Check team placement supports file operations:
 - **Directory:** ✅ Supports sync
 - **Custom:** ⚠️ Depends on implementation
 
-## Script Reference
+## Working with the Knowledge Lifecycle
 
-While the knowledge-lifecycle skill handles these flows conversationally, you can run scripts directly:
+The knowledge-lifecycle skill handles all learning operations conversationally:
 
 **Sweep for patterns:**
-```bash
-npx tsx path/to/squad-federation-core/scripts/sweep.ts
-```
+> "What patterns have emerged across my teams?"
 
 **Filter by tag:**
-```bash
-npx tsx path/to/squad-federation-core/scripts/sweep.ts --tag performance
-```
+> "Show me all learnings about performance"
 
 **Graduate a learning:**
-```bash
-npx tsx path/to/squad-federation-core/scripts/graduate.ts \
-  --learning-id "1706611200000" \
-  --skill-name "parallel-testing"
-```
+> "Graduate the parallel testing pattern to a skill"
 
 **Sync skills to teams:**
-```bash
-npx tsx path/to/squad-federation-core/scripts/sync.ts
-```
+> "Sync skills to all teams"
 
-**Sync to specific teams:**
-```bash
-npx tsx path/to/squad-federation-core/scripts/sync.ts --team frontend,backend
-```
+All knowledge operations happen through natural conversation with the skill.
 
 ## Next Steps
 

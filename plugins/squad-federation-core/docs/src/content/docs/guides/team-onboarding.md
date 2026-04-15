@@ -70,9 +70,11 @@ The skill asks **guiding questions** to discover the right archetype. It doesn't
 
 **Your options:**
 
-**Write code** → Coding or Research archetype (next question determines which)
+**Write code** → Coding archetype (next question determines if they open PRs)
 
 **Produce artifacts** → Deliverable archetype (skip to placement)
+
+**Answer questions** → Consultant archetype (domain expert teams)
 
 #### Question 2: Integration (if you said "write code")
 
@@ -86,10 +88,7 @@ The skill asks **guiding questions** to discover the right archetype. It doesn't
 - Opens PRs to main
 - Runs tests and CI checks
 
-**No** → **Research archetype**  
-- Explores code, analyzes patterns
-- Documents findings
-- No PR workflow
+**No** → Continues with Coding archetype but without PR workflow
 
 #### Archetype Confirmation
 
@@ -237,17 +236,13 @@ The team reads skills from `.squad/skills/` at launch.
 
 ### Customizing DOMAIN_CONTEXT.md
 
-Edit the team's mission file:
-
-```bash
-vim .worktrees/frontend/DOMAIN_CONTEXT.md
-```
-
-Add:
+The team's mission file can be updated to add more details:
 - Specific responsibilities
 - Key files/directories to focus on
 - Integration points with other teams
 - Constraints or guidelines
+
+The file is located at `.worktrees/frontend/DOMAIN_CONTEXT.md`.
 
 ### Custom Launch Prompt
 
@@ -266,25 +261,13 @@ Check inbox for directives from meta-squad.
 
 ## Verifying Onboarding
 
-### Check Team Registry
+Ask the orchestration skill to show team status:
 
-```bash
-cat .squad/teams.json | jq '.teams[] | select(.domain == "frontend")'
-```
+> "Show me the frontend team details"
 
-### Check Worktree
+The skill will display the team's configuration, location, and current state.
 
-```bash
-git worktree list | grep frontend
-```
-
-### Inspect Team Workspace
-
-```bash
-ls -la .worktrees/frontend/.squad/
-```
-
-You should see `status.json`, `signals/`, `learnings/`, `ceremonies.md`.
+You can also inspect the team workspace directly at `.worktrees/frontend/.squad/` to see `status.json`, `signals/`, `learnings/`, and `ceremonies.md`.
 
 ## Placement Options Explained
 
@@ -363,18 +346,18 @@ parent-dir/
 - "Generate API documentation"
 - "Create infrastructure inventory"
 
-### Research Archetype
+### Consultant Archetype
 
 **Use when team:**
-- Analyzes code or systems
-- Explores patterns and anti-patterns
-- Documents findings
-- No integration workflow
+- Provides domain expertise
+- Answers questions about specific areas
+- Acts as knowledge resource
+- Doesn't produce code or artifacts
 
 **Examples:**
-- "Analyze test coverage gaps"
-- "Map service dependencies"
-- "Identify performance bottlenecks"
+- "Database architecture expert"
+- "Security policy advisor"
+- "Performance optimization consultant"
 
 ## Troubleshooting
 
@@ -413,36 +396,8 @@ Run federation setup first:
 
 You need `federate.config.json` before onboarding teams.
 
-## Script Reference
-
-While the skill handles onboarding conversationally, you can run the script directly for CI/CD or automation:
-
-**Manual onboarding:**
-```bash
-npx tsx path/to/squad-federation-core/scripts/onboard.ts \
-  --name "frontend" \
-  --domain-id "fe-001" \
-  --archetype "squad-archetype-coding" \
-  --placement worktree \
-  --description "Build React components"
-```
-
-**Required flags:**
-- `--name` - Team name (kebab-case)
-- `--domain-id` - Unique team identifier
-- `--archetype` - Archetype plugin name
-
-**Optional flags:**
-- `--description` - Team mission (written to DOMAIN_CONTEXT.md)
-- `--placement` - `worktree` (default) or `directory`
-- `--worktree-dir` - Worktree location (default: `.worktrees`)
-- `--path` - Directory location (for `--placement directory`)
-- `--base-branch` - Base branch for worktree (default: `main`)
-
-See the script output for details on what was created.
-
 ## Next Steps
 
 - [Launch the team](/vladi-plugins-marketplace/getting-started/first-federation#step-3-launch-the-team)
-- [Send directives to guide work](/vladi-plugins-marketplace/guides/federation-setup#step-5-send-a-directive-optional)
+- [Send directives to guide work](/vladi-plugins-marketplace/getting-started/first-federation#step-5-send-a-directive-optional)
 - [Monitor team progress](/vladi-plugins-marketplace/guides/monitoring)

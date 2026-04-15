@@ -221,7 +221,7 @@ If telemetry is enabled, each team workspace also gets `.mcp.json` with the Open
 
 ## Advanced Configuration
 
-After initial setup, you can edit `federate.config.json` to add advanced options:
+The federation-setup skill creates `federate.config.json` with your chosen settings. Advanced options can be added if needed:
 
 ### Custom Deliverable Files
 
@@ -285,19 +285,15 @@ The skill won't overwrite existing `federate.config.json`. If you want to reconf
 2. Run setup again
 3. Merge any custom settings from the backup
 
-## Script Reference
+## Inspecting Configuration
 
-While the skill handles setup conversationally, you can inspect what was created:
+The federation-setup skill creates these files. You can view them to understand the configuration:
 
-**Validate config:**
-```bash
-npx tsx path/to/squad-federation-core/scripts/validate-config.ts
-```
+**Generated config file:**
+`federate.config.json` in your project root
 
-**View registry:**
-```bash
-cat .squad/teams.json
-```
+**Team registry:**
+`.squad/teams.json` (empty initially, populated during team onboarding)
 
 **Manually start dashboard** (if telemetry enabled but aspire: false):
 ```bash

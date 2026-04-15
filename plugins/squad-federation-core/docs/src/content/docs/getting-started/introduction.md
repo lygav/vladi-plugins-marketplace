@@ -54,10 +54,9 @@ Squad Federation operates on three layers:
 
 Each team operates according to an **archetype** — a work pattern that defines what the team does and how it progresses:
 
-- **Deliverable** - Produces file artifacts (reports, specs, audit results, inventories)
 - **Coding** - Writes code and opens pull requests
-- **Research** - Investigates topics and documents findings
-- **Task** - Executes discrete work items
+- **Deliverable** - Produces file artifacts (reports, specs, audit results, inventories)
+- **Consultant** - Domain expert teams that answer questions
 
 You pick the archetype during onboarding based on what the team needs to do.
 
