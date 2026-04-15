@@ -34,6 +34,7 @@ export interface SignalMessage {
 export interface LearningEntry {
   id: string;
   timestamp: string;
+  version: string;
   type: 'discovery' | 'correction' | 'pattern' | 'technique' | 'gotcha';
   content: string;
   confidence: 'low' | 'medium' | 'high';

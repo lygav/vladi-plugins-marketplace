@@ -130,12 +130,14 @@ describe('worktree-placement.ts', () => {
     });
 
     it('should return null for missing status', async () => {
-      const status = await transport.readStatus('team-alpha');
+      const communication = new (await import('../helpers/mock-communication.js')).MockCommunication();
+      const status = await communication.readStatus('team-alpha');
       expect(status).toBeNull();
     });
 
     it('should return empty array for missing signals', async () => {
-      const signals = await transport.readInboxSignals('team-alpha');
+      const communication = new (await import('../helpers/mock-communication.js')).MockCommunication();
+      const signals = await communication.readInboxSignals('team-alpha');
       expect(signals).toEqual([]);
     });
   });

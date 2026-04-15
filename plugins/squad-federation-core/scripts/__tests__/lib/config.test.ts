@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { FederateConfig } from '../../lib/config.js';
+import type { FederateConfig } from '../../lib/config/config.js';
 
 // Mock fs
 const mockReadFileSync = vi.fn();
@@ -16,7 +16,7 @@ vi.mock('fs', () => ({
   existsSync: vi.fn(() => true),
 }));
 
-const { validateConfig, loadAndValidateConfig, ConfigValidationError } = await import('../../lib/config.js');
+const { validateConfig, loadAndValidateConfig, ConfigValidationError } = await import('../../lib/config/config.js');
 
 describe('config.ts', () => {
   beforeEach(() => {
@@ -33,6 +33,7 @@ describe('config.ts', () => {
 
       expect(result).toEqual({
         ...config,
+        communicationType: 'file-signal', // default value
         playbookSkill: 'domain-playbook', // default value
       });
     });
@@ -40,6 +41,7 @@ describe('config.ts', () => {
     it('should accept config with all optional fields', () => {
       const config = {
         description: 'Test federation',
+        communicationType: 'file-signal',
         telemetry: { enabled: true, aspire: true },
         playbookSkill: 'custom-playbook',
         deliverable: 'DELIVERABLE.md',
@@ -51,10 +53,12 @@ describe('config.ts', () => {
       expect(result).toEqual(config);
     });
 
-    it('should reject config with missing required fields', () => {
+    it('should use defaults for empty config', () => {
       const invalidConfig = {};
 
-      expect(() => validateConfig(invalidConfig)).toThrow(ConfigValidationError);
+      const result = validateConfig(invalidConfig);
+      expect(result.telemetry).toEqual({ enabled: true });
+      expect(result.playbookSkill).toBe('domain-playbook');
     });
 
     it('should reject config with invalid telemetry object', () => {
@@ -108,10 +112,12 @@ describe('config.ts', () => {
       expect(() => loadAndValidateConfig('/path/to/config.json')).toThrow();
     });
 
-    it('should throw on invalid config structure', () => {
+    it('should handle config with only unknown fields', () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ invalid: 'config' }));
 
-      expect(() => loadAndValidateConfig('/path/to/config.json')).toThrow(ConfigValidationError);
+      // Unknown fields are warned but not rejected; defaults are applied
+      const result = loadAndValidateConfig('/path/to/config.json');
+      expect(result.telemetry).toEqual({ enabled: true });
     });
 
     it('should apply default values for optional fields', () => {

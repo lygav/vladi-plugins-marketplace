@@ -96,12 +96,11 @@ describe('signal-protocol.ts', () => {
   });
 
   describe('signal types', () => {
-    const types: Array<'directive' | 'report' | 'alert' | 'sync' | 'ack'> = [
+    const types: Array<'directive' | 'report' | 'alert' | 'question'> = [
       'directive',
       'report',
       'alert',
-      'sync',
-      'ack',
+      'question',
     ];
 
     types.forEach((type) => {
@@ -183,66 +182,65 @@ describe('signal-protocol.ts', () => {
     it('should handle directive body', async () => {
       const signal = createTestSignal({
         type: 'directive',
-        body: signalBodies.directive('scan', { depth: 'full' }),
+        body: signalBodies.scan('high'),
       });
 
       await communication.writeInboxSignal('team-alpha', signal);
       const signals = await communication.readInboxSignals('team-alpha');
 
-      expect(signals[0].body).toHaveProperty('command', 'scan');
-      expect(signals[0].body).toHaveProperty('params');
+      expect(typeof signals[0].body).toBe('string');
+      expect(signals[0].body).toContain('high');
     });
 
     it('should handle report body', async () => {
       const signal = createTestSignal({
         type: 'report',
-        body: signalBodies.report('status', { state: 'scanning' }),
+        body: signalBodies.report('status update', { state: 'scanning' }),
       });
 
       await communication.writeInboxSignal('team-alpha', signal);
       const signals = await communication.readInboxSignals('team-alpha');
 
-      expect(signals[0].body).toHaveProperty('reportType', 'status');
-      expect(signals[0].body).toHaveProperty('data');
+      expect(typeof signals[0].body).toBe('string');
+      expect(signals[0].body).toContain('status update');
     });
 
     it('should handle alert body', async () => {
       const signal = createTestSignal({
         type: 'alert',
-        body: signalBodies.alert('error', 'Test error'),
+        body: 'Critical error encountered',
       });
 
       await communication.writeInboxSignal('team-alpha', signal);
       const signals = await communication.readInboxSignals('team-alpha');
 
-      expect(signals[0].body).toHaveProperty('severity', 'error');
-      expect(signals[0].body).toHaveProperty('message', 'Test error');
+      expect(signals[0].body).toContain('Critical error');
     });
 
-    it('should handle sync body', async () => {
+    it('should handle question body', async () => {
       const signal = createTestSignal({
-        type: 'sync',
-        body: signalBodies.sync('skills', ['skill-1', 'skill-2']),
+        type: 'question',
+        body: signalBodies.query('What is the project status?'),
       });
 
       await communication.writeInboxSignal('team-alpha', signal);
       const signals = await communication.readInboxSignals('team-alpha');
 
-      expect(signals[0].body).toHaveProperty('syncType', 'skills');
-      expect(signals[0].body).toHaveProperty('payload');
+      expect(typeof signals[0].body).toBe('string');
+      expect(signals[0].body).toContain('project status');
     });
 
     it('should handle ack body', async () => {
       const signal = createTestSignal({
-        type: 'ack',
+        type: 'report',
         body: signalBodies.ack('original-signal-id', 'received'),
       });
 
       await communication.writeInboxSignal('team-alpha', signal);
       const signals = await communication.readInboxSignals('team-alpha');
 
-      expect(signals[0].body).toHaveProperty('replyTo', 'original-signal-id');
-      expect(signals[0].body).toHaveProperty('status', 'received');
+      expect(signals[0].body).toContain('original-signal-id');
+      expect(signals[0].body).toContain('received');
     });
   });
 
@@ -272,14 +270,14 @@ describe('signal-protocol.ts', () => {
 
     it('should support reply-to tracking', async () => {
       const signal = createTestSignal({
-        type: 'ack',
+        type: 'report',
         body: signalBodies.ack('original-123', 'processed'),
       });
 
       await communication.writeInboxSignal('team-alpha', signal);
       const signals = await communication.readInboxSignals('team-alpha');
 
-      expect(signals[0].body.replyTo).toBe('original-123');
+      expect(signals[0].body).toContain('original-123');
     });
   });
 
@@ -334,32 +332,25 @@ describe('signal-protocol.ts', () => {
   });
 
   describe('signal file format', () => {
-    it('should store signals as JSONL', async () => {
+    it('should store signals as individual entries', async () => {
       await communication.writeInboxSignal('team-alpha', createTestSignal({ id: 's1' }));
       await communication.writeInboxSignal('team-alpha', createTestSignal({ id: 's2' }));
 
-      const raw = await communication.readFile('team-alpha', '.squad/inbox.jsonl');
-      expect(raw).not.toBeNull();
-
-      const lines = raw!.split('\n').filter((l) => l.trim());
-      expect(lines.length).toBe(2);
-
-      lines.forEach((line) => {
-        expect(() => JSON.parse(line)).not.toThrow();
-      });
+      const signals = await communication.readInboxSignals('team-alpha');
+      expect(signals).toHaveLength(2);
+      expect(signals[0].id).toBe('s1');
+      expect(signals[1].id).toBe('s2');
     });
 
     it('should handle multi-line body content', async () => {
       const signal = createTestSignal({
-        body: {
-          message: 'Line 1\nLine 2\nLine 3',
-        },
+        body: 'Line 1\nLine 2\nLine 3',
       });
 
       await communication.writeInboxSignal('team-alpha', signal);
       const signals = await communication.readInboxSignals('team-alpha');
 
-      expect(signals[0].body.message).toBe('Line 1\nLine 2\nLine 3');
+      expect(signals[0].body).toBe('Line 1\nLine 2\nLine 3');
     });
   });
 });
