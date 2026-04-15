@@ -19,6 +19,21 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs
 
 Guide the orchestration of a federated squad system where a **meta-squad** coordinates multiple **domain squads**, each running independently in isolated git worktrees. This skill covers architecture, lifecycle management, and the scripts that power the system.
 
+## Critical: Delegation Model
+
+The meta-squad is a **leadership team**. When a user asks the meta-squad to get work done (e.g., *"get team tetris-game to start working on their game"*, *"tell the payments team to implement Stripe"*), the meta-squad MUST:
+
+1. **Launch the domain team** as a federated team via `launch.ts` — they run in their own worktree as an independent squad
+2. **Send directives** via the signal protocol to instruct the team
+3. **Monitor progress** via status signals and OTel
+
+The meta-squad MUST NOT:
+- Do the work itself (no coding, no direct deliverables)
+- Spawn squad agents directly to do the domain team's job
+- Bypass the federation model by treating domain work as meta-squad tasks
+
+**Rule:** Every request to "do work" gets delegated to the appropriate domain team. If that team doesn't exist yet, onboard it first. The meta-squad's output is instructions, feedback, and coordination — never the work product itself.
+
 ## Architecture Overview
 
 The federation model has two layers:
