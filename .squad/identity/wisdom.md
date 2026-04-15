@@ -264,6 +264,21 @@ script drives → emits structured prompts → skill provides input → script c
 
 **Pattern:** Three-pass review (structure → content accuracy → verification). Opus catches what haiku misses (wrong names, stale references, broken links).
 
+### Always Sync Main Before Branching
+
+**Anti-pattern:** Creating feature branches from a stale local main. Leads to missing files, merge conflicts, and false "file doesn't exist" conclusions.
+
+**Root cause (v0.6.0 session):** Local main was 20+ commits behind origin. TeamsChannelCommunication appeared missing but was actually merged — just not pulled locally. Wasted investigation time.
+
+**Rule:** EVERY branch MUST start from fresh origin/main:
+```bash
+git fetch origin main && git checkout main && git pull origin main
+# THEN branch
+git checkout -b feature/my-change
+```
+
+**Enforcement:** All agents must run `git pull origin main` before any `git checkout -b`. No exceptions.
+
 ### sed Destroys Structured Formats
 
 **Anti-pattern:** Using `sed` to modify YAML, JSON, or other structured files.
