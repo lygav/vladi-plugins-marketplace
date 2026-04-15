@@ -9,12 +9,12 @@
 
 ## Executive Summary
 
-squad-federation-core is a Copilot plugin that enables federated multi-team coordination. A **meta-squad** orchestrates N permanent **domain squads** via placement and communication abstraction. Teams live in git worktrees or directories (placement), and communicate via file-based signals or Teams channels (communication)—core is location and protocol agnostic. Domain squads accumulate expertise, run autonomously in headless sessions, and coordinate via adapters.
+squad-federation-core is a Copilot plugin that enables federated multi-team coordination. A **meta-squad** orchestrates N permanent **domain squads** via placement and communication abstraction. Teams live in git worktrees or directories (placement), and communicate via file-based signals (communication)—core is location and protocol agnostic. The adapter registry allows future transports without changing existing code. Domain squads accumulate expertise, run autonomously in headless sessions, and coordinate via adapters.
 
 **Core Pillars:**
 
 1. **Placement Abstraction** — Teams can live in worktrees, directories, or remote systems. Where a team lives (placement) is independent of how it communicates.
-2. **Communication Abstraction** — Teams communicate via file signals (default), Teams channels (v0.5.0), or custom adapters. Protocol is pluggable, federation-scoped.
+2. **Communication Abstraction** — Teams communicate via file signals (default) or custom adapters registered in the adapter registry. Protocol is pluggable, federation-scoped.
 3. **SDK Foundation** — Shared types/interfaces at `sdk/` enable archetype development as proper plugin extensions.
 4. **Meta/Team Separation** — Archetypes cleanly separate orchestration concerns (meta) from execution concerns (team).
 5. **Hybrid Monitoring** — Scripts collect mechanical data → skills interpret and present insights.
@@ -40,7 +40,7 @@ squad-federation-core is a Copilot plugin that implements a federated multi-team
 A **meta-squad** orchestrates N permanent **domain squads** via a **placement and communication abstraction**.
 Teams can exist in git worktrees, standalone directories, remote repos, or cloud storage—core
 is placement-agnostic and protocol-agnostic. Domain squads accumulate expertise, run autonomously in headless sessions,
-and communicate via file-based signals or Microsoft Teams channels.
+and communicate via file-based signals. The adapter registry supports future transport types.
 
 ### Three-Layer Architecture
 
@@ -187,7 +187,7 @@ team placement and communication settings:
 - Multi-placement federations (worktree + directory in same project)
 - Fast team lookup (no git subprocess calls)
 - Extensible metadata (store custom team properties)
-- Placement is independent of communication (same team can move to Teams channel v0.5.0)
+- Placement is independent of communication (adapter registry allows new transports without changing placement)
 
 ### TeamPlacement Interface
 
@@ -226,7 +226,7 @@ export interface TeamCommunication {
 }
 ```
 
-**Key design:** Placement knows WHERE teams live (filesystem, git worktree). Communication knows HOW they receive signals (file-based, Teams channel). Neither interface is tightly coupled.
+**Key design:** Placement knows WHERE teams live (filesystem, git worktree). Communication knows HOW they receive signals (file-based by default; extensible via adapter registry). Neither interface is tightly coupled.
 
 ### WorktreePlacement (lib/placement/worktree-placement.ts)
 
@@ -336,8 +336,8 @@ export function createTeamContext(
 
 **Benefits:**
 - Placement and communication chosen independently
-- Same team can migrate communication protocol (e.g., add Teams channel in v0.5.0)
-- Federation can have mixed communication types (FileSignal + Teams coexist)
+- Same team can migrate communication protocol (e.g., register a new adapter and set `communicationType` in config)
+- Federation can have mixed communication types via the adapter registry
 
 ---
 
@@ -1542,7 +1542,8 @@ interface FederateConfig {
   /** Brief description of what this federation does */
   description?: string;
 
-  /** Communication is always file-signal (the only transport) */
+  /** Communication adapter type (default: 'file-signal') */
+  communicationType: string;
 
   /** Optional Teams channel for meta-squad notifications */
   teamsConfig?: {
@@ -1591,8 +1592,8 @@ interface FederateConfig {
 
 **Schema Notes:**
 
-- **communication.defaultType** — All teams in federation use same protocol by default. Teams can migrate communication protocols as new adapters become available (e.g., add Teams channel v0.5.0 alongside file signals).
-- **communication.adapters** — Runtime-registered adapters. Supports custom implementations (e.g., `"redis-pubsub"` for high-throughput federations).
+- **communicationType** — All teams in federation use the configured transport adapter (default: `'file-signal'`). Custom adapters can be registered via `registerCommunicationAdapter()` and selected by setting `communicationType` in config.
+- **Adapter registry** — Runtime-registered adapters. Supports custom implementations (e.g., `"redis-pubsub"` for high-throughput federations).
 - **Placement is per-team** — Not in federate.config.json. Each team's placement (worktree, directory, cloud) is in `.squad/teams.json` entry.
 - **No branchPrefix/worktreeDir** — These were federation-level in v0.2.0. Now team-level (in teams.json) to support multi-placement federations.
 - **No mcpStack** — Archetypes auto-discovered from marketplace.json. MCP servers inherited from project `.mcp.json`.
@@ -1601,7 +1602,6 @@ interface FederateConfig {
 
 | Variable | Overrides | Default |
 |----------|-----------|---------|
-| `SQUAD_COMMUNICATION_TYPE` | `communication.defaultType` | `file-signal` |
 | `SQUAD_MAIN_BRANCH` | Main branch name in sync-skills | `main` |
 | `SQUAD_LAUNCHER` | Copilot launcher binary | `copilot` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTel collector URL | `http://localhost:4318` |
@@ -1954,7 +1954,7 @@ never enforces. The schema contract mediates between them.
 
 1. **Split concerns:**
    - `TeamPlacement` — WHERE teams live (worktree, directory, cloud)
-   - `TeamCommunication` — HOW teams communicate (file signals, Teams channels, pub-sub)
+   - `TeamCommunication` — HOW teams communicate (file signals by default; extensible via adapter registry)
    - Both are federation-scoped; factory (`createTeamContext()`) composes them per team
 
 2. **Adapter Registry Pattern:**
@@ -1987,7 +1987,7 @@ never enforces. The schema contract mediates between them.
 
 Prior design force-fit communication adapters with unnecessary placement parameters (e.g., `FileSignalCommunication` didn't need placement but signature included it). This PR cleanly separates orthogonal concerns:
 - Different teams can live in different places (placement) while using same communication protocol
-- Same team can migrate communication protocol without changing placement (e.g., add Teams channel to project)
+- Same team can migrate communication protocol without changing placement (e.g., register a new adapter and update `communicationType`)
 - New adapters (Redis pub-sub, Slack, Discord, etc.) implement only `TeamCommunication`, not placement
 
 **Benefits:**

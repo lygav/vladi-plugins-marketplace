@@ -2,7 +2,8 @@
  * TeamContext Factory — Composes TeamPlacement + TeamCommunication
  * 
  * Placement is per-team (worktree or directory).
- * Communication is always file-signal (the only supported transport).
+ * Communication uses the adapter specified by federationConfig.communicationType
+ * (defaults to 'file-signal'; extensible via the adapter registry).
  * 
  * @since v0.4.0
  */
@@ -169,7 +170,7 @@ function inferPlacementConfig(teamEntry: TeamEntry, repoRoot?: string): Placemen
  * Create a complete TeamContext by composing placement + communication.
  * 
  * Placement is per-team (from TeamEntry.placementType).
- * Communication is always file-signal (the only supported transport).
+ * Communication uses federationConfig.communicationType (defaults to 'file-signal').
  * 
  * PlacementConfig is inferred from TeamEntry.location and metadata.
  * 
@@ -191,10 +192,10 @@ export function createTeamContext(
   // Create placement adapter (per-team)
   const placement = createPlacement(teamEntry.placementType, placementConfig, emitter);
   
-  // Create communication adapter (always file-signal)
+  // Create communication adapter (from config, defaults to file-signal)
   const communicationConfig = buildCommunicationConfig(placement);
   const communication = createCommunication(
-    'file-signal',
+    federationConfig.communicationType,
     communicationConfig,
     emitter
   );

@@ -191,6 +191,7 @@ export const TeamEntrySchema = z.object({
  */
 export const FederateConfigSchema = z.object({
   description: z.string().optional(),
+  communicationType: z.string().optional().default('file-signal').describe('Communication adapter type (default: file-signal)'),
   telemetry: z
     .object({
       enabled: z.boolean(),

@@ -10,6 +10,8 @@ import * as fs from 'fs';
 export interface FederateConfig {
   /** Brief description of this federation (optional) */
   description?: string;
+  /** Communication transport type — adapter registry key (default: 'file-signal') */
+  communicationType: string;
   /** OTel observability */
   telemetry: {
     enabled: boolean;
@@ -31,7 +33,8 @@ export interface FederateConfig {
   importHook?: string;
 }
 
-const DEFAULT_CONFIG: Partial<FederateConfig> & { telemetry: { enabled: boolean } } = {
+const DEFAULT_CONFIG: Partial<FederateConfig> & { communicationType: string; telemetry: { enabled: boolean } } = {
+  communicationType: 'file-signal',
   telemetry: { enabled: true },
   playbookSkill: 'domain-playbook',
 };
@@ -89,6 +92,7 @@ export function validateConfig(raw: unknown): FederateConfig {
   // Track known fields for unknown field warnings
   const knownFields = new Set([
     'description',
+    'communicationType',
     'telemetry',
     'teamsConfig',
     'playbookSkill',
@@ -101,6 +105,14 @@ export function validateConfig(raw: unknown): FederateConfig {
   for (const key of Object.keys(config)) {
     if (!knownFields.has(key)) {
       console.warn(`⚠️  Unknown config field: "${key}" — this may be a typo`);
+    }
+  }
+
+  // Validate optional communicationType (default: 'file-signal')
+  if ('communicationType' in config) {
+    result.communicationType = validateString(config.communicationType, 'communicationType');
+    if (result.communicationType !== 'file-signal') {
+      console.warn(`⚠️  communicationType "${result.communicationType}" is not a registered adapter — only 'file-signal' is currently available`);
     }
   }
 
