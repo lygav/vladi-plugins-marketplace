@@ -15,7 +15,7 @@ Your job is to set up a new domain worktree, discover and select the right arche
 
 Before running any scripts, ensure the plugin environment is ready:
 ```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.ts
+node ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs
 ```
 
 ## Workflow

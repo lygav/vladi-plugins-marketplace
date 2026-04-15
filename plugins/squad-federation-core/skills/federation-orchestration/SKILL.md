@@ -12,7 +12,7 @@ version: "0.1.0"
 
 Before running any scripts, ensure the plugin environment is ready:
 ```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.ts
+node ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs
 ```
 
 ## Purpose

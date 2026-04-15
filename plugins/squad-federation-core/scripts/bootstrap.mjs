@@ -1,9 +1,9 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * Bootstrap script — ensures plugin dependencies are installed.
  * Run this before any other script. Idempotent — safe to run multiple times.
  * 
- * Usage: npx tsx scripts/bootstrap.ts
+ * Usage: node scripts/bootstrap.mjs
  * 
  * What it does:
  * 1. Checks if node_modules exists at plugin root
