@@ -2,7 +2,7 @@
  * TeamContext Factory — Composes TeamPlacement + TeamCommunication
  * 
  * Placement is per-team (worktree or directory).
- * Communication is federation-scoped (read from federate.config.json).
+ * Communication is always file-signal (the only supported transport).
  * 
  * @since v0.4.0
  */
@@ -12,7 +12,6 @@ import type { FederateConfig } from '../config/config.js';
 import { WorktreePlacement } from '../placement/worktree-placement.js';
 import { DirectoryPlacement } from '../placement/directory-placement.js';
 import { FileSignalCommunication } from '../communication/file-signal-communication.js';
-import { TeamsChannelCommunication } from '../communication/teams-channel-communication.js';
 import { OTelEmitter } from '../../../sdk/otel-emitter.js';
 
 /**
@@ -43,7 +42,7 @@ type CommunicationFactory = (
 const communicationAdapters = new Map<string, CommunicationFactory>();
 
 /**
- * Register the file-signal adapter (v0.4.0 default).
+ * Register the file-signal adapter (the only transport).
  */
 communicationAdapters.set('file-signal', (config, emitter) => {
   const placement = config.placement as TeamPlacement | undefined;
@@ -54,18 +53,11 @@ communicationAdapters.set('file-signal', (config, emitter) => {
 });
 
 /**
- * Register the teams-channel adapter (v0.5.0).
- */
-communicationAdapters.set('teams-channel', (config, emitter) => {
-  return new TeamsChannelCommunication(config, emitter);
-});
-
-/**
  * Register a custom communication adapter.
  * 
- * Allows archetypes or plugins to add new transport types (e.g., teams-channel in v0.5.0).
+ * Allows archetypes or plugins to add new transport types.
  * 
- * @param type - Communication type identifier (e.g., 'teams-channel')
+ * @param type - Communication type identifier
  * @param factory - Factory function that creates TeamCommunication instance
  */
 export function registerCommunicationAdapter(type: string, factory: CommunicationFactory): void {
@@ -177,7 +169,7 @@ function inferPlacementConfig(teamEntry: TeamEntry, repoRoot?: string): Placemen
  * Create a complete TeamContext by composing placement + communication.
  * 
  * Placement is per-team (from TeamEntry.placementType).
- * Communication is federation-scoped (from FederateConfig.communicationType).
+ * Communication is always file-signal (the only supported transport).
  * 
  * PlacementConfig is inferred from TeamEntry.location and metadata.
  * 
@@ -199,14 +191,10 @@ export function createTeamContext(
   // Create placement adapter (per-team)
   const placement = createPlacement(teamEntry.placementType, placementConfig, emitter);
   
-  // Create communication adapter (federation-scoped)
-  const communicationConfig = buildCommunicationConfig(
-    federationConfig.communicationType,
-    placement,
-    federationConfig
-  );
+  // Create communication adapter (always file-signal)
+  const communicationConfig = buildCommunicationConfig(placement);
   const communication = createCommunication(
-    federationConfig.communicationType,
+    'file-signal',
     communicationConfig,
     emitter
   );
@@ -222,22 +210,7 @@ export function createTeamContext(
 }
 
 function buildCommunicationConfig(
-  type: string,
-  placement: TeamPlacement,
-  federationConfig: FederateConfig
+  placement: TeamPlacement
 ): Record<string, unknown> {
-  switch (type) {
-    case 'file-signal':
-      return { placement };
-    case 'teams-channel':
-      if (!federationConfig.teamsConfig) {
-        throw new Error('teamsConfig is required when communicationType is teams-channel');
-      }
-      return {
-        teamId: federationConfig.teamsConfig.teamId,
-        channelId: federationConfig.teamsConfig.channelId,
-      };
-    default:
-      return {};
-  }
+  return { placement };
 }

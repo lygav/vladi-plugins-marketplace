@@ -344,8 +344,7 @@ Most teams work on the same codebase:
 |-------|---------|-------------|
 | `description` | — | What this federation is for |
 | `telemetry.enabled` | `true` | OTel monitoring dashboard |
-| `communicationType` | `"file-signal"` | How teams communicate: `"file-signal"` or `"teams-channel"` |
-| `teamsConfig` | — | Required when using `teams-channel`: `{ teamId, channelId }` |
+| `teamsConfig` | — | Optional meta-squad notification channel: `{ teamId, channelId }` |
 
 Everything else is archetype or team-level config. MCP servers are configured via `.mcp.json` at the project level and teams inherit automatically.
 

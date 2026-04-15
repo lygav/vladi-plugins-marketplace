@@ -4,7 +4,11 @@
  * 
  * Usage: npx tsx scripts/meta-relay.ts [--interval 2000] [--once]
  * 
- * Reads from team signal outboxes, formats summaries, delivers to console or Teams.
+ * Reads from team signal outboxes, formats summaries, delivers to console.
+ * Teams notification integration happens at the skill layer (federation-orchestration),
+ * not in this script. teamsConfig in federate.config.json is used by the meta-squad
+ * skill to post summaries and poll for #directive messages.
+ * 
  * --once: run one cycle and exit (useful for testing)
  * --interval: poll interval in ms (default: 2000)
  */
@@ -45,13 +49,13 @@ interface ScanStatus {
 
 interface FederationConfig {
   description: string;
-  communicationType: 'file-signal' | 'teams-channel';
   telemetry?: {
     enabled: boolean;
     endpoint?: string;
   };
+  /** Teams channel for meta-squad notifications (used by skill layer, not this script) */
   teamsConfig?: {
-    workspaceId: string;
+    teamId: string;
     channelId: string;
   };
 }
@@ -284,33 +288,6 @@ async function deliverToConsole(
   });
 }
 
-async function deliverToTeams(
-  teamDomain: string,
-  status: ScanStatus | null,
-  signals: SignalMessage[],
-  teamsConfig: { workspaceId: string; channelId: string },
-  emitter: OTelEmitter
-): Promise<void> {
-  // For Teams: post curated summary with #meta-summary tag
-  const { message, importance } = curateTeamSummary(teamDomain, status, signals);
-  
-  if (!message) return; // Nothing to report
-
-  // Format Teams message
-  const teamsMessage = `#meta-summary ${message}`;
-  
-  // TODO: When Teams MCP tools are available, post to channel
-  // For now, just log to console with a note
-  console.log(`[Teams] ${teamsMessage}`);
-  console.log(`  → Would post to workspace ${teamsConfig.workspaceId}, channel ${teamsConfig.channelId}`);
-
-  await emitter.event('relay.delivered.teams', {
-    'squad.domain': teamDomain,
-    'signal.count': signals.length,
-    'delivery.type': 'teams'
-  });
-}
-
 // ==================== Main Loop ====================
 
 async function relayLoop(
@@ -347,12 +324,8 @@ async function relayLoop(
               return; // Nothing to report for this team
             }
 
-            // Deliver based on communication type
-            if (config.communicationType === 'teams-channel' && config.teamsConfig) {
-              await deliverToTeams(team.domain, status, signals, config.teamsConfig, emitter);
-            } else {
-              await deliverToConsole(team.domain, status, signals, emitter);
-            }
+            // Always deliver to console — Teams integration happens at skill layer
+            await deliverToConsole(team.domain, status, signals, emitter);
 
             // Archive processed signals
             const outboxPath = join(team.location, '.squad', 'signals', 'outbox');
@@ -406,15 +379,11 @@ async function main() {
 
   // Emit startup event
   await emitter.event('relay.started', {
-    'communication.type': config.communicationType,
     'relay.interval': interval,
     'relay.mode': once ? 'once' : 'loop'
   });
 
-  console.log(`🚀 Meta relay started (${config.communicationType} mode, interval: ${interval}ms)`);
-  if (config.communicationType === 'teams-channel') {
-    console.log(`   Teams: workspace ${config.teamsConfig?.workspaceId}, channel ${config.teamsConfig?.channelId}`);
-  }
+  console.log(`🚀 Meta relay started (file-signal mode, interval: ${interval}ms)`);
   console.log('   Watching team signals...\n');
 
   // Run relay loop

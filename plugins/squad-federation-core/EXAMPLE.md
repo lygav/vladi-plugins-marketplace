@@ -941,7 +941,6 @@ The meta-squad monitors all 4 teams through the **transport abstraction** — it
 
 - **Worktree teams** — Meta-squad reads/writes `.squad/signals/` in worktree directories (WorktreePlacement + FileSignalCommunication)
 - **Directory team** — Meta-squad reads/writes `.squad/signals/` in `.worktrees/blog-research/` (DirectoryPlacement + FileSignalCommunication)
-- **Teams channel** — Meta-squad posts/reads messages via MCP tools (any placement + TeamsChannelCommunication)
 
 From the meta-squad's perspective, all teams expose the same interfaces. The implementation is abstracted:
 

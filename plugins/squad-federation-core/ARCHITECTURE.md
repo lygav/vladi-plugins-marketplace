@@ -128,7 +128,7 @@ and communicate via file-based signals or Microsoft Teams channels.
 
 **Key changes from v0.2.0 design to v0.3.x implementation:**
 
-1. **Minimal Federation Config** — `federate.config.json` reduced to just `description`, `telemetry`, and `communicationType`. Placement concerns (worktree location) moved to team-level decisions during onboarding. MCP servers inherited from project `.mcp.json`.
+1. **Minimal Federation Config** — `federate.config.json` reduced to just `description`, `telemetry`, and optional `teamsConfig` (for meta-squad notifications). Placement concerns (worktree location) moved to team-level decisions during onboarding. MCP servers inherited from project `.mcp.json`.
 
 2. **Dynamic Archetype Discovery** — Archetypes auto-discovered from:
    - `marketplace.json` (npm packages declared in dependencies)
@@ -278,20 +278,16 @@ import { CommunicationRegistry } from './lib/communication-registry.js';
 
 const registry = new CommunicationRegistry(config);
 
-// Register default adapter (FileSignalCommunication)
+// Register default adapter (FileSignalCommunication — the only transport)
 registry.register('file-signal', FileSignalCommunication);
 
-// v0.5.0: Register Teams channel adapter when available
-// registry.register('teams-channel', TeamsChannelCommunication);
-
-const adapter = registry.get(config.communicationType || 'file-signal');
+const adapter = registry.get('file-signal');
 ```
 
 **Adding a new communication adapter requires:**
 1. Implement `TeamCommunication` interface
 2. Call `registry.register(name, implementation)` during bootstrap
-3. Update `federate.config.json` communicationType field if desired
-4. No changes to core scripts, signals, or knowledge lifecycle
+3. No changes to core scripts, signals, or knowledge lifecycle
 
 ### FileSignalCommunication (lib/communication/file-signal-communication.ts)
 
@@ -310,36 +306,6 @@ Default adapter. Signals stored as JSON files in `.squad/signals/`:
 
 **Lifecycle:** Meta-squad writes to `.squad/signals/inbox/`, team consumes. Team writes to `.squad/signals/outbox/`, meta-squad consumes.
 
-### TeamsChannelCommunication (lib/communication/teams-channel-communication.ts)
-
-Teams Microsoft Graph API adapter. Implements `TeamCommunication` over Microsoft Teams channels, enabling federation-scoped coordination within a Teams workspace.
-
-**Architecture:**
-
-- **Hashtag protocol:** Structured channel-based signal routing
-  - `#meta` — human federation strategy discussions
-  - `#meta-status` — team status reports and updates
-  - `#meta-error` — team errors, blockers, and failure recovery
-  - `#{teamId}` — federation-scoped team-specific channel (all domains use same channel)
-
-- **Flat message design:** Messages are not threaded. Each message contains full signal context.
-
-- **Adaptive Cards:** Structured signals (status, learning, directives) rendered as Adaptive Cards for rich presentation in Teams.
-
-- **Federation-scoped:** All teams in a federation share the same Teams workspace and channels. Routing uses `#{teamId}` for team-specific visibility, but communication is not isolated per team.
-
-- **Testability:** Accepts injected `TeamsClient` interface, enabling mocks for unit tests without live Teams API calls.
-
-**Signal flow:**
-
-1. Meta-squad writes signal to `#meta` or `#{teamId}`
-2. `TeamsChannelCommunication.readInboxSignals()` polls Teams Graph API, parses hashtags from message text and Adaptive Card metadata
-3. Team session processes signal (same `SignalMessage` interface as file-based adapter)
-4. Team writes status/error to `#meta-status` or `#meta-error`
-5. Meta-squad consumes via `readOutboxSignals()`, aggregates findings
-
-**Learning log:** Shared across all adapters. Teams append learning entries; meta-squad reads via `readLearningLog()` regardless of communication type.
-
 ### Future Communication Adapters
 
 Additional adapters can implement `TeamCommunication` and register with the runtime registry. Core is protocol-agnostic.
@@ -352,17 +318,15 @@ Composes placement + communication at runtime:
 export function createTeamContext(
   team: TeamMetadata,
   placementType: string,
-  communicationType: string,
   config: FederateConfig
 ): TeamContext {
   const placement = selectPlacement(placementType, config);
-  const communication = selectCommunication(communicationType, config);
+  const communication = new FileSignalCommunication(placement);
   
   return {
     domain: team.domain,
     placement,
     communication,
-    // convenience methods
     async readSignals() { return communication.readInboxSignals(team.domain); },
     async writeStatus(status) { return communication.readStatus(team.domain); },
     async readFile(path) { return placement.readFile(team.domain, path); }
@@ -1578,24 +1542,12 @@ interface FederateConfig {
   /** Brief description of what this federation does */
   description?: string;
 
-  /** Communication settings */
-  communication: {
-    /** Default communication adapter type (e.g., "file-signal", "teams-channel") */
-    defaultType: string;
-    
-    /** Per-adapter configuration */
-    adapters: {
-      "file-signal"?: {
-        signalsDir: string;  // Default: ".squad/signals"
-      };
-      "teams-channel"?: {
-        tenantId: string;
-        clientId: string;
-        graphApiEndpoint: string;
-      };
-      // Custom adapters can add their own config
-      [key: string]: any;
-    };
+  /** Communication is always file-signal (the only transport) */
+
+  /** Optional Teams channel for meta-squad notifications */
+  teamsConfig?: {
+    teamId: string;
+    channelId: string;
   };
 
   /** OTel observability settings */
@@ -1607,19 +1559,11 @@ interface FederateConfig {
 }
 ```
 
-**Minimal example (file signals):**
+**Minimal example:**
 
 ```json
 {
   "description": "Multi-team inventory federation",
-  "communication": {
-    "defaultType": "file-signal",
-    "adapters": {
-      "file-signal": {
-        "signalsDir": ".squad/signals"
-      }
-    }
-  },
   "telemetry": {
     "enableTracing": false,
     "enableMetrics": false,
@@ -1628,20 +1572,14 @@ interface FederateConfig {
 }
 ```
 
-**v0.5.0 example (Teams channels):**
+**With Teams notifications:**
 
 ```json
 {
-  "description": "Multi-team federation with Teams channel communication",
-  "communication": {
-    "defaultType": "teams-channel",
-    "adapters": {
-      "teams-channel": {
-        "tenantId": "{{ TENANT_ID }}",
-        "clientId": "{{ CLIENT_ID }}",
-        "graphApiEndpoint": "https://graph.microsoft.com/v1.0"
-      }
-    }
+  "description": "Multi-team federation with Teams notification channel",
+  "teamsConfig": {
+    "teamId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "channelId": "19:xxxxx@thread.tacv2"
   },
   "telemetry": {
     "enableTracing": true,
@@ -2021,8 +1959,7 @@ never enforces. The schema contract mediates between them.
 
 2. **Adapter Registry Pattern:**
    - Communication adapters register at runtime via `CommunicationRegistry`
-   - Default: `FileSignalCommunication` (signals in `.squad/signals/`)
-   - Future: `TeamsChannelCommunication` (v0.5.0 roadmap)
+   - Default (and only): `FileSignalCommunication` (signals in `.squad/signals/`)
    - Core 100% adapter-agnostic; no import of adapter implementations
 
 3. **FileSignalCommunication (current):**
@@ -2031,21 +1968,20 @@ never enforces. The schema contract mediates between them.
    - Learning log in `.squad/learnings/log.jsonl`
    - Works with any placement (worktree, directory, cloud)
 
-4. **TeamsChannelCommunication (v0.5.0 roadmap):**
-   - Teams channels as first-class signal protocol
-   - Hashtag-based: `#meta` (federation discussion), `#meta-status` (team status), `#meta-error` (team errors), `#{teamId}` (oversight)
-   - Humans @mention teams in channels; teams read channel as signal input
-   - Enables hybrid human-AI coordination at federation scale
+4. **Teams integration:**
+   - Teams is no longer a transport — it's a meta-squad notification channel
+   - `teamsConfig` in `federate.config.json` configures optional Teams notification posting
+   - Meta-squad skill layer posts summaries and polls for `#directive` from user
 
 5. **Configuration schema update:**
-   - Added `communication.defaultType` and `communication.adapters` section
-   - Supports per-adapter configuration (e.g., Teams tenant/client ID)
+   - Removed `communicationType` field (file-signal is always used)
+   - Added optional `teamsConfig` for meta-squad notification channel
    - Placement remains per-team in `.squad/teams.json` metadata
 
 6. **Documentation updates:**
    - §2 "Team Placement & Communication" — explains split, shows interfaces, documents adapter registry
-   - §3 "Configuration" — documents communicationType field and adapter configuration
-   - §6 "Onboarding Patterns" — clarifies placement is per-team, communication is federation-scoped
+   - §3 "Configuration" — documents teamsConfig field for notifications
+   - §6 "Onboarding Patterns" — clarifies placement is per-team, communication is always file-signal
 
 **Rationale:** 
 
@@ -2057,8 +1993,7 @@ Prior design force-fit communication adapters with unnecessary placement paramet
 **Benefits:**
 
 - **Separation of concerns** — Location and protocol independent
-- **Protocol extensibility** — Add TeamsChannelCommunication v0.5.0 without team rebootstrap
-- **Multi-protocol federations** — Gradual rollout of Teams channels alongside file signals
+- **Protocol extensibility** — Add new communication adapters without team rebootstrap
 - **Design improvement** — Fixes Issue #97 design flaw (TeamPlacement not needed by all adapters)
 
 **Impact:** Low-risk internal refactor. Public API unchanged (same `TeamContext` interface). Team onboarding and registry format (`teams.json`) unchanged. Federation-level config gains `communication` section.
