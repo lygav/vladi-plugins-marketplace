@@ -1,43 +1,41 @@
 ---
 title: Knowledge Lifecycle
-description: Capture, tag, sweep, and graduate team learnings
+description: How teams capture learnings and share knowledge through conversational workflows
 ---
 
 # Knowledge Lifecycle
 
-Squad Federation implements a **knowledge lifecycle** to capture team discoveries, identify reusable patterns, and promote them into shared skills.
+Squad Federation implements a **knowledge lifecycle** where teams capture discoveries during work, patterns emerge across teams, and valuable insights become shared skills accessible to everyone.
 
-## Overview
+## How Knowledge Flows
 
-The lifecycle has four phases:
+The lifecycle has three phases:
 
-1. **Capture** - Teams log learnings during work
-2. **Tag** - Categorize learnings for searchability
-3. **Sweep** - Analyze patterns across teams
-4. **Graduate** - Promote learnings to skills
-5. **Sync** - Distribute skills to all teams
+1. **Capture** - Teams log learnings as they discover patterns and insights
+2. **Sweep** - Analyze learnings to find cross-team patterns
+3. **Graduate** - Promote valuable patterns into shared skills
 
-## Phase 1: Capture Learnings
+All phases happen through conversational interaction with the **knowledge-lifecycle skill**.
 
-Teams append entries to `.squad/learnings/log.jsonl` as they discover patterns, conventions, or insights.
+## Phase 1: Capturing Learnings
 
-### Learning Log Format
+Teams automatically log learnings during their work. Each learning is a single JSON line in `.squad/learnings/log.jsonl`.
 
-Each line is a JSON object:
+### Learning Format
 
 ```json
 {"timestamp":"2025-01-30T12:00:00Z","domain":"frontend","category":"pattern","content":"Parallel test execution reduces CI time by 40%","tags":["testing","performance"],"context":"Switched from sequential to parallel jest.config"}
 ```
 
 **Fields:**
-- `timestamp` - ISO 8601 timestamp
-- `domain` - Team name
-- `category` - Learning type (pattern, discovery, convention, gotcha)
-- `content` - The insight (1-2 sentences)
-- `tags` - Keywords for search
-- `context` - Optional details
+- `timestamp` - When the insight occurred (ISO 8601)
+- `domain` - Team that discovered it
+- `category` - Type of learning (pattern, discovery, convention, gotcha)
+- `content` - The insight itself (1-2 sentences)
+- `tags` - Keywords for search and pattern matching
+- `context` - Additional details (optional)
 
-### Categories
+### Learning Categories
 
 **pattern** - Reusable approach
 > "Use factory pattern for service initialization"
@@ -51,9 +49,9 @@ Each line is a JSON object:
 **gotcha** - Pitfall to avoid
 > "Don't import barrel files in tests (circular dependency)"
 
-### Logging Programmatically
+### How Teams Log Learnings
 
-Via `TeamContext` interface:
+Teams log learnings programmatically through their archetype's `TeamContext` interface:
 
 ```typescript
 await teamContext.logLearning({
@@ -64,36 +62,11 @@ await teamContext.logLearning({
 });
 ```
 
-This appends to the team's `log.jsonl`.
+This appends to the team's learning log automatically.
 
-### Manual Logging
+### Tagging Strategy
 
-Append directly to the file:
-
-```bash
-echo '{"timestamp":"2025-01-30T12:00:00Z","domain":"backend","category":"convention","content":"Prefix env vars with APP_","tags":["config"],"context":"Avoids naming conflicts"}' \
-  >> .squad/learnings/log.jsonl
-```
-
-## Phase 2: Tag Learnings
-
-Tags enable cross-team pattern discovery.
-
-### Suggested Tags
-
-**Technical:**
-- `architecture`, `database`, `api`, `testing`, `ci-cd`
-- `performance`, `security`, `error-handling`
-
-**Domain:**
-- `auth`, `payments`, `notifications`, `search`
-
-**Process:**
-- `workflow`, `tooling`, `debugging`, `deployment`
-
-### Multi-Tag Strategy
-
-Use multiple tags for better discovery:
+Tags enable pattern discovery across teams. Use multiple relevant tags:
 
 ```json
 {
@@ -102,21 +75,20 @@ Use multiple tags for better discovery:
 }
 ```
 
-Sweep scripts can then find all `performance` learnings or all `graphql` learnings.
+**Suggested tags:**
+- Technical: `architecture`, `database`, `api`, `testing`, `ci-cd`, `performance`, `security`
+- Domain: `auth`, `payments`, `notifications`, `search`
+- Process: `workflow`, `tooling`, `debugging`, `deployment`
 
-## Phase 3: Sweep Patterns
+## Phase 2: Sweeping for Patterns
 
-The `sweep.ts` script analyzes learnings across teams to find reusable patterns.
+The **knowledge-lifecycle skill** analyzes learnings across all teams to find reusable patterns.
 
-### Running Sweeper
+### Finding Cross-Team Patterns
 
-```bash
-npx tsx scripts/sweep.ts
-```
+> "What patterns have emerged across my teams?"
 
-### Sweep Output
-
-**Pattern candidates** (2+ teams mention similar tags):
+The skill shows clusters where multiple teams discovered similar insights:
 
 ```
 🔍 Pattern Cluster: testing + performance (3 teams)
@@ -129,42 +101,42 @@ npx tsx scripts/sweep.ts
   - backend: Validate JWT signatures on every request
 ```
 
-### Sweep Algorithm
+### Filtering Sweeps
 
-1. Load all learnings from `log.jsonl`
-2. Group by tag combinations (e.g., `["testing", "performance"]`)
-3. Find clusters with 2+ teams
-4. Rank by frequency and tag overlap
+**By topic:**
+> "Show me all learnings about performance"
 
-### Sweep Filters
+**By specific team:**
+> "What has the frontend team learned?"
 
-**By tag:**
-```bash
-npx tsx scripts/sweep.ts --tag performance
-```
+**By date:**
+> "What have teams learned this week?"
 
-**By domain:**
-```bash
-npx tsx scripts/sweep.ts --domain frontend,backend
-```
+### How Sweeping Works
 
-**By date range:**
-```bash
-npx tsx scripts/sweep.ts --since 2025-01-01
-```
+The skill:
+1. Loads all learnings from `log.jsonl`
+2. Groups by tag combinations
+3. Finds clusters with 2+ teams sharing tags
+4. Ranks by frequency and relevance
 
-## Phase 4: Graduate Learnings
+Patterns with strong cross-team overlap are candidates for graduation.
 
-Promote high-value learnings into Skills that all teams can access.
+## Phase 3: Graduating to Skills
 
-### Graduation Process
+When a pattern proves valuable across teams, promote it to a shared skill.
 
-1. **Identify candidate** (via sweep or manual review)
-2. **Write skill file** (`.squad/skills/{name}.md`)
-3. **Tag skill** (skill frontmatter)
-4. **Distribute** (sync to teams)
+### The Graduation Process
 
-### Creating a Skill
+> "Graduate the parallel testing pattern to a skill"
+
+The skill:
+1. **Identifies the learning** - Shows you the original log entry
+2. **Creates skill file** - Writes `.squad/skills/parallel-testing.md`
+3. **Tags the skill** - Uses tags from the learning
+4. **Syncs to teams** - Distributes skill to all team workspaces
+
+### What a Graduated Skill Looks Like
 
 **File:** `.squad/skills/parallel-testing.md`
 
@@ -199,181 +171,111 @@ Frontend team discovery during sprint 3.
 
 ### Skill Metadata
 
-- `tags` - Same tags as learning
+The frontmatter tracks:
+- `tags` - Same tags as the original learning
 - `category` - Learning category
-- `source` - Originating team
-- `promoted` - Graduation date
+- `source` - Team that discovered it
+- `promoted` - When it was graduated
 
-### Graduation Script
+### Finding Available Skills
 
-```bash
-npx tsx scripts/graduate.ts \
-  --learning-id "1706611200000" \
-  --skill-name "parallel-testing"
+> "What skills are available?"
+
+The skill lists all graduated patterns:
+
+```
+📚 Available Skills (4):
+
+1. parallel-testing
+   Tags: testing, performance, ci-cd
+   From: frontend team
+   
+2. dependency-injection
+   Tags: architecture, database, testing
+   From: backend team
+   
+3. edge-caching
+   Tags: performance, graphql, frontend
+   From: frontend team
+   
+4. test-containers
+   Tags: testing, database, infra
+   From: infra team
 ```
 
-This:
-1. Reads learning from `log.jsonl`
-2. Creates skill file in `.squad/skills/`
-3. Appends "graduated" marker to learning
+### Searching Skills
 
-### Manual Graduation
+> "Show me all performance-related skills"
 
-1. Find learning in `log.jsonl`:
-```bash
-cat .squad/learnings/log.jsonl | jq '. | select(.content | contains("parallel"))'
 ```
+📚 Performance Skills (2):
 
-2. Create skill file (see template above)
-
-3. Mark as graduated (append metadata):
-```bash
-echo '{"timestamp":"2025-01-30T13:00:00Z","domain":"meta-squad","category":"metadata","content":"Graduated learning to skill: parallel-testing","tags":["graduation"],"context":"Learning from frontend team"}' \
-  >> .squad/learnings/log.jsonl
-```
-
-## Phase 5: Sync Skills
-
-Distribute skills to all teams so they can discover and apply them.
-
-### Sync Script
-
-```bash
-npx tsx scripts/sync.ts
-```
-
-This:
-1. Reads all skills from `.squad/skills/`
-2. Copies them to each team's placement (if supported)
-3. Logs sync event
-
-### Skill Discovery (Team Perspective)
-
-Teams can query skills via tags:
-
-```bash
-# Find all performance-related skills
-cat .squad/skills/*.md | grep 'tags:.*performance'
-```
-
-Or via their agent's `ReadSkills` capability (if implemented).
-
-### Sync Filters
-
-**By team:**
-```bash
-npx tsx scripts/sync.ts --team frontend,backend
-```
-
-**By skill:**
-```bash
-npx tsx scripts/sync.ts --skill parallel-testing
-```
-
-**Dry-run (preview):**
-```bash
-npx tsx scripts/sync.ts --dry-run
+1. parallel-testing
+   Reduces CI time by running tests in parallel
+   
+2. edge-caching
+   Cache GraphQL queries at CDN edge for faster loads
 ```
 
 ## Knowledge Flows
 
-### Bottom-Up (Team → Meta)
+### Bottom-Up (Team → Shared)
 
 1. Team logs learning during work
 2. Learning appears in `.squad/learnings/log.jsonl`
 3. Sweep identifies pattern
-4. Meta promotes to skill
-5. Skill synced to all teams
+4. Pattern graduates to skill
+5. Skill syncs to all teams
 
-### Top-Down (Meta → Teams)
+### Top-Down (Manual → Teams)
 
-1. Meta creates skill directly (e.g., from external source)
-2. Skill stored in `.squad/skills/`
-3. Sync distributes to teams
+You can create skills directly:
 
-### Peer-to-Peer (Team → Team)
+> "Create a skill for our coding standards"
 
-Not directly supported. Teams share via meta squad:
+The skill:
+1. Asks what the skill should cover
+2. Creates the skill file
+3. Syncs to all teams
 
-1. Team A logs learning
-2. Meta sweeps and graduates
-3. Team B receives via sync
+### Discovery by Teams
 
-## Versioning Skills
+Teams can query skills conversationally:
 
-Skills are **append-only** by default (no versioning in v0.5.0).
+> "Do we have any testing patterns?"
 
-To update a skill:
-1. Edit the skill file
-2. Update `promoted` date in frontmatter
-3. Re-sync
-
-Teams see latest version.
+Or view files directly:
+```bash
+ls .squad/skills/
+cat .squad/skills/parallel-testing.md
+```
 
 ## Learning Log Maintenance
 
-### Size Management
-
-The `log.jsonl` grows over time. Compress old entries:
+The learning log grows over time. Periodically archive old entries:
 
 ```bash
-# Keep last 1000 lines
+# Keep last 1000 learnings
 tail -1000 .squad/learnings/log.jsonl > .squad/learnings/log-recent.jsonl
 mv .squad/learnings/log-recent.jsonl .squad/learnings/log.jsonl
 ```
 
-### Archiving
-
-Move old learnings to archive:
-
+Or move to archive:
 ```bash
 mkdir -p .squad/learnings/archive
 mv .squad/learnings/log.jsonl .squad/learnings/archive/log-2025-01.jsonl
 touch .squad/learnings/log.jsonl
 ```
 
-### Querying Historical Data
-
+Query across archives:
 ```bash
 cat .squad/learnings/archive/*.jsonl .squad/learnings/log.jsonl | \
   jq '. | select(.tags[] == "performance")'
 ```
 
-## Best Practices
-
-### Capture
-
-- Log learnings immediately (while context is fresh)
-- Be specific (avoid vague insights like "tests are important")
-- Include context (why it matters)
-
-### Tag
-
-- Use existing tags when possible
-- Create new tags for new domains
-- Max 3-5 tags per learning
-
-### Sweep
-
-- Run weekly or after major milestones
-- Focus on high-frequency patterns first
-- Review outliers (unique learnings from one team)
-
-### Graduate
-
-- Promote patterns used by 2+ teams
-- Write clear, actionable skill docs
-- Include code examples
-
-### Sync
-
-- Sync after each graduation
-- Notify teams of new skills (via signal)
-- Track skill adoption (optional metric)
-
 ## Telemetry
 
-If telemetry is enabled:
+If telemetry is enabled, knowledge events flow to the dashboard:
 
 **Events:**
 - `learning.captured` - New learning logged
@@ -385,40 +287,94 @@ If telemetry is enabled:
 - `squad.skills.count` - Total skills
 - `squad.skills.synced` - Sync operations
 
-**Attributes:**
-- `domain` - Team name
-- `category` - Learning category
-- `tags` - Learning tags
+## Best Practices
+
+### Capturing Learnings
+
+- Log immediately while context is fresh
+- Be specific (avoid vague insights like "tests are important")
+- Include concrete context (what changed, why it matters)
+- Use consistent tags
+
+### Running Sweeps
+
+- Sweep weekly or after major milestones
+- Focus on high-frequency patterns first
+- Review outliers (unique insights worth sharing)
+
+### Graduating Skills
+
+- Promote patterns used by 2+ teams
+- Write clear, actionable documentation
+- Include code examples
+- Update as patterns evolve
+
+### Syncing Skills
+
+- Sync after each graduation
+- Notify teams via signals (optional)
+- Track which teams adopt skills (optional metric)
 
 ## Troubleshooting
 
-### Learning not appearing
+### Learning Not Appearing
 
-Check file format (must be valid JSON on single line):
+Check format (must be valid JSON on single line):
 ```bash
 tail -1 .squad/learnings/log.jsonl | jq .
 ```
 
-If error, fix and re-append.
+If error, fix the JSON and re-append.
 
-### Sweep finds no patterns
+### Sweep Finds No Patterns
 
 Ensure teams use common tags:
 ```bash
 cat .squad/learnings/log.jsonl | jq -r '.tags[]' | sort | uniq -c | sort -rn
 ```
 
-Align tags if fragmented.
+Align tags if fragmented (e.g., `perf` vs `performance`).
 
-### Skill not syncing
+### Skill Not Syncing
 
 Check team placement supports file operations:
-- **Worktree:** ✅ Supports file copy
-- **Directory:** ✅ Supports file copy
+- **Worktree:** ✅ Supports sync
+- **Directory:** ✅ Supports sync
 - **Custom:** ⚠️ Depends on implementation
+
+## Script Reference
+
+While the knowledge-lifecycle skill handles these flows conversationally, you can run scripts directly:
+
+**Sweep for patterns:**
+```bash
+npx tsx path/to/squad-federation-core/scripts/sweep.ts
+```
+
+**Filter by tag:**
+```bash
+npx tsx path/to/squad-federation-core/scripts/sweep.ts --tag performance
+```
+
+**Graduate a learning:**
+```bash
+npx tsx path/to/squad-federation-core/scripts/graduate.ts \
+  --learning-id "1706611200000" \
+  --skill-name "parallel-testing"
+```
+
+**Sync skills to teams:**
+```bash
+npx tsx path/to/squad-federation-core/scripts/sync.ts
+```
+
+**Sync to specific teams:**
+```bash
+npx tsx path/to/squad-federation-core/scripts/sync.ts --team frontend,backend
+```
 
 ## Next Steps
 
-- [Understand archetype roles](/archetypes/overview)
-- [Configure learning log paths](/reference/configuration)
-- [View SDK interfaces for TeamContext](/reference/sdk-types)
+- [Learn about team archetypes](/vladi-plugins-marketplace/getting-started/introduction#team-archetypes)
+- [Understand monitoring](/vladi-plugins-marketplace/guides/monitoring)
+- [Explore communication transports](/vladi-plugins-marketplace/guides/communication-transports)

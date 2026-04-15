@@ -1,221 +1,183 @@
 ---
 title: Your First Federation
-description: Step-by-step guide to creating and running your first federated team
+description: Creating your first federation through conversational skills
 ---
 
 # Your First Federation
 
-This guide walks you through creating a minimal federation with one team, launching a headless session, and monitoring progress.
+This guide walks you through creating a federation with one team. You'll work through conversational skills in Copilot — no manual scripts or config file editing.
 
-## Step 1: Initialize the Federation
+## Step 1: Set Up the Federation
 
-Create a `federate.config.json` in your project root:
+In Copilot, say:
 
-```bash
-cat > federate.config.json << 'EOF'
-{
-  "description": "My first federation",
-  "telemetry": {
-    "enabled": true
-  },
-  "communicationType": "file-signal"
-}
-EOF
-```
+> "Set up a federation"
 
-This enables file-based team communication and telemetry.
+The federation-setup skill activates and guides you through a series of questions:
+
+**What are you building?**
+> "I'm coordinating frontend and backend teams for a web app"
+
+**Want me to set up a monitoring dashboard?**
+> "Yes" (if Docker is available, the dashboard starts automatically)
+
+**How should your teams communicate?**
+> "File signals" (default, fastest option)
+
+The skill generates `federate.config.json` with your settings and shows you the final config before saving.
 
 ## Step 2: Onboard Your First Team
 
-Use the `onboard.ts` script to create a team:
+The setup skill asks if you want to onboard your first team. Say yes:
 
-```bash
-npx tsx path/to/squad-federation-core/scripts/onboard.ts \
-  --name "frontend" \
-  --domain-id "frontend-001" \
-  --archetype "squad-archetype-coding" \
-  --description "Builds and tests frontend components"
+> "Yes, spin up a team for frontend"
+
+The team-onboarding skill takes over:
+
+**What should this team work on?**
+> "Build and test React components in the frontend"
+
+**I'll call this team 'frontend' — sound good?**
+> "Yes"
+
+**Will this team write code, or produce file artifacts?**
+> "Write code"
+
+**Will they open pull requests?**
+> "Yes"
+
+**Based on your answers, I recommend the 'coding' archetype. Sound right?**
+> "Yes"
+
+The skill checks if the archetype plugin is installed, installs it if needed, then asks about workspace placement:
+
+**Where should this team's workspace live?**
+> "Worktree" (default)
+
+**Summary shown:**
+```
+📋 Team Setup Summary:
+   Name: frontend
+   Mission: Build and test React components
+   Archetype: coding
+   Placement: worktree (inside repo)
+   Location: .worktrees/frontend
+   Communication: file-signal
+   Branch: squad/frontend
 ```
 
-**What this does:**
-1. Creates a git branch `squad/frontend` and worktree at `.worktrees/frontend/`
-2. Seeds the team directory with archetype skills and configuration
-3. Bootstraps `.squad/` structure for signals and learnings
-4. Registers the team in `.squad/teams.json`
-5. Runs `squad init` to cast the team agent
+You confirm, and the team workspace is created automatically.
 
-**Output:** You'll see confirmation that the team workspace was created.
+## Step 3: Launch the Team
 
-## Step 3: Check the Team Registry
+Now that the workspace exists, start the team:
 
-Verify the team was registered:
+> "Launch the frontend team"
 
-```bash
-cat .squad/teams.json | jq
+The orchestration skill handles the launch. Behind the scenes:
+- A headless Copilot session starts in the team's worktree
+- The team reads its mission from `DOMAIN_CONTEXT.md`
+- It checks its inbox for directives
+- It begins scanning the repository
+- Status updates are written to `.squad/signals/status.json`
+
+You'll see confirmation:
+```
+✅ Team 'frontend' launched
+📍 Running in: .worktrees/frontend
+🌿 Branch: squad/frontend
 ```
 
-You should see an entry for `frontend` with its archetype, location, and metadata.
+## Step 4: Monitor Progress
 
-## Step 4: Inspect the Team Workspace
+Check on your teams anytime:
 
-Navigate to the team worktree:
+> "How's my federation doing?"
 
-```bash
-cd .worktrees/frontend
-ls -la .squad/
-```
+The orchestration skill shows a dashboard:
 
-You'll see:
-- `status.json` - Team state (initially `"state": "initializing"`)
-- `signals/inbox/` and `signals/outbox/` - Empty signal directories
-- `learnings/log.jsonl` - Empty learning log
-- Skills seeded from the archetype
-
-## Step 5: Launch the Team
-
-Start a headless session for the team:
-
-```bash
-npx tsx path/to/squad-federation-core/scripts/launch.ts --team frontend
-```
-
-**What happens:**
-- Reads the team from the registry
-- Creates a `TeamContext` with placement and communication adapters
-- Detects run type (first-run, refresh, or reset)
-- Writes OTel MCP config if telemetry is enabled
-- Spawns: `copilot --yolo --no-ask-user --autopilot` with the team prompt
-
-The team will:
-1. Check its inbox for directives
-2. Read `DOMAIN_CONTEXT.md` to understand its mission
-3. Begin scanning the repository
-4. Update `status.json` as it progresses
-5. Write learnings to `log.jsonl`
-
-## Step 6: Monitor Progress
-
-In another terminal, watch the dashboard:
-
-```bash
-npx tsx path/to/squad-federation-core/scripts/monitor.ts --watch --interval 10
-```
-
-You'll see:
-- Team state (scanning → distilling → complete)
-- Progress percentage
-- Active agent
-- Recent learnings
-
-**Example output:**
 ```
 📊 Squad Federation Dashboard
-━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Team         State       Step              Progress  Updated
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🔄 frontend  scanning    analyzing routes  45%       2m ago
 ```
 
-## Step 7: Send a Directive (Optional)
+You can also ask about a specific team:
 
-Communicate with the team via signals:
+> "What's the frontend team doing?"
 
-```bash
-npx tsx path/to/squad-federation-core/scripts/monitor.ts \
-  --send frontend \
-  --directive "Focus on the authentication module first"
-```
+## Step 5: Send a Directive (Optional)
 
-This writes a signal to `.worktrees/frontend/.squad/signals/inbox/`. The team will read it on its next status check.
+Guide a team's work:
 
-## Step 8: Review Results
+> "Tell the frontend team to focus on authentication first"
 
-Once the team completes (state: `complete`):
+The skill writes a directive signal to the team's inbox. The team reads it on its next status update and adjusts its work accordingly.
 
-1. **Check deliverables:**
-   ```bash
-   cat .worktrees/frontend/deliverable.md
-   ```
+## Step 6: Review Results
 
-2. **Review learnings:**
-   ```bash
-   cat .worktrees/frontend/.squad/learnings/log.jsonl | jq
-   ```
+Once the team finishes (state changes to `complete`), ask what it produced:
 
-3. **Inspect outbox signals:**
-   ```bash
-   ls -la .worktrees/frontend/.squad/signals/outbox/
-   ```
+> "What did the frontend team deliver?"
+
+The skill shows:
+- The deliverable file location
+- Recent learnings logged by the team
+- Any questions or alerts sent to the outbox
 
 ## What's Next?
 
-- **Onboard more teams** - Create backend, testing, infra teams
-- **Run parallel sessions** - `launch.ts --all` to start all teams
-- **Sweep learnings** - `sweep-learnings.ts` to find patterns across teams
-- **Graduate knowledge** - `graduate-learning.ts` to promote learnings to skills
-- **Sync skills** - `sync-skills.ts` to propagate updated skills to all teams
+Now that you have one team running, you can:
 
-## Common Workflows
+**Onboard more teams:**
+> "Spin up a team for backend"
 
-### Reset a Team
+**Launch all teams in parallel:**
+> "Launch all teams"
 
-If a team gets stuck or you want to restart:
+**Check knowledge flows:**
+> "What have my teams learned?"
 
+**Graduate learnings:**
+> "Find cross-team patterns in learnings"
+
+Each of these is handled conversationally through the federation skills.
+
+## Hybrid Model: Skills + Scripts
+
+While you interact through conversational skills, the system uses scripts behind the scenes for mechanical work. You can see what happened by checking:
+
+**Team registry:**
 ```bash
-npx tsx path/to/squad-federation-core/scripts/launch.ts --team frontend --reset
+cat .squad/teams.json
 ```
 
-This clears `status.json`, acknowledges inbox signals, and runs the cleanup hook.
-
-### Launch All Teams in Parallel
-
+**Team workspace:**
 ```bash
-npx tsx path/to/squad-federation-core/scripts/launch.ts --all
+ls .worktrees/frontend/.squad/
 ```
 
-Each team runs in its own headless session.
-
-### Watch Multiple Teams
-
-The monitor dashboard shows all teams simultaneously:
-
+**Team status:**
 ```bash
-npx tsx path/to/squad-federation-core/scripts/monitor.ts --watch --interval 20
+cat .worktrees/frontend/.squad/signals/status.json
 ```
 
-## Troubleshooting
+This hybrid approach gives you conversational simplicity with full transparency into the underlying mechanics.
 
-### Team stuck in "initializing"
+### Script Reference
 
-Check the team's `run-output.log`:
+If you need to run operations outside conversational context (e.g., in CI/CD), the scripts are available:
 
-```bash
-tail -100 .worktrees/frontend/run-output.log
-```
+- `scripts/launch.ts --team <name>` - Launch a team session
+- `scripts/monitor.ts` - Show dashboard
+- `scripts/monitor.ts --send <team> --directive "<message>"` - Send directive
 
-### No status updates
-
-Ensure the team's headless session is still running:
-
-```bash
-ps aux | grep copilot
-```
-
-If it's not running, check for errors in the log.
-
-### Signal not received
-
-Verify the signal was written:
-
-```bash
-ls -la .worktrees/frontend/.squad/signals/inbox/
-```
-
-Teams check inbox when they update status (every few minutes depending on workload).
+See [Federation Orchestration](/vladi-plugins-marketplace/guides/federation-setup) for complete script documentation.
 
 ## Next Steps
 
-- [Learn about team onboarding options](/guides/team-onboarding)
-- [Explore communication transports](/guides/communication-transports)
-- [Set up monitoring with OTel](/guides/monitoring)
+- [Understand federation setup in detail](/vladi-plugins-marketplace/guides/federation-setup)
+- [Learn about team onboarding](/vladi-plugins-marketplace/guides/team-onboarding)
+- [Explore communication options](/vladi-plugins-marketplace/guides/communication-transports)

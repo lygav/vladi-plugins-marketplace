@@ -1,453 +1,514 @@
 ---
 title: Consultant Archetype
-description: Teams that provide recommendations without making changes
+description: Read-only code review teams that analyze and provide feedback
 ---
 
 # Consultant Archetype
 
-The **consultant** archetype is designed for teams that analyze code and provide recommendations **without modifying** the codebase.
+The **consultant** archetype is for teams that perform code reviews and provide feedback—**without modifying code**.
 
-## Purpose
+## What It Does
 
 Consultant teams:
-- Review code quality
-- Provide architecture guidance
+- Review code changes
+- Identify bugs and security issues
 - Suggest improvements
-- Answer technical questions
-- Identify risks
+- Provide design feedback
+- Document findings
 
-**Output:** Recommendations, findings, advice (no code changes)
+**Output:** Code review reports with actionable feedback
 
-## States
+**Constraint:** Consultant teams **never modify code**. They read, analyze, and report only.
+
+## Lifecycle States
 
 ```
-initializing
-    ↓
-analyzing ←→ paused
-    ↓
-recommending ←→ paused
-    ↓
-complete (✓)
+onboarding
+  ↓
+indexing
+  ↓
+ready
+  ↓
+researching
+  ↓
+waiting-for-feedback
+  ↓
+retired
 
-(any state) → failed (✗)
+(any state) → failed
+(any non-terminal state) → paused
 ```
 
-| State | Description | Duration |
-|-------|-------------|----------|
-| `initializing` | Setting up workspace | <1min |
-| `analyzing` | Reviewing codebase | 10-20min |
-| `recommending` | Formulating recommendations | 5-10min |
-| `complete` | Recommendations ready | (terminal) |
+| State | Description | Typical Duration |
+|-------|-------------|------------------|
+| `onboarding` | Reading mission, understanding review scope | 2-3 minutes |
+| `indexing` | Building codebase index, identifying modules | 5-10 minutes |
+| `ready` | Waiting for code to review | (indefinite) |
+| `researching` | Performing code review | 15-30 minutes |
+| `waiting-for-feedback` | Awaiting developer responses | (external) |
+| `retired` | Review complete, team decommissioned | (terminal) |
 | `failed` | Error occurred | (terminal) |
 | `paused` | Manually paused | (indefinite) |
 
-## Agents
+### State Transitions
 
-### Lead Agent
+**onboarding → indexing**
+- Read mission from inbox signal
+- Identify review scope (files, modules, or entire codebase)
+- Plan review strategy
 
-**Role:** Senior consultant and reviewer
+**indexing → ready**
+- Scan directory structure
+- Catalog modules and components
+- Build mental model of architecture
+- Wait for review trigger (commit, PR, directive)
 
-**Responsibilities:**
-- Analyze codebase thoroughly
-- Identify patterns and anti-patterns
-- Provide actionable recommendations
-- Rank by priority
-- Explain rationale
+**ready → researching**
+- Receive signal: "Review authentication module"
+- Read relevant files
+- Analyze code patterns
 
-**Tools:** `view`, `grep`, `glob`, `bash` (read-only)
+**researching → waiting-for-feedback**
+- Identify issues (bugs, security, design)
+- Write review report
+- Send to meta squad
+- Wait for developer responses
 
-**Temperature:** 0.2 (focused, analytical)
+**waiting-for-feedback → researching**
+- Developer asks clarifying questions
+- Team provides additional context
 
-**Key constraint:** **Never modify files** (read-only access)
+**waiting-for-feedback → retired**
+- Developer acknowledges findings
+- No further review needed
+
+**(any state) → failed**
+- Cannot access required files
+- Review scope is unclear
 
 ## Skills
 
-Consultant teams have access to:
+Consultant teams have access to review skills in `.squad/skills/`:
 
-1. **code-review-checklist.md** - What to look for during reviews
-2. **architecture-patterns.md** - Common patterns and best practices
-3. **security-guidelines.md** - Security review criteria
+1. **code-review-checklist.md** — Review criteria (security, performance, maintainability)
+2. **common-issues.md** — Known antipatterns and vulnerabilities
+3. **report-format.md** — Review report structure
 
-### Example: Code Review Checklist
+### Example Skill: Code Review Checklist
 
 ```markdown
 ---
-tags: [code-review, quality, standards]
-category: pattern
+tags: [code-review, quality, security]
+category: checklist
 ---
 
 # Code Review Checklist
 
-## Code Quality
-
-- [ ] Functions are focused (single responsibility)
-- [ ] No code duplication (DRY principle)
-- [ ] Naming is clear and descriptive
-- [ ] Comments explain "why", not "what"
-- [ ] Error handling is comprehensive
-
-## Testing
-
-- [ ] Tests cover happy path and edge cases
-- [ ] Test names describe behavior
-- [ ] No hard-coded test data
-- [ ] Tests are isolated (no shared state)
-
 ## Security
 
 - [ ] No hardcoded credentials
-- [ ] Input validation on all user data
+- [ ] Input validation on all user inputs
 - [ ] SQL queries use parameterized statements
-- [ ] Secrets loaded from environment variables
+- [ ] Authentication checks on protected routes
+- [ ] Sensitive data encrypted at rest
 
 ## Performance
 
 - [ ] No N+1 queries
-- [ ] Expensive operations are cached
-- [ ] Large datasets are paginated
-- [ ] Database indexes exist for frequent queries
+- [ ] Database indexes on foreign keys
+- [ ] API responses are paginated
+- [ ] Large files streamed, not loaded into memory
 
 ## Maintainability
 
-- [ ] Dependencies are up-to-date
-- [ ] No deprecated APIs used
-- [ ] Configuration is externalized
-- [ ] README documents setup steps
+- [ ] Functions are focused (single responsibility)
+- [ ] No code duplication
+- [ ] Clear variable and function names
+- [ ] Error handling for edge cases
+- [ ] Tests for critical paths
+
+## Design
+
+- [ ] Separation of concerns
+- [ ] Dependencies injected, not hardcoded
+- [ ] Logging for important operations
+- [ ] Configuration via environment variables
 ```
+
+## Agent Configuration
+
+### Lead Agent
+
+**Role:** Code reviewer and analyst
+
+**Model:** `claude-sonnet-4`
+
+**Temperature:** `0.2` (low, precise analysis)
+
+**Tools:** `view`, `grep`, `glob`, `bash` (read-only)
+
+**Responsibilities:**
+- Analyze code for issues
+- Identify security vulnerabilities
+- Suggest improvements
+- Write review reports
+
+**Constraints:**
+- **Cannot modify files** (`edit`, `create` disabled)
+- **Cannot run builds or tests** (read-only access)
+- **Cannot commit or push** (no git write access)
 
 ## Typical Workflow
 
-### Phase 1: Initialization (30s)
+### Phase 1: Onboarding
 
-1. Team workspace created
-2. Archetype files copied
-3. `.squad/` directory initialized
-4. Status set to `initializing`
+1. Team receives signal: "Review authentication module for security issues"
+2. Agent parses mission:
+   - **Scope:** `src/auth/` directory
+   - **Focus:** Security vulnerabilities
+3. Transitions to `indexing`
 
-### Phase 2: Analyzing (10-20min)
+### Phase 2: Indexing
 
-1. Lead agent reads review request
-2. Searches codebase for relevant files
-3. Reviews code against checklist
-4. Identifies issues and opportunities
-5. Logs observations to learning log
-6. Updates status: `state: "analyzing", progress_pct: 60`
+1. Agent scans directory structure:
+   ```
+   src/auth/
+   ├── AuthService.ts
+   ├── TokenManager.ts
+   ├── middleware/
+   │   └── validateToken.ts
+   └── routes/
+       └── auth.ts
+   ```
+2. Reads imports to understand dependencies
+3. Builds module map
+4. Transitions to `ready`
 
-**Example findings:**
+### Phase 3: Ready → Researching
 
-```json
-{
-  "timestamp": "2025-01-30T12:00:00Z",
-  "domain": "consultant-team",
-  "category": "gotcha",
-  "content": "Database queries in loop causing N+1 issue",
-  "tags": ["performance", "database"],
-  "context": "src/api/users.ts:45-60"
-}
-```
+1. Waits for explicit review trigger
+2. Meta squad sends signal: "Start review now"
+3. Transitions to `researching`
 
-### Phase 3: Recommending (5-10min)
+### Phase 4: Researching
 
-1. Lead agent formulates recommendations
-2. Ranks by priority (High, Medium, Low)
-3. Provides rationale and examples
-4. Suggests specific improvements
-5. Saves as `deliverable.md`
-6. Updates status: `state: "recommending", progress_pct: 90`
+1. Agent reads files in scope:
+   - `src/auth/AuthService.ts`
+   - `src/auth/TokenManager.ts`
+   - `src/auth/middleware/validateToken.ts`
+   - `src/auth/routes/auth.ts`
 
-### Phase 4: Complete (terminal)
+2. Identifies issues:
+   - **Critical:** JWT secret hardcoded in `TokenManager.ts`
+   - **High:** No rate limiting on login endpoint
+   - **Medium:** Password validation too weak (no special chars)
+   - **Low:** Inconsistent error messages leak info
 
-1. Status set to `complete`
-2. Deliverable available at `deliverable.md`
-3. Team session can be stopped
+3. Writes review report (see example below)
+
+4. Transitions to `waiting-for-feedback`
+
+### Phase 5: Waiting for Feedback
+
+1. Meta squad receives report
+2. Developer responds: "Fixed JWT secret, added rate limiting. Can you review?"
+3. Agent transitions back to `researching`
+4. After re-review, agent confirms fixes and transitions to `retired`
 
 ## Deliverable Format
 
-Consultant teams produce recommendations in `deliverable.md`.
+Consultant teams produce `deliverable.md` with ranked findings.
 
-**Example: Code Review Report**
+**Example: Security Review Report**
 
 ```markdown
-# Code Review: Authentication Module
+# Authentication Module Security Review
 
 ## Summary
 
-Reviewed authentication flow in `src/auth/`. Found 3 high-priority security issues and 2 medium-priority performance opportunities.
+Reviewed `src/auth/` for security vulnerabilities. Found 1 critical issue (hardcoded secret), 1 high-priority issue (no rate limiting), and 2 medium/low issues.
 
-## Findings
+## Critical Issues (Fix Immediately)
 
-### 🔴 High Priority
+### C1: Hardcoded JWT Secret
 
-#### 1. Plaintext Passwords in Logs
+**File:** `src/auth/TokenManager.ts`
 
-**Location:** `src/auth/AuthService.ts:42`
+**Line:** 8
 
 **Issue:**
+JWT secret is hardcoded in source code:
+
 \`\`\`typescript
-console.log('Login attempt:', { email, password });  // ← Logs plaintext password
+const JWT_SECRET = 'my-secret-key-12345';
 \`\`\`
+
+**Risk:**
+- Secret is visible in version control
+- Compromised repo = compromised auth system
+- Cannot rotate secret without code change
 
 **Recommendation:**
-Remove password from logs. Log only non-sensitive data:
+Move to environment variable:
+
 \`\`\`typescript
-console.log('Login attempt:', { email });
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET not configured');
+}
 \`\`\`
 
-**Impact:** High - Passwords exposed in log files
+Add to `.env.example`:
+\`\`\`
+JWT_SECRET=<generate-strong-secret>
+\`\`\`
 
 ---
 
-#### 2. No Rate Limiting on Login Endpoint
+## High Priority Issues
 
-**Location:** `src/api/routes/auth.ts:15`
+### H1: No Rate Limiting on Login
+
+**File:** `src/auth/routes/auth.ts`
+
+**Line:** 15
 
 **Issue:**
-Login endpoint has no rate limiting, allowing brute-force attacks.
+Login endpoint has no rate limiting:
+
+\`\`\`typescript
+router.post('/login', async (req, res) => {
+  // No rate limit check
+  const { email, password } = req.body;
+  // ...
+});
+\`\`\`
+
+**Risk:**
+- Brute force attacks possible
+- Account enumeration via timing attacks
 
 **Recommendation:**
 Add rate limiting middleware:
+
 \`\`\`typescript
 import rateLimit from 'express-rate-limit';
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 requests per window
-  message: 'Too many login attempts, try again later'
+  max: 5, // 5 attempts
+  message: 'Too many login attempts'
 });
 
-app.post('/auth/login', loginLimiter, loginHandler);
+router.post('/login', loginLimiter, async (req, res) => {
+  // ...
+});
 \`\`\`
-
-**Impact:** High - Account takeover risk
 
 ---
 
-#### 3. JWT Secret Hardcoded
+## Medium Priority Issues
 
-**Location:** `src/auth/jwt.ts:8`
+### M1: Weak Password Validation
 
-**Issue:**
-\`\`\`typescript
-const JWT_SECRET = 'my-secret-key';  // ← Hardcoded secret
-\`\`\`
+**File:** `src/auth/AuthService.ts`
 
-**Recommendation:**
-Load from environment variable:
-\`\`\`typescript
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET not set');
-}
-\`\`\`
-
-**Impact:** High - Secret exposed in source code
-
----
-
-### 🟡 Medium Priority
-
-#### 4. N+1 Query in User Fetch
-
-**Location:** `src/api/users.ts:45-60`
+**Line:** 42
 
 **Issue:**
+Password only requires 8 characters, no special characters:
+
 \`\`\`typescript
-for (const user of users) {
-  user.profile = await getProfile(user.id);  // ← N+1 query
+if (password.length < 8) {
+  throw new Error('Password too short');
 }
 \`\`\`
 
 **Recommendation:**
-Batch fetch profiles:
+Enforce complexity requirements:
+
 \`\`\`typescript
-const userIds = users.map(u => u.id);
-const profiles = await getProfiles(userIds);
-users.forEach(user => {
-  user.profile = profiles.find(p => p.userId === user.id);
-});
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$/;
+if (!passwordRegex.test(password)) {
+  throw new Error('Password must be 12+ chars with upper, lower, number, and special char');
+}
 \`\`\`
 
-**Impact:** Medium - Performance degradation with many users
-
 ---
 
-#### 5. Missing Test Coverage for Password Reset
+## Low Priority Issues
 
-**Location:** `src/auth/AuthService.ts:70-90`
+### L1: Inconsistent Error Messages
+
+**File:** `src/auth/routes/auth.ts`
+
+**Lines:** 20, 35
 
 **Issue:**
-Password reset flow has no tests.
+Different error messages for invalid email vs invalid password:
+
+\`\`\`typescript
+// Line 20
+if (!user) {
+  return res.status(401).json({ error: 'User not found' });
+}
+
+// Line 35
+if (!isValid) {
+  return res.status(401).json({ error: 'Invalid password' });
+}
+\`\`\`
+
+**Risk:**
+Attackers can enumerate valid email addresses by observing error messages.
 
 **Recommendation:**
-Add tests covering:
-- Valid reset token
-- Expired reset token
-- Invalid reset token
-- Token reuse prevention
+Use generic message for both:
 
-**Impact:** Medium - Untested critical path
+\`\`\`typescript
+return res.status(401).json({ error: 'Invalid credentials' });
+\`\`\`
 
 ---
 
-## Positive Observations
+## Summary
 
-- ✅ JWT tokens use httpOnly cookies (good security practice)
-- ✅ CSRF protection is enabled
-- ✅ Input validation on all auth endpoints
-- ✅ Consistent error messages (no info leakage)
+| Severity | Count | Status |
+|----------|-------|--------|
+| Critical | 1 | 🔴 Fix required |
+| High | 1 | 🟠 Fix recommended |
+| Medium | 1 | 🟡 Consider fixing |
+| Low | 1 | 🟢 Optional |
 
-## Action Items
+## Next Steps
 
-1. **Immediate:** Fix high-priority issues (#1, #2, #3)
-2. **This Sprint:** Address medium-priority issues (#4, #5)
-3. **Long-term:** Add comprehensive auth test suite
+1. Move JWT secret to environment variable
+2. Add rate limiting to login endpoint
+3. Consider stronger password requirements
+4. Standardize error messages
 
-## Resources
-
-- [OWASP Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
-- [Express Rate Limiting Guide](https://expressjs.com/en/advanced/best-practice-security.html#use-rate-limiting)
+**Estimated Effort:** 1-2 hours
 ```
-
-## Monitoring
-
-Consultant teams emit metrics:
-
-- `consultant.findings` - Total findings count
-- `consultant.high_priority` - High-priority issues
-- `consultant.code_reviewed` - Files analyzed
-
-**Health checks:**
-
-- Deliverable exists
-- At least 3 findings or "no issues" statement
-- Status updated within 10 minutes
 
 ## Common Use Cases
 
-### Code Review
+### Security Review
 
-**Mission:** "Review authentication module for security issues"
+**Mission:** "Review authentication for security issues"
 
-**States:** `initializing → analyzing → recommending → complete`
+**States:** `onboarding → indexing → ready → researching → waiting-for-feedback → retired`
+
+**Duration:** 30-45 minutes (research phase)
 
 **Output:**
-- Security findings (ranked)
-- Specific recommendations
+- Ranked security findings
 - Code examples
-- Action items
+- Fix recommendations
+
+---
 
 ### Architecture Review
 
-**Mission:** "Review database schema design"
+**Mission:** "Review API layer design for maintainability"
 
-**States:** `initializing → analyzing → recommending → complete`
+**States:** `onboarding → indexing → ready → researching → waiting-for-feedback → retired`
 
-**Output:**
-- Schema analysis
-- Normalization issues
-- Index recommendations
-- Relationship diagram
-
-### Performance Audit
-
-**Mission:** "Identify performance bottlenecks in API"
-
-**States:** `initializing → analyzing → recommending → complete`
+**Duration:** 45-60 minutes
 
 **Output:**
-- Performance issues found
-- Query optimization suggestions
-- Caching opportunities
-- Profiling data
+- Design feedback
+- Suggested refactorings
+- Architectural improvements
 
-## Tips
+---
 
-### Be Specific
+### Code Quality Audit
 
-❌ "Code quality could be better"
+**Mission:** "Review codebase for code smells and antipatterns"
 
-✅ "Function `getUserData` has 150 lines (recommend <50). Extract helpers."
+**States:** `onboarding → indexing → ready → researching → waiting-for-feedback → retired`
 
-### Provide Examples
+**Duration:** 1-2 hours
 
-Show how to fix issues:
+**Output:**
+- Code smell catalog
+- Refactoring suggestions
+- Testing gaps
+
+## Best Practices
+
+### Actionable Feedback
+
+✅ **Good:**
+"Move JWT secret to environment variable. Add to `.env.example` as `JWT_SECRET=<value>`"
+
+❌ **Bad:**
+"Don't hardcode secrets"
+
+### Include Examples
+
+Show the issue AND the fix:
 
 ```markdown
 **Current:**
 \`\`\`typescript
-if (user == null) return;  // ← Loose equality
+const secret = 'hardcoded';
 \`\`\`
 
 **Recommended:**
 \`\`\`typescript
-if (user === null || user === undefined) return;  // ← Strict
-// OR
-if (!user) return;  // ← Falsy check
+const secret = process.env.JWT_SECRET;
 \`\`\`
 ```
 
-### Rank by Impact
+### Prioritize Findings
 
-Use priority levels:
-- 🔴 **High:** Security, data loss, crashes
-- 🟡 **Medium:** Performance, maintainability
-- 🟢 **Low:** Style, minor improvements
+Use severity levels:
+- **Critical:** Security vulnerabilities, data loss risks
+- **High:** Performance issues, stability risks
+- **Medium:** Code quality, maintainability
+- **Low:** Style, minor improvements
 
-### Balanced Feedback
+### Explain the Risk
 
-Include positives:
+Don't just point out issues—explain **why** they matter:
 
-```markdown
-## Positive Observations
-
-- ✅ Comprehensive test coverage (90%)
-- ✅ Clear naming conventions
-- ✅ Good error handling
-```
+"No rate limiting allows brute force attacks. An attacker can try 1000s of passwords in minutes."
 
 ## Consultant vs Coding
 
 | Aspect | Consultant | Coding |
 |--------|------------|--------|
-| **Changes** | None | Modifies codebase |
-| **Output** | Recommendations | Code commits |
+| **Output** | Reports | Code |
+| **Modifies Files** | ❌ Never | ✅ Yes |
 | **Tools** | Read-only | Read + write |
-| **States** | analyzing/recommending | scanning/distilling |
+| **Use Case** | Review/feedback | Implementation |
 
 **Use consultant when:**
-- Review is needed
-- No implementation yet
-- Gathering requirements
-- Risk assessment
+- You want review without changes
+- External audit is needed
+- Learning from existing code
 
 **Use coding when:**
-- Ready to implement
-- Changes are straightforward
-- Tests need to be written
+- You want code modifications
+- Implementing fixes
+- Refactoring
 
-## Workflow: Consultant → Coding
+## Monitoring
 
-Common pattern:
+Consultant teams emit telemetry (when enabled):
 
-1. **Consultant team** reviews code, finds issues
-2. Meta squad reads recommendations
-3. **Coding team** implements fixes based on recommendations
+- `consultant.issues_found` — Issue count
+- `consultant.severity_critical` — Critical issue count
+- `consultant.review_time_ms` — Review duration
 
-**Example:**
-
-```bash
-# Phase 1: Review
-npx tsx scripts/onboard.ts --archetype consultant --domain review-team ...
-npx tsx scripts/launch.ts --team review-team
-
-# Phase 2: Implement fixes
-npx tsx scripts/onboard.ts --archetype coding --domain fix-team ...
-npx tsx scripts/monitor.ts --send fix-team --directive "Fix issues from review-team deliverable"
-npx tsx scripts/launch.ts --team fix-team
-```
+**Health checks:**
+- Status updated within 10 minutes
+- Deliverable exists and is non-empty
+- No errors in logs
 
 ## Next Steps
 
-- [View coding archetype](/archetypes/coding)
-- [View deliverable archetype](/archetypes/deliverable)
-- [Create custom archetypes](/archetypes/creating-archetypes)
+- [View coding archetype](/vladi-plugins-marketplace/archetypes/coding)
+- [View deliverable archetype](/vladi-plugins-marketplace/archetypes/deliverable)
+- [Create custom archetypes](/vladi-plugins-marketplace/archetypes/creating-archetypes)

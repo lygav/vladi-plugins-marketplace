@@ -1,486 +1,324 @@
 ---
 title: Signal Protocol
-description: File signal and Teams channel message formats
+description: Inter-team communication formats and conventions
 ---
 
 # Signal Protocol
 
-Squad Federation uses a **signal protocol** for inter-team communication. Signals are structured messages that coordinate team work.
+Teams communicate via **signals**—typed messages for directives, questions, reports, and alerts. Squad Federation supports two transport protocols: **file-based** and **Teams channel**.
 
-## Signal Types
+## Signal Message Format
 
-All four signal types are supported by both file-signal and teams-channel protocols:
+All signals share a common structure:
 
-### Directive
-
-**Purpose:** Tell a team what to do
-
-**Example:**
-```json
-{
-  "type": "directive",
-  "subject": "Focus on authentication module",
-  "body": "Prioritize login and logout flows. Skip legacy utils for now."
+```typescript
+interface SignalMessage {
+  id: string;                 // Unique identifier (UUID)
+  timestamp: string;          // ISO 8601 creation time
+  from: string;               // Sender team ID (or 'meta' for meta-squad)
+  to: string;                 // Recipient team ID (or 'meta')
+  type: 'directive' | 'question' | 'report' | 'alert';
+  subject: string;            // Short summary
+  body: string;               // Full message content
+  protocol: string;           // 'file-signal-v1' or 'teams-channel-v1'
+  acknowledged?: boolean;     // Has recipient seen this?
+  acknowledged_at?: string;   // When acknowledgment occurred
 }
 ```
 
-**Use case:** Meta squad assigns tasks to teams
+### Message Types
 
-### Question
+#### `directive`
 
-**Purpose:** Request information
-
-**Example:**
-```json
-{
-  "type": "question",
-  "subject": "What's the database schema for users table?",
-  "body": "Need to understand user fields before implementing auth."
-}
-```
-
-**Use case:** Team asks meta squad for clarification
-
-### Report
-
-**Purpose:** Share findings or status
+Instructs a team to perform work.
 
 **Example:**
 ```json
 {
-  "type": "report",
-  "subject": "Authentication scan complete",
-  "body": "Found 12 auth-related files. Main flow uses JWT tokens."
-}
-```
-
-**Use case:** Team reports progress to meta squad
-
-### Alert
-
-**Purpose:** Raise error or blocking issue
-
-**Example:**
-```json
-{
-  "type": "alert",
-  "subject": "Cannot access database schema files",
-  "body": "Permissions error when reading db/migrations/. Need access."
-}
-```
-
-**Use case:** Team notifies meta squad of problems
-
-## File-Signal Protocol
-
-Signals are stored as JSON files in `.squad/signals/inbox/` and `outbox/`.
-
-### File Naming
-
-Format: `{timestamp}-{type}-{subject-slug}.json`
-
-**Example:**
-```
-1706611200000-directive-focus-on-auth.json
-1706611210000-question-database-schema.json
-1706611220000-report-scan-complete.json
-1706611230000-alert-permission-error.json
-```
-
-**Components:**
-- `timestamp` - Unix milliseconds (sortable)
-- `type` - Signal type (lowercase)
-- `subject-slug` - Kebab-case subject (max 50 chars)
-
-### File Structure
-
-```json
-{
-  "id": "sig-1706611200000-abc123",
+  "id": "msg-123",
   "timestamp": "2025-01-30T12:00:00Z",
-  "from": "meta-squad",
-  "to": "frontend",
+  "from": "meta",
+  "to": "backend-api",
   "type": "directive",
-  "subject": "Focus on authentication module",
-  "body": "Prioritize login and logout flows. Skip legacy utils for now.",
+  "subject": "Implement user authentication",
+  "body": "Build JWT-based auth with login, logout, and token refresh endpoints.",
   "protocol": "file-signal-v1"
 }
 ```
 
-**Fields:**
+#### `question`
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Unique identifier (format: `sig-{timestamp}-{random}`) |
-| `timestamp` | string | ISO 8601 timestamp |
-| `from` | string | Sender team ID (e.g., `"meta-squad"`) |
-| `to` | string | Recipient team ID (e.g., `"frontend"`) |
-| `type` | enum | One of: `directive`, `question`, `report`, `alert` |
-| `subject` | string | Brief subject line (1-100 chars) |
-| `body` | string | Detailed message content |
-| `protocol` | string | Always `"file-signal-v1"` |
+Requests information from another team.
+
+**Example:**
+```json
+{
+  "id": "msg-456",
+  "timestamp": "2025-01-30T12:05:00Z",
+  "from": "frontend-team",
+  "to": "backend-api",
+  "type": "question",
+  "subject": "Auth endpoint URL?",
+  "body": "What's the base URL for the authentication API?",
+  "protocol": "file-signal-v1"
+}
+```
+
+#### `report`
+
+Shares findings or status updates.
+
+**Example:**
+```json
+{
+  "id": "msg-789",
+  "timestamp": "2025-01-30T12:30:00Z",
+  "from": "backend-api",
+  "to": "meta",
+  "type": "report",
+  "subject": "Auth implementation complete",
+  "body": "JWT auth is implemented and tested. See deliverable.md for details.",
+  "protocol": "file-signal-v1"
+}
+```
+
+#### `alert`
+
+Raises an error or blocking issue.
+
+**Example:**
+```json
+{
+  "id": "msg-abc",
+  "timestamp": "2025-01-30T12:35:00Z",
+  "from": "backend-api",
+  "to": "meta",
+  "type": "alert",
+  "subject": "Build failed",
+  "body": "TypeScript compilation error in src/auth.ts:42. Cannot proceed.",
+  "protocol": "file-signal-v1"
+}
+```
+
+## File-Based Protocol (`file-signal-v1`)
+
+Signals are JSON files in `.squad/signals/` directories.
 
 ### Directory Structure
 
 ```
-.squad/signals/
-├── inbox/
-│   ├── 1706611200000-directive-focus-on-auth.json
-│   ├── 1706611200000-directive-focus-on-auth.json.ack
-│   └── 1706611210000-question-database-schema.json
-└── outbox/
-    ├── 1706611220000-report-scan-complete.json
-    └── 1706611230000-alert-permission-error.json
+.squad/
+  signals/
+    inbox/              ← Messages sent TO this team
+      {timestamp}-{type}-{subject}.json
+      {timestamp}-{type}-{subject}.json.ack
+    outbox/             ← Messages sent FROM this team
+      {timestamp}-{type}-{subject}.json
 ```
 
-**Inbox:** Signals sent TO this team
+### File Naming
 
-**Outbox:** Signals sent FROM this team
+Format: `{timestamp}-{type}-{subject}.json`
 
-### Acknowledgment
+**Example:** `2025-01-30T120000Z-directive-implement-auth.json`
 
-When a team processes a signal, it creates a `.ack` file:
+**Rules:**
+- Timestamp is ISO 8601 without colons (safe for filesystems)
+- Subject is kebab-cased
+- Extension is `.json`
 
-```bash
-touch .squad/signals/inbox/1706611200000-directive-focus-on-auth.json.ack
-```
+### Signal File Contents
 
-**Ack file content:** Empty (presence = acknowledged)
-
-**Purpose:**
-- Mark signal as read
-- Prevent duplicate processing
-- Enable audit trail
-
-### Reading Signals
-
-**Unacknowledged signals:**
-```typescript
-const signals = await communication.readSignals(teamId, 'inbox');
-const unacked = signals.filter(s => !hasAck(s.id));
-```
-
-**All signals:**
-```bash
-ls .squad/signals/inbox/*.json
-```
-
-**Parse signal:**
-```bash
-cat .squad/signals/inbox/1706611200000-directive-focus-on-auth.json | jq .
-```
-
-### Writing Signals
-
-**Via script:**
-```bash
-npx tsx scripts/monitor.ts \
-  --send frontend \
-  --directive "Focus on login flow first"
-```
-
-**Programmatically:**
-```typescript
-await communication.writeInboxSignal('frontend', {
-  id: `sig-${Date.now()}-${randomId()}`,
-  timestamp: new Date().toISOString(),
-  from: 'meta-squad',
-  to: 'frontend',
-  type: 'directive',
-  subject: 'New task',
-  body: 'Details here...',
-  protocol: 'file-signal-v1'
-});
-```
-
-**Manual (for testing):**
-```bash
-echo '{
-  "id": "sig-test-123",
-  "timestamp": "2025-01-30T12:00:00Z",
-  "from": "meta-squad",
-  "to": "frontend",
-  "type": "directive",
-  "subject": "Test signal",
-  "body": "This is a test",
-  "protocol": "file-signal-v1"
-}' > .squad/signals/inbox/test-signal.json
-```
-
-## Teams Channel Protocol
-
-Signals are posted as Adaptive Cards or text messages to a Microsoft Teams channel.
-
-### Hashtag Routing
-
-**User → Meta Squad:**
-```
-#meta Please analyze the authentication flow
-```
-
-**Meta → Specific Team:**
-```
-#frontend Focus on login form validation
-```
-
-**Team → Meta (Status):**
-```
-#meta-status Completed scanning, starting distillation
-```
-
-**Team → Meta (Error):**
-```
-#meta-error Cannot access database schema files
-```
-
-### Hashtag Format
-
-| Hashtag | Direction | Purpose |
-|---------|-----------|---------|
-| `#meta` | User → Meta | Request or question from human |
-| `#{teamId}` | Meta → Team | Directive to specific team |
-| `#meta-status` | Team → Meta | Status report |
-| `#meta-error` | Team → Meta | Error alert |
-
-### Adaptive Card Format
+Exactly the `SignalMessage` JSON structure:
 
 ```json
 {
+  "id": "msg-123",
+  "timestamp": "2025-01-30T12:00:00Z",
+  "from": "meta",
+  "to": "backend-api",
+  "type": "directive",
+  "subject": "Implement user authentication",
+  "body": "Build JWT-based auth with login, logout, and token refresh endpoints.",
+  "protocol": "file-signal-v1"
+}
+```
+
+### Acknowledgment
+
+When a team reads a signal, it creates a `.json.ack` file:
+
+**File:** `{signal-file}.ack`
+
+**Contents:**
+```json
+{
+  "acknowledged": true,
+  "acknowledged_at": "2025-01-30T12:05:00Z"
+}
+```
+
+### Reading Signals
+
+Teams scan `inbox/` directory:
+1. List `.json` files
+2. Parse each as `SignalMessage`
+3. Filter by `to` field (match team ID)
+4. Return array of signals
+
+### Writing Signals
+
+To send a signal:
+1. Generate unique ID (UUID)
+2. Create `SignalMessage` object
+3. Write to recipient's `inbox/` as JSON
+4. Write to own `outbox/` for record
+
+## Teams Channel Protocol (`teams-channel-v1`)
+
+Signals are Microsoft Teams messages with hashtag routing.
+
+### Hashtags
+
+Teams use hashtags to route messages:
+
+- `#meta` — Message to meta-squad
+- `#{teamId}` — Message to specific team (e.g., `#backend-api`)
+- `#meta-status` — Status report from team to meta
+- `#meta-error` — Error alert from team to meta
+
+### Message Format
+
+**Plain text:**
+```
+#backend-api
+Subject: Implement user authentication
+
+Build JWT-based auth with login, logout, and token refresh endpoints.
+```
+
+**Adaptive Card:**
+```json
+{
   "type": "AdaptiveCard",
-  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-  "version": "1.5",
+  "version": "1.4",
   "body": [
     {
       "type": "TextBlock",
-      "text": "🎯 Directive",
+      "text": "Implement user authentication",
       "weight": "Bolder",
       "size": "Medium"
     },
     {
       "type": "TextBlock",
-      "text": "Focus on authentication module",
-      "weight": "Bolder"
-    },
-    {
-      "type": "TextBlock",
-      "text": "Prioritize login and logout flows. Skip legacy utils for now.",
+      "text": "Build JWT-based auth with login, logout, and token refresh endpoints.",
       "wrap": true
-    },
-    {
-      "type": "FactSet",
-      "facts": [
-        { "title": "From:", "value": "meta-squad" },
-        { "title": "To:", "value": "frontend" },
-        { "title": "Time:", "value": "2025-01-30 12:00 PM" }
-      ]
     }
-  ]
+  ],
+  "msteams": {
+    "entities": [
+      {
+        "type": "hashtag",
+        "text": "#backend-api"
+      }
+    ]
+  }
 }
 ```
 
-**Icon mapping:**
-- `directive` → 🎯
-- `question` → ❓
-- `report` → 📊
-- `alert` → 🚨
+### Parsing
 
-### Plain Text Fallback
+When polling Teams:
+1. Fetch messages from channel (newest first)
+2. Extract hashtags from message text or `msteams.entities`
+3. Determine `from` (author) and `to` (hashtag team)
+4. Parse subject (first line) and body (rest)
+5. Infer `type` from keywords or context
+6. Return as `SignalMessage`
 
-If Adaptive Cards are unsupported, plain text is used:
+### Sending
 
+To send a signal:
+1. Format message with hashtag
+2. Post to Teams channel via Graph API
+3. Store message ID for acknowledgment tracking
+
+### Acknowledgment
+
+Recipient reacts to message with ✅ emoji or replies:
 ```
-🎯 Directive: Focus on authentication module
-
-Prioritize login and logout flows. Skip legacy utils for now.
-
-From: meta-squad
-To: frontend
-Time: 2025-01-30 12:00 PM
-
-#frontend
+#meta
+Acknowledged: Implement user authentication
 ```
-
-### Signal Message Conversion
-
-**Teams message → SignalMessage:**
-
-1. Parse hashtag to determine `to` field
-2. Extract signal type from icon or keyword
-3. Extract subject (first bold line or first sentence)
-4. Extract body (remaining text)
-5. Set `protocol: "teams-channel-v1"`
-
-**SignalMessage → Teams message:**
-
-1. Choose icon based on `type`
-2. Create Adaptive Card with `subject` and `body`
-3. Add hashtag for routing (`#{to}`)
-4. Post to Teams channel
-
-### Reading from Teams
-
-```typescript
-const messages = await teamsClient.listChannelMessages(teamId, channelId);
-const signals = messages
-  .filter(m => m.body.content.includes('#frontend'))
-  .map(m => parseTeamsMessage(m));
-```
-
-### Writing to Teams
-
-```typescript
-await communication.writeInboxSignal('frontend', {
-  id: `sig-${Date.now()}`,
-  timestamp: new Date().toISOString(),
-  from: 'meta-squad',
-  to: 'frontend',
-  type: 'directive',
-  subject: 'New task',
-  body: 'Details...',
-  protocol: 'teams-channel-v1'
-});
-```
-
-This posts an Adaptive Card to the channel with hashtag `#frontend`.
-
-## Protocol Comparison
-
-| Feature | File-Signal | Teams-Channel |
-|---------|------------|---------------|
-| **Latency** | <1ms (local) | ~100-500ms (HTTP) |
-| **Throughput** | Thousands/sec | Dozens/min (rate-limited) |
-| **Offline** | ✅ Yes | ❌ No |
-| **Human visibility** | ⚠️ Via git | ✅ Yes (real-time) |
-| **Audit trail** | ✅ Git history | ✅ Teams compliance |
-| **Authentication** | Filesystem | OAuth |
-| **Setup complexity** | Low | Medium (Teams config) |
 
 ## Signal Lifecycle
 
-### File-Signal
+```mermaid
+sequenceDiagram
+    participant M as Meta Squad
+    participant T as Team
+    
+    M->>T: Write signal to inbox
+    Note over T: Polling...
+    T->>T: Read inbox, parse signals
+    T->>M: Acknowledge signal
+    T->>T: Execute work
+    T->>M: Send report to meta's inbox
+    M->>M: Read report
+    M->>T: Acknowledge report
+```
 
-1. **Create** - Write JSON file to `inbox/`
-2. **Read** - Team polls `inbox/` for new files
-3. **Process** - Team handles signal logic
-4. **Acknowledge** - Team creates `.ack` file
-5. **Archive** (optional) - Move to `archive/` folder
+### Steps
 
-### Teams-Channel
-
-1. **Create** - Post Adaptive Card to channel
-2. **Read** - Poll channel for new messages with hashtags
-3. **Process** - Team handles signal logic
-4. **Acknowledge** - React to message with ✅ emoji (optional)
-5. **Archive** - Messages remain in Teams (no deletion)
+1. **Send:** Sender writes signal to recipient's inbox
+2. **Poll:** Recipient periodically checks inbox
+3. **Acknowledge:** Recipient marks signal as read
+4. **Process:** Recipient acts on signal
+5. **Respond:** (Optional) Recipient sends reply signal
 
 ## Best Practices
 
 ### Subject Lines
 
-- Keep concise (1-10 words)
-- Be specific ("Focus on auth module" not "Do this")
-- Use imperative mood for directives ("Implement X")
-- Use question format for questions ("What is X?")
+Keep short and descriptive:
+
+✅ **Good:** `Implement password reset`
+
+❌ **Bad:** `Please could you maybe work on implementing the password reset feature when you get a chance`
 
 ### Body Content
 
-- Provide context (why is this needed?)
-- Include relevant details (file paths, error messages)
-- Keep under 1000 chars if possible
-- Use plain text (no formatting for file-signal)
+Be specific and actionable:
 
-### Signal Frequency
-
-**File-signal:**
-- No hard limits
-- Batch when possible (avoid 100s per minute)
-
-**Teams-channel:**
-- Respect Teams API rate limits
-- Avoid high-frequency signals (poll interval: 30-60s)
-- Batch updates into single report
-
-### Error Handling
-
-**Invalid JSON (file-signal):**
-```typescript
-try {
-  const signal = JSON.parse(content);
-} catch (err) {
-  console.error('Invalid signal JSON:', err);
-  // Move to error folder
-}
+✅ **Good:**
+```
+Build password reset flow with:
+- POST /auth/reset-request (email → send token)
+- POST /auth/reset-password (token + new password)
+- 1-hour token expiration
+- Email template in templates/password-reset.html
 ```
 
-**Failed Teams post:**
-```typescript
-try {
-  await teamsClient.postMessage(card);
-} catch (err) {
-  console.error('Failed to post to Teams:', err);
-  // Retry with exponential backoff
-}
+❌ **Bad:**
+```
+Do the password reset thing
 ```
 
-## Security
+### Signal Types
 
-### File-Signal
+Choose the right type:
 
-**Access control:** Filesystem permissions
+- **directive** when assigning work
+- **question** when requesting info
+- **report** when sharing results
+- **alert** when blocked or errors occur
 
-**Encryption:** Not built-in (use git-crypt if needed)
+### Acknowledgments
 
-**Audit:** Git commit history
-
-### Teams-Channel
-
-**Access control:** Teams channel membership
-
-**Encryption:** TLS for API calls
-
-**Audit:** Teams compliance logs
-
-## Troubleshooting
-
-### Signal not appearing (file-signal)
-
-Check file exists:
-```bash
-ls .squad/signals/inbox/*.json
-```
-
-Validate JSON:
-```bash
-cat signal.json | jq .
-```
-
-Check file permissions:
-```bash
-ls -la .squad/signals/inbox/
-```
-
-### Signal not appearing (teams-channel)
-
-Check hashtag format:
-```
-#frontend (correct)
-# frontend (wrong - space)
-#Frontend (wrong - case-sensitive)
-```
-
-Verify Teams config:
-```bash
-cat federate.config.json | jq '.teamsConfig'
-```
-
-Test Teams API access:
-```bash
-curl -H "Authorization: Bearer $MICROSOFT_GRAPH_TOKEN" \
-  https://graph.microsoft.com/v1.0/teams/{teamId}/channels/{channelId}/messages
-```
+Always acknowledge signals you receive—even if just to confirm receipt. This prevents duplicate signals or uncertainty about whether a message was seen.
 
 ## Next Steps
 
-- [Configure communication transports](/guides/communication-transports)
-- [Monitor team status](/guides/monitoring)
-- [View SDK interfaces](/reference/sdk-types)
+- [View SDK types](/vladi-plugins-marketplace/reference/sdk-types)
+- [Understand configuration](/vladi-plugins-marketplace/reference/configuration)
+- [Explore scripts reference](/vladi-plugins-marketplace/reference/scripts)

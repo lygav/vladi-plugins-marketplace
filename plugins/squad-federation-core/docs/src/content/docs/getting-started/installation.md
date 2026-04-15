@@ -5,126 +5,95 @@ description: How to install and set up Squad Federation
 
 # Installation
 
-Squad Federation is distributed as a Claude Code plugin. Follow these steps to install it in your project.
+Squad Federation is a Claude Code plugin. Install it from the marketplace to enable federation skills in Copilot.
 
 ## Prerequisites
 
-- **Claude Code CLI** or Claude Desktop with plugin support
-- **Git** installed and configured
-- **Node.js** 18+ (for running TypeScript scripts)
-- **GitHub CLI** (`gh`) configured and authenticated (for PR creation features)
+Before installing, ensure you have:
+
+- **Squad CLI** installed and initialized (`squad init` must be run in your project)
+- **Git** 2.20 or later
+- **Node.js** v20 or later
+- **Docker** (optional, for observability dashboard)
+
+The federation setup skill checks these automatically when you run it.
 
 ## Installation Steps
 
-### 1. Clone the Marketplace Repository
+### 1. Add the Marketplace
 
 ```bash
-git clone https://github.com/lygav/vladi-plugins-marketplace.git
-cd vladi-plugins-marketplace
+copilot plugin marketplace add lygav/vladi-plugins-marketplace
 ```
 
-### 2. Install Dependencies
-
-The federation scripts require npm dependencies:
+### 2. Install Squad Federation
 
 ```bash
-cd plugins/squad-federation-core
-npm install
+copilot plugin install squad-federation-core@vladi-plugins-marketplace
 ```
 
-This installs TypeScript, Zod validation, and other runtime dependencies.
+### 3. Verify Installation
 
-### 3. Link the Plugin (Claude Code)
-
-If you're using Claude Code CLI with plugins support, symlink or copy the plugin to your plugins directory:
+List your installed plugins:
 
 ```bash
-# Claude Code plugin directory (adjust path as needed)
-ln -s $(pwd)/plugins/squad-federation-core ~/.claude/plugins/squad-federation-core
+copilot plugin list
 ```
 
-Alternatively, add the marketplace to your Claude Code plugin search paths.
+You should see `squad-federation-core` in the output.
 
-### 4. Verify Installation
+## What You Get
 
-Check that the plugin is recognized:
+The plugin provides these conversational skills:
 
-```bash
-# In Claude Code
-/plugins list
-```
+- **federation-setup** - Creates federation configuration through guided questions
+- **team-onboarding** - Onboards new teams with archetype discovery
+- **federation-orchestration** - Launches teams, monitors progress, sends directives
+- **knowledge-lifecycle** - Manages skill seeding, syncing, and learning graduation
 
-You should see `squad-federation-core` in the list.
-
-### 5. Initialize Your Project
-
-In your project repository, create a federation configuration:
-
-```bash
-cd /path/to/your/project
-```
-
-Create `federate.config.json`:
-
-```json
-{
-  "description": "My project federation",
-  "telemetry": {
-    "enabled": true
-  },
-  "communicationType": "file-signal"
-}
-```
-
-This minimal config enables file-based communication with telemetry.
-
-### 6. Test the Installation
-
-Run a simple command to verify everything works:
-
-```bash
-npx tsx /path/to/vladi-plugins-marketplace/plugins/squad-federation-core/scripts/monitor.ts
-```
-
-If no teams are onboarded yet, you'll see an empty dashboard — that's expected!
-
-## Configuration Options
-
-See the [Configuration Reference](/reference/configuration) for complete `federate.config.json` options, including:
-
-- Teams channel communication
-- Custom telemetry endpoints
-- Deliverable schemas
-- Import hooks
-
-## Troubleshooting
-
-### Command not found: tsx
-
-Install `tsx` globally or use `npx`:
-
-```bash
-npm install -g tsx
-```
-
-### Permission denied errors
-
-Ensure your user has write access to:
-- Project `.squad/` directory
-- Worktree directories (default: `.worktrees/`)
-
-### TypeScript compilation errors
-
-Clear node_modules and reinstall:
-
-```bash
-cd plugins/squad-federation-core
-rm -rf node_modules package-lock.json
-npm install
-```
+You interact with these through natural language in Copilot. No manual script commands needed.
 
 ## Next Steps
 
-- [Create your first federation](/getting-started/first-federation)
-- [Learn about federation setup](/guides/federation-setup)
-- [Explore archetypes](/archetypes/overview)
+You're ready to create your first federation. The setup skill will guide you through:
+
+1. Federation description
+2. Telemetry setup (optional observability dashboard)
+3. Communication type (file signals or Teams channel)
+4. Meta-squad casting
+5. First team onboarding
+
+Start here: [Create your first federation](/vladi-plugins-marketplace/getting-started/first-federation)
+
+## Troubleshooting
+
+### Plugin not found
+
+Check the marketplace is registered:
+
+```bash
+copilot plugin marketplace list
+```
+
+If `vladi-plugins-marketplace` isn't listed, add it again.
+
+### Prerequisites missing
+
+The federation setup skill validates prerequisites and provides install instructions if anything is missing. You can also check manually:
+
+```bash
+squad --version    # Should be 1.2.0 or later
+git --version      # Should be 2.20 or later
+node --version     # Should be v20.0.0 or later
+docker --version   # Optional, for dashboard
+```
+
+### Can't run squad init
+
+Make sure you're in a git repository. Squad requires git for agent coordination.
+
+```bash
+git rev-parse --is-inside-work-tree
+```
+
+If false, initialize git first: `git init`

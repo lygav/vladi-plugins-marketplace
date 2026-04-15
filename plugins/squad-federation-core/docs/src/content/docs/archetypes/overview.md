@@ -1,401 +1,294 @@
 ---
-title: Archetype Overview
-description: What archetypes are and how they define team behavior
+title: Archetypes Overview
+description: Team templates that define behavior, lifecycle, and skills
 ---
 
-# Archetype Overview
+# Archetypes Overview
 
-**Archetypes** define the lifecycle, states, and skills for different types of teams in Squad Federation. Think of them as templates or roles that teams adopt.
+An **archetype** is a team template—it defines a team's purpose, lifecycle states, skills, and agent configuration. Archetypes are the blueprints for creating specialized teams.
 
 ## What is an Archetype?
 
-An archetype specifies:
+Think of an archetype as a job description combined with operational instructions:
 
-1. **States** - Valid lifecycle phases (e.g., `scanning`, `complete`)
-2. **Skills** - Knowledge base files teams can access
-3. **Agents** (optional) - Specialized sub-agents for the archetype
-4. **Monitors** (optional) - Custom monitoring logic
+- **What** the team does (purpose, outputs)
+- **How** the team works (agents, tools, temperature)
+- **When** states transition (lifecycle state machine)
+- **What it knows** (skills, conventions, patterns)
+
+Squad Federation ships with three built-in archetypes:
+
+1. **Coding** — Implements features, fixes bugs, writes tests
+2. **Deliverable** — Creates docs, reports, analysis (no code changes)
+3. **Consultant** — Provides recommendations without modifying code
+
+You can also create custom archetypes for specialized workflows.
+
+## Archetype Structure
+
+Every archetype has two layers:
+
+### 1. Root Archetype Plugin
+
+Located in `plugins/squad-archetype-{name}/`, this is the archetype definition installed in your Copilot workspace.
+
+**Structure:**
+```
+plugins/squad-archetype-coding/
+  ├── plugin.json              ← Plugin metadata
+  ├── archetype.json           ← Archetype definition (meta-level)
+  ├── meta/                    ← Skills for the meta squad
+  │   └── skills/
+  │       └── coding-conventions.md
+  └── team/                    ← Files seeded to team workspaces
+      ├── archetype.json       ← Team state machine
+      ├── system-prompt.md     ← Agent instructions
+      └── skills/
+          ├── git-workflow.md
+          └── testing-standards.md
+```
+
+**Root `archetype.json`** (meta-level):
+```json
+{
+  "id": "coding",
+  "name": "Coding Team",
+  "description": "Teams that write and modify code",
+  "version": "1.0.0",
+  "defaultAgents": {
+    "lead": {
+      "model": "claude-sonnet-4",
+      "temperature": 0.1,
+      "tools": ["bash", "edit", "view", "grep", "glob"]
+    }
+  }
+}
+```
+
+This defines the archetype metadata but doesn't specify the runtime state machine.
+
+### 2. Team Archetype Runtime
+
+When you onboard a team, files from `team/` are copied to the team's workspace. The **team `archetype.json`** defines the runtime state machine.
+
+**Team workspace:**
+```
+.squad/worktrees/backend-api/   (or .squad/teams/backend-api/)
+  ├── .squad/
+  │   ├── archetype.json        ← Runtime state machine
+  │   ├── system-prompt.md      ← Team-specific instructions
+  │   ├── skills/               ← Team skills
+  │   ├── signals/              ← Inbox/outbox
+  │   └── deliverable.md        ← Output
+```
+
+**Team `archetype.json`** (runtime state machine):
+```json
+{
+  "states": {
+    "preparing": {
+      "description": "Reading mission, planning work",
+      "transitions": ["implementing", "failed"]
+    },
+    "implementing": {
+      "description": "Writing code, making changes",
+      "transitions": ["testing", "failed"]
+    },
+    "testing": {
+      "description": "Running tests, validating changes",
+      "transitions": ["pr-open", "implementing", "failed"]
+    },
+    "pr-open": {
+      "description": "Pull request opened, awaiting review",
+      "transitions": ["pr-review", "failed"]
+    },
+    "pr-review": {
+      "description": "Addressing review comments",
+      "transitions": ["pr-approved", "implementing", "failed"]
+    },
+    "pr-approved": {
+      "description": "PR approved, ready to merge",
+      "transitions": ["merged", "failed"]
+    },
+    "merged": {
+      "description": "Changes merged to main",
+      "transitions": ["complete"]
+    },
+    "complete": {
+      "description": "Work finished",
+      "terminal": true
+    },
+    "failed": {
+      "description": "Error occurred",
+      "terminal": true
+    }
+  },
+  "initialState": "preparing",
+  "pauseable": true
+}
+```
+
+This state machine drives the team's lifecycle. Agents transition between states as work progresses.
+
+## meta/ vs team/
+
+```
+plugins/squad-archetype-coding/
+  ├── meta/                   ← Files for meta squad
+  │   └── skills/
+  │       └── coding-conventions.md    ← Meta reads this
+  └── team/                   ← Files seeded to teams
+      ├── archetype.json               ← Team state machine
+      ├── system-prompt.md             ← Team agent instructions
+      └── skills/
+          ├── git-workflow.md          ← Team reads this
+          └── testing-standards.md
+```
+
+**meta/ skills:**
+- Used by the meta squad when coordinating
+- Example: "What archetypes are available?" → reads `meta/skills/`
+
+**team/ files:**
+- Copied to team workspace on onboard
+- Team agents read these during execution
+- Example: Team reads `team/skills/git-workflow.md` when committing code
 
 ## Built-In Archetypes
 
-Squad Federation provides three built-in archetypes:
+### Coding
 
-| Archetype | Purpose | Use Case |
-|-----------|---------|----------|
-| **coding** | Write code, implement features | Feature development, bug fixes |
-| **deliverable** | Create documents, reports | Documentation, analysis reports |
-| **consultant** | Provide recommendations | Architecture review, code review |
+**Purpose:** Write and modify code
 
-## Archetype Directory Structure
+**Outputs:** Code changes, commits, pull requests
 
-```
-archetypes/
-├── archetype.json                              ← Root manifest
-└── plugins/
-    ├── squad-archetype-coding/
-    │   ├── archetype.json                      ← Coding archetype config
-    │   └── team/
-    │       ├── agents/                         ← Custom agents
-    │       │   ├── lead.md
-    │       │   └── assistant.md
-    │       ├── monitors/                       ← Custom monitors
-    │       │   └── coding-monitor.ts
-    │       └── skills/                         ← Archetype skills
-    │           ├── git-workflow.md
-    │           └── testing-standards.md
-    ├── squad-archetype-deliverable/
-    │   ├── archetype.json
-    │   └── team/
-    │       ├── agents/
-    │       └── skills/
-    └── squad-archetype-consultant/
-        ├── archetype.json
-        └── team/
-            ├── agents/
-            └── skills/
-```
+**States:** preparing → implementing → testing → pr-open → pr-review → pr-approved → merged → complete
 
-## Root Manifest
+**Use when:** Building features, fixing bugs, refactoring
 
-**File:** `archetypes/archetype.json`
+[View coding archetype →](/vladi-plugins-marketplace/archetypes/coding)
+
+---
+
+### Deliverable
+
+**Purpose:** Create documentation and reports
+
+**Outputs:** Markdown documents, analysis reports
+
+**States:** preparing → scanning → distilling → aggregating → complete
+
+**Use when:** Writing docs, creating architecture diagrams, generating reports
+
+[View deliverable archetype →](/vladi-plugins-marketplace/archetypes/deliverable)
+
+---
+
+### Consultant
+
+**Purpose:** Provide recommendations without code changes
+
+**Outputs:** Code reviews, architecture recommendations
+
+**States:** onboarding → indexing → ready → researching → waiting-for-feedback → retired
+
+**Use when:** Code reviews, architecture analysis, security audits
+
+[View consultant archetype →](/vladi-plugins-marketplace/archetypes/consultant)
+
+## Lifecycle States
+
+All archetypes share common state patterns:
+
+### Work States
+
+States where the team is actively progressing:
+- `preparing` / `initializing` / `onboarding`
+- `scanning` / `implementing` / `researching`
+- `distilling` / `testing` / `composing`
+
+### Terminal States
+
+States where work has concluded:
+- `complete` — Work successfully finished
+- `failed` — Error occurred, cannot proceed
+
+### Optional States
+
+- `paused` — Manually paused (if `pauseable: true`)
+
+### State Transitions
+
+Defined in `archetype.json`:
 
 ```json
 {
-  "archetypes": {
-    "coding": {
-      "path": "./plugins/squad-archetype-coding",
-      "archetypeJson": "./plugins/squad-archetype-coding/archetype.json"
-    },
-    "deliverable": {
-      "path": "./plugins/squad-archetype-deliverable",
-      "archetypeJson": "./plugins/squad-archetype-deliverable/archetype.json"
-    },
-    "consultant": {
-      "path": "./plugins/squad-archetype-consultant",
-      "archetypeJson": "./plugins/squad-archetype-consultant/archetype.json"
+  "states": {
+    "scanning": {
+      "description": "Analyzing codebase",
+      "transitions": ["distilling", "failed"]
     }
   }
 }
 ```
 
-**Purpose:** Central registry of all available archetypes
+**Rules:**
+- A state can only transition to states in its `transitions` array
+- Terminal states (`terminal: true`) have no outgoing transitions
+- Pauseable archetypes allow `paused` from any non-terminal state
 
-**Fields:**
-- `archetypes` - Map of archetype ID → paths
-- `path` - Directory containing archetype files
-- `archetypeJson` - Path to archetype config file
+## Skills in Archetypes
 
-## Archetype Config
+Skills are markdown files with YAML frontmatter that teams read for context-specific knowledge.
 
-**File:** `{archetype-path}/archetype.json`
-
-**Example (coding):**
-
-```json
-{
-  "archetypeId": "coding",
-  "name": "Coding Team",
-  "states": [
-    "initializing",
-    "scanning",
-    "distilling",
-    "complete",
-    "failed",
-    "paused"
-  ],
-  "skills": [
-    "team/skills/git-workflow.md",
-    "team/skills/testing-standards.md",
-    "team/skills/code-review.md"
-  ]
-}
-```
-
-**Fields:**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `archetypeId` | string | Unique identifier (matches root manifest key) |
-| `name` | string | Display name |
-| `states` | string[] | Valid lifecycle states |
-| `skills` | string[] | Skill file paths (relative to archetype dir) |
-
-## States
-
-States represent team lifecycle phases.
-
-### Common States
-
-| State | Description | Transitions |
-|-------|-------------|-------------|
-| `initializing` | Team starting up | → `scanning` |
-| `scanning` | Analyzing codebase | → `distilling`, `failed`, `paused` |
-| `distilling` | Processing findings | → `complete`, `failed`, `paused` |
-| `complete` | Work finished | (terminal) |
-| `failed` | Error occurred | (terminal) |
-| `paused` | Manually paused | → any previous state |
-
-### State Machine Example (Coding)
-
-```
-initializing
-    ↓
-scanning ←→ paused
-    ↓
-distilling ←→ paused
-    ↓
-complete (✓)
-
-(any state) → failed (✗)
-```
-
-### Custom States
-
-Archetypes can define custom states:
-
-```json
-{
-  "states": [
-    "initializing",
-    "requirements-gathering",
-    "design",
-    "implementation",
-    "testing",
-    "deployment",
-    "complete",
-    "failed"
-  ]
-}
-```
-
-Teams track their current state in `.squad/status.json`:
-
-```json
-{
-  "state": "scanning",
-  "step": "analyzing authentication module",
-  "updated_at": "2025-01-30T12:30:00Z"
-}
-```
-
-## Skills
-
-Skills are markdown files containing knowledge, patterns, or guidelines.
-
-**Structure:**
+**Example:** `team/skills/git-workflow.md`
 
 ```markdown
 ---
-tags: [testing, performance]
-category: pattern
-source: frontend
-promoted: 2025-01-30
+tags: [git, workflow, conventions]
+category: convention
 ---
 
-# Parallel Test Execution
+# Git Workflow
 
-Run tests in parallel to reduce CI time.
+## Branching
 
-## Implementation
+- Feature branches: `squad/{domain}/{feature}`
+- Never commit to `main` directly
 
-jest.config.js:
-\`\`\`javascript
-module.exports = {
-  maxWorkers: '50%'
-};
-\`\`\`
+## Commits
 
-## Impact
-- CI time: 8m → 3m
-- No flakiness observed
+- Use conventional commits: `feat:`, `fix:`, `refactor:`
+- Keep commits focused (one logical change)
+- Write descriptive messages
+
+## Pull Requests
+
+- Link to issue
+- Include description
+- Add attribution: `Co-authored-by: {TeamName} (Squad) <noreply@squad.ai>`
 ```
 
-**Metadata:**
-
-- `tags` - Keywords for search
-- `category` - Skill type (`pattern`, `discovery`, `convention`, `gotcha`)
-- `source` - Originating team (if graduated from learning)
-- `promoted` - Graduation date
-
-**Purpose:**
-
-- Provide team-specific knowledge base
-- Share best practices across teams
-- Document conventions and patterns
-
-## Agents
-
-Archetypes can include custom agents for specialized tasks.
-
-**Example:** `team/agents/lead.md`
-
-```markdown
----
-name: Lead
-temperature: 0.1
-description: Primary architect and planner
-tools: [bash, edit, view]
----
-
-You are the lead agent for this coding team. Your role is to:
-
-1. Scan the codebase for relevant files
-2. Create a plan of attack
-3. Delegate tasks to assistant agents
-4. Review and integrate results
-
-Focus on architecture and high-level decisions.
-```
-
-**Purpose:**
-
-- Delegate work to specialized agents
-- Customize agent behavior per archetype
-- Provide role-specific instructions
-
-## Monitors
-
-Archetypes can provide custom monitoring logic.
-
-**Example:** `team/monitors/coding-monitor.ts`
-
-```typescript
-import { MonitorBase, MonitorResult } from '@squad/sdk';
-
-export class CodingMonitor extends MonitorBase {
-  async monitor(teamId: string): Promise<MonitorResult> {
-    const files = await this.listChangedFiles(teamId);
-    const tests = await this.countTests(files);
-    
-    this.emitMetrics('code.files_changed', files.length, { domain: teamId });
-    
-    if (tests < files.length * 0.5) {
-      return {
-        health: 'warning',
-        message: 'Test coverage may be low'
-      };
-    }
-    
-    return { health: 'healthy', message: 'On track' };
-  }
-}
-```
-
-**Purpose:**
-
-- Validate team progress
-- Emit custom metrics
-- Provide archetype-specific health checks
-
-## Choosing an Archetype
-
-### When to use `coding`
-
-- Implementing features
-- Fixing bugs
-- Refactoring code
-- Writing tests
-
-**Output:** Code changes, commits
-
-### When to use `deliverable`
-
-- Writing documentation
-- Creating reports
-- Generating analysis
-- Producing artifacts (non-code)
-
-**Output:** Markdown files, reports, documentation
-
-### When to use `consultant`
-
-- Reviewing code
-- Providing recommendations
-- Architecture guidance
-- Answering questions
-
-**Output:** Recommendations, findings, advice (no changes)
+Teams automatically load skills from `.squad/skills/` when executing.
 
 ## Creating Custom Archetypes
 
-See [Creating Archetypes](/archetypes/creating-archetypes) for a full guide.
+You can build archetypes tailored to your workflows. Use the **archetype-creator** skill to guide you through the process conversationally.
 
-**Quick example:**
+**Via Copilot:** "Create a custom archetype for database migrations"
 
-1. Create directory: `archetypes/plugins/my-archetype/`
-2. Add `archetype.json`:
-   ```json
-   {
-     "archetypeId": "my-archetype",
-     "name": "My Custom Archetype",
-     "states": ["initializing", "working", "complete", "failed"],
-     "skills": []
-   }
-   ```
-3. Register in `archetypes/archetype.json`:
-   ```json
-   {
-     "archetypes": {
-       "my-archetype": {
-         "path": "./plugins/my-archetype",
-         "archetypeJson": "./plugins/my-archetype/archetype.json"
-       }
-     }
-   }
-   ```
-4. Onboard team:
-   ```bash
-   npx tsx scripts/onboard.ts \
-     --archetype my-archetype \
-     ...
-   ```
+This will walk you through:
+1. Defining purpose and outputs
+2. Designing lifecycle states
+3. Specifying agent tools and temperature
+4. Generating skills
+5. Writing the archetype manifest
 
-## Team Initialization
-
-When a team is onboarded, the archetype files are copied to the team's workspace:
-
-**Before onboarding:**
-```
-.worktrees/frontend/    (empty or doesn't exist)
-```
-
-**After onboarding:**
-```
-.worktrees/frontend/
-├── .squad/
-│   ├── status.json
-│   ├── signals/
-│   └── learnings/
-├── team/
-│   ├── agents/
-│   │   ├── lead.md
-│   │   └── assistant.md
-│   └── skills/
-│       ├── git-workflow.md
-│       └── testing-standards.md
-└── ... (user's code)
-```
-
-**Purpose:** Give each team a fresh copy of the archetype files.
-
-## Archetype vs Team
-
-| Concept | Scope | Purpose |
-|---------|-------|---------|
-| **Archetype** | Template | Defines what a type of team can do |
-| **Team** | Instance | A specific team using an archetype |
-
-**Analogy:**
-- Archetype = Class definition
-- Team = Instance of that class
-
-**Example:**
-- Archetype: `coding` (template for code-writing teams)
-- Team: `frontend` (specific team using `coding` archetype)
+[Learn more about creating archetypes →](/vladi-plugins-marketplace/archetypes/creating-archetypes)
 
 ## Next Steps
 
-- [Create custom archetypes](/archetypes/creating-archetypes)
-- [Learn about the coding archetype](/archetypes/coding)
-- [Learn about the deliverable archetype](/archetypes/deliverable)
-- [Learn about the consultant archetype](/archetypes/consultant)
+- [View coding archetype](/vladi-plugins-marketplace/archetypes/coding)
+- [View deliverable archetype](/vladi-plugins-marketplace/archetypes/deliverable)
+- [View consultant archetype](/vladi-plugins-marketplace/archetypes/consultant)
+- [Create custom archetypes](/vladi-plugins-marketplace/archetypes/creating-archetypes)

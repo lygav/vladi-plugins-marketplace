@@ -1,304 +1,272 @@
 ---
 title: Team Onboarding
-description: How to create and configure teams in your federation
+description: How the team-onboarding skill creates new teams conversationally
 ---
 
 # Team Onboarding
 
-Team onboarding is the process of creating a new autonomous team within your federation. Each team gets its own workspace, archetype, and identity.
+The **team-onboarding skill** guides you through creating a new team in your federation. It asks what the team should do, discovers the right archetype through guided questions, and sets up the workspace automatically.
 
-## Onboarding Script
+## Starting Onboarding
 
-Use `scripts/onboard.ts` to create teams:
+In Copilot, say:
 
-```bash
-npx tsx scripts/onboard.ts \
-  --name "team-name" \
-  --domain-id "unique-id" \
-  --archetype "squad-archetype-{type}" \
-  [options]
-```
+> "Spin up a team for authentication"
 
-## Required Arguments
+or
 
-### `--name`
+> "Onboard a team"
 
-Human-readable team name (used for branch name and directory).
+or
 
-**Examples:**
-- `frontend`
-- `api-gateway`
-- `data-pipeline`
+> "Add a frontend team"
 
-**Rules:**
+The skill activates and begins asking questions.
+
+## The Onboarding Conversation
+
+### 1. What Should This Team Work On?
+
+**Skill asks:**
+> "What should this team work on? Be specific about what they'll build or analyze."
+
+**You describe the team's mission:**
+> "Build and test React components for the frontend"
+
+or
+
+> "Audit infrastructure code for security vulnerabilities"
+
+or
+
+> "Create API documentation from OpenAPI specs"
+
+The skill uses this to derive the team name and choose the right archetype.
+
+### 2. Team Name Confirmation
+
+**Skill derives a name from your description:**
+> "I'll call this team 'frontend' — sound good?"
+
+**Your options:**
+
+**Yes** - Team named `frontend`
+
+**No, call it X** - You provide a different name:
+> "No, call it 'ui-components'"
+
+The name must be:
 - Lowercase letters, numbers, hyphens only
-- No spaces or special characters
-- Used in git branch: `squad/{name}`
+- Unique across all teams in the federation
 
-### `--domain-id`
+### 3. Archetype Discovery
 
-Unique identifier for the team (must be globally unique in the federation).
+The skill asks **guiding questions** to discover the right archetype. It doesn't show you a menu — it figures it out from your answers.
 
-**Examples:**
-- `frontend-001`
-- `api-gw-prod`
-- `data-etl-v2`
+#### Question 1: Output Type
 
-**Rules:**
-- Must be unique across all teams
-- Stored in registry (`.squad/teams.json`)
-- Used for signal routing and telemetry
+**Skill asks:**
+> "Will this team write code, or produce file artifacts like reports or specs?"
 
-### `--archetype`
+**Your options:**
 
-Archetype plugin name defining the team's lifecycle.
+**Write code** → Coding or Research archetype (next question determines which)
 
-**Available archetypes:**
-- `squad-archetype-coding` - Feature development, refactoring, testing
-- `squad-archetype-deliverable` - Structured output creation (specs, reports, schemas)
-- `squad-archetype-consultant` - Analysis and recommendations
+**Produce artifacts** → Deliverable archetype (skip to placement)
 
-**Example:**
-```bash
---archetype "squad-archetype-coding"
-```
+#### Question 2: Integration (if you said "write code")
 
-## Optional Arguments
+**Skill asks:**
+> "Will they open pull requests to integrate their work?"
 
-### `--description`
+**Your options:**
 
-Human-readable description of the team's mission.
+**Yes** → **Coding archetype**
+- Builds features in branches
+- Opens PRs to main
+- Runs tests and CI checks
 
-```bash
---description "Builds and tests frontend React components"
-```
+**No** → **Research archetype**  
+- Explores code, analyzes patterns
+- Documents findings
+- No PR workflow
 
-This is written to the team's `DOMAIN_CONTEXT.md`.
+#### Archetype Confirmation
 
-### `--placement`
+**Skill shows its recommendation:**
+> "Based on your answers, I recommend the **coding archetype**. Sound right?"
 
-Placement strategy (default: `worktree`).
+You confirm or override:
+- **Yes** - Archetype locked in
+- **No, use X** - You specify a different archetype manually
 
-**Options:**
-- `worktree` - Git branch + worktree
-- `directory` - Standalone directory
+### 4. Archetype Plugin Check
 
-```bash
---placement worktree
-```
+**Skill checks if the archetype plugin is installed:**
+> "Checking if squad-archetype-coding is installed..."
 
-### `--worktree-dir`
+**If missing:**
+> "I need to install squad-archetype-coding first. OK?"
 
-Directory for worktree placement (only used with `--placement worktree`).
+You confirm, and the skill installs it from the marketplace.
 
-**Options:**
-- `.worktrees` (default) - Inside repository
-- `../` - Sibling to repository
-- Absolute path - Custom location
+### 5. Workspace Placement
 
-```bash
---worktree-dir ../team-workspaces
-```
+**Skill asks:**
+> "Where should this team's workspace live?"
 
-### `--path`
+**Your options:**
 
-Custom path for directory placement (only used with `--placement directory`).
+**Worktree** (recommended):
+- Git branch: `squad/{team-name}`
+- Worktree location: `.worktrees/{team-name}/`
+- Full git integration (commit, push, PR)
+- Isolated from main branch
 
-```bash
---placement directory --path /var/teams/my-team
-```
+**Directory**:
+- Standalone directory (no git branch)
+- Filesystem-only operations
+- No PR workflow
+- Lighter weight
 
-### `--base-branch`
+**Custom path**:
+> "Actually, put it at /var/teams/frontend"
 
-Base branch for worktree (default: `main`).
+If you choose **worktree**, the skill asks:
 
-```bash
---base-branch develop
-```
+> "Where should worktrees live? Inside the repo (.worktrees/) or outside (../)?"
 
-## Onboarding Flow
+**Inside** - `.worktrees/` in the repo
 
-When you run `onboard.ts`, here's what happens:
+**Outside** - `../` as sibling directory
 
-### 1. Validate Arguments
+### 6. Onboarding Summary
 
-- Check archetype exists (from marketplace.json)
-- Validate name format (kebab-case)
-- Ensure domain-id is unique
-
-### 2. Create Workspace
-
-**Worktree:**
-```bash
-git worktree add .worktrees/{name} -b squad/{name} main
-```
-
-**Directory:**
-```bash
-mkdir -p {path}
-```
-
-### 3. Seed Team Directory
-
-Copy archetype files from `plugins/{archetype}/team/` to team workspace:
+**Skill shows a complete summary:**
 
 ```
-.worktrees/{name}/
-├── archetype.json          # Lifecycle states
-├── .squad/
-│   └── skills/             # Archetype skills
-└── DOMAIN_CONTEXT.md       # Team mission (from --description)
+📋 Team Setup Summary:
+━━━━━━━━━━━━━━━━━━━━
+Name: frontend
+Mission: Build and test React components for the frontend
+Archetype: coding
+Placement: worktree (inside repo)
+Location: .worktrees/frontend
+Branch: squad/frontend
+Communication: file-signal (from federate.config.json)
+
+Proceed?
 ```
 
-### 4. Bootstrap `.squad` Structure
+You confirm, and the skill executes onboarding.
 
-Create signal and learning directories:
+### 7. Autonomous Execution
 
-```
-.squad/
-├── signals/
-│   ├── inbox/
-│   ├── outbox/
-│   └── status.json         # Initial state: "initializing"
-├── learnings/
-│   └── log.jsonl           # Empty learning log
-└── ceremonies.md           # Ceremony templates
-```
-
-### 5. Register Team
-
-Add entry to `.squad/teams.json`:
-
-```json
-{
-  "domain": "frontend",
-  "domainId": "frontend-001",
-  "archetypeId": "squad-archetype-coding",
-  "placementType": "worktree",
-  "location": "/path/to/.worktrees/frontend",
-  "createdAt": "2025-01-30T12:00:00Z",
-  "federation": {
-    "parent": "meta-squad",
-    "parentLocation": "/path/to/repo",
-    "role": "team"
-  }
-}
-```
-
-### 6. Run `squad init`
-
-Cast the team agent in its workspace:
-
-```bash
-cd .worktrees/{name}
-squad init
-```
-
-This creates the team's agent configuration and initial state.
-
-## Examples
-
-### Minimal Onboarding (Worktree)
+Behind the scenes, the skill calls `scripts/onboard.ts` with the parameters you confirmed:
 
 ```bash
 npx tsx scripts/onboard.ts \
   --name "frontend" \
-  --domain-id "fe-001" \
-  --archetype "squad-archetype-coding"
-```
-
-Creates:
-- Branch: `squad/frontend`
-- Worktree: `.worktrees/frontend/`
-- Archetype: Coding
-
-### Onboarding with Description
-
-```bash
-npx tsx scripts/onboard.ts \
-  --name "api-gateway" \
-  --domain-id "api-gw-prod" \
+  --domain-id "frontend-abc123" \
   --archetype "squad-archetype-coding" \
-  --description "Manages API routing, auth, and rate limiting"
+  --placement worktree \
+  --worktree-dir .worktrees \
+  --description "Build and test React components for the frontend"
 ```
 
-### Directory Placement
+**The script:**
+1. Creates git branch `squad/frontend` and worktree
+2. Seeds archetype skills and configuration
+3. Bootstraps `.squad/` structure (signals, learnings)
+4. Registers team in `.squad/teams.json`
+5. Runs `squad init` to cast the team agent
+
+**Output:**
+```
+✅ Team 'frontend' onboarded successfully
+📍 Location: .worktrees/frontend
+🌿 Branch: squad/frontend
+🔧 Archetype: coding
+```
+
+### 8. Next Steps Prompt (Optional)
+
+**Skill asks:**
+> "Want me to launch this team now?"
+
+**Yes** - The orchestration skill takes over and starts the team session
+
+**No** - Onboarding complete. Launch anytime:
+> "Launch the frontend team"
+
+## What Gets Created
+
+After onboarding, the team workspace contains:
+
+```
+.worktrees/frontend/
+├── DOMAIN_CONTEXT.md         # Team mission from your description
+├── archetype.json            # Lifecycle states from archetype
+├── .squad/
+│   ├── skills/               # Archetype skills seeded from plugin
+│   │   ├── pr-creation/
+│   │   ├── test-runner/
+│   │   └── code-review/
+│   ├── signals/
+│   │   ├── inbox/            # Receives directives
+│   │   ├── outbox/           # Sends questions/reports
+│   │   └── status.json       # Team state (initially: "initializing")
+│   ├── learnings/
+│   │   └── log.jsonl         # Learning log (empty initially)
+│   └── ceremonies.md         # Ceremony templates
+├── .mcp.json                 # Telemetry config (if enabled)
+└── README.md                 # Auto-generated team README
+```
+
+## Advanced Options
+
+### Seeding Custom Skills
+
+After onboarding, add domain-specific skills:
 
 ```bash
-npx tsx scripts/onboard.ts \
-  --name "reporting" \
-  --domain-id "report-001" \
-  --archetype "squad-archetype-deliverable" \
-  --placement directory \
-  --path /var/teams/reporting
+cp my-custom-skill/ .worktrees/frontend/.squad/skills/
 ```
 
-### Custom Worktree Location
+The team reads skills from `.squad/skills/` at launch.
 
-```bash
-npx tsx scripts/onboard.ts \
-  --name "infra" \
-  --domain-id "infra-001" \
-  --archetype "squad-archetype-coding" \
-  --worktree-dir ../team-branches
-```
+### Customizing DOMAIN_CONTEXT.md
 
-Creates worktree at `../team-branches/infra/` (outside repo).
-
-## Post-Onboarding Steps
-
-### 1. Customize DOMAIN_CONTEXT.md
-
-Edit the team's context file:
+Edit the team's mission file:
 
 ```bash
 vim .worktrees/frontend/DOMAIN_CONTEXT.md
 ```
 
 Add:
-- Team responsibilities
+- Specific responsibilities
 - Key files/directories to focus on
-- Constraints or guidelines
 - Integration points with other teams
+- Constraints or guidelines
 
-### 2. Seed Skills (Optional)
+### Custom Launch Prompt
 
-Add custom skills to `.worktrees/{name}/.squad/skills/`:
-
-```bash
-cp my-custom-skill/ .worktrees/frontend/.squad/skills/
-```
-
-### 3. Write Launch Prompt (Optional)
-
-Create `.worktrees/{name}/.squad/launch-prompt.md`:
+Override the default launch prompt by creating `.squad/launch-prompt.md`:
 
 ```markdown
 # Frontend Team Launch
 
-Your mission: Build and test React components in src/components.
-
-Focus areas:
-1. Component library
-2. Unit and integration tests
+Focus on:
+1. Component library in src/components
+2. Unit tests with vitest
 3. Storybook documentation
 
 Check inbox for directives from meta-squad.
 ```
 
-This overrides the default launch prompt.
-
-### 4. Launch the Team
-
-Start a headless session:
-
-```bash
-npx tsx scripts/launch.ts --team frontend
-```
-
 ## Verifying Onboarding
 
-### Check Registry
+### Check Team Registry
 
 ```bash
 cat .squad/teams.json | jq '.teams[] | select(.domain == "frontend")'
@@ -310,39 +278,125 @@ cat .squad/teams.json | jq '.teams[] | select(.domain == "frontend")'
 git worktree list | grep frontend
 ```
 
-### Check Bootstrap
+### Inspect Team Workspace
 
 ```bash
 ls -la .worktrees/frontend/.squad/
 ```
 
-Should show: `status.json`, `signals/`, `learnings/`, `ceremonies.md`.
+You should see `status.json`, `signals/`, `learnings/`, `ceremonies.md`.
+
+## Placement Options Explained
+
+### Worktree Placement
+
+**Best for:**
+- Teams that open PRs
+- Version history needed
+- Git-based workflows
+- Cross-branch reading via `git show`
+
+**What you get:**
+- Git branch: `squad/{team}`
+- Dedicated worktree directory
+- Full git operations: commit, push, PR
+- Isolated from main branch
+
+**Where worktrees live:**
+
+**Inside repo (.worktrees/)**:
+```
+my-project/
+├── .worktrees/
+│   ├── frontend/
+│   └── backend/
+```
+
+**Outside repo (../):**:
+```
+parent-dir/
+├── my-project/       (main repo)
+└── worktrees/
+    ├── frontend/
+    └── backend/
+```
+
+### Directory Placement
+
+**Best for:**
+- Deliverable/research teams (no PRs needed)
+- External system integration
+- Ephemeral teams
+- Custom storage backends
+
+**What you get:**
+- Standalone directory
+- Filesystem-only operations
+- No git branch or history
+- Lighter resource usage
+
+## Archetype Selection Guide
+
+### Coding Archetype
+
+**Use when team:**
+- Writes code (features, fixes, refactors)
+- Opens pull requests
+- Runs tests and CI
+- Integrates via git workflow
+
+**Examples:**
+- "Build frontend components"
+- "Implement API endpoints"
+- "Refactor authentication module"
+
+### Deliverable Archetype
+
+**Use when team:**
+- Produces structured file outputs
+- Creates reports, specs, schemas
+- Generates documentation
+- No code changes
+
+**Examples:**
+- "Audit security vulnerabilities"
+- "Generate API documentation"
+- "Create infrastructure inventory"
+
+### Research Archetype
+
+**Use when team:**
+- Analyzes code or systems
+- Explores patterns and anti-patterns
+- Documents findings
+- No integration workflow
+
+**Examples:**
+- "Analyze test coverage gaps"
+- "Map service dependencies"
+- "Identify performance bottlenecks"
 
 ## Troubleshooting
 
-### "Team already registered"
+### "Team name already exists"
 
-Domain ID is not unique. Use a different ID:
+Choose a different name. Names must be unique across the federation.
 
-```bash
---domain-id "frontend-002"
-```
+> "No, call it 'ui-components'"
 
-Or remove the old entry from `.squad/teams.json` if it's a duplicate.
+### "Archetype plugin not found"
 
-### "Archetype not found"
-
-Check available archetypes:
+The skill should auto-install missing archetypes. If it doesn't:
 
 ```bash
-cat .github/plugin/marketplace.json | jq '.plugins[] | select(.category == "archetype")'
+copilot plugin install squad-archetype-coding@vladi-plugins-marketplace
 ```
 
-Ensure the archetype name matches exactly.
+Then retry onboarding.
 
 ### Worktree creation failed
 
-Branch already exists:
+Branch might already exist:
 
 ```bash
 git branch -d squad/frontend  # Delete old branch
@@ -351,8 +405,44 @@ git worktree prune            # Clean up stale worktrees
 
 Then retry onboarding.
 
+### Can't find .squad/teams.json
+
+Run federation setup first:
+
+> "Set up a federation"
+
+You need `federate.config.json` before onboarding teams.
+
+## Script Reference
+
+While the skill handles onboarding conversationally, you can run the script directly for CI/CD or automation:
+
+**Manual onboarding:**
+```bash
+npx tsx path/to/squad-federation-core/scripts/onboard.ts \
+  --name "frontend" \
+  --domain-id "fe-001" \
+  --archetype "squad-archetype-coding" \
+  --placement worktree \
+  --description "Build React components"
+```
+
+**Required flags:**
+- `--name` - Team name (kebab-case)
+- `--domain-id` - Unique team identifier
+- `--archetype` - Archetype plugin name
+
+**Optional flags:**
+- `--description` - Team mission (written to DOMAIN_CONTEXT.md)
+- `--placement` - `worktree` (default) or `directory`
+- `--worktree-dir` - Worktree location (default: `.worktrees`)
+- `--path` - Directory location (for `--placement directory`)
+- `--base-branch` - Base branch for worktree (default: `main`)
+
+See the script output for details on what was created.
+
 ## Next Steps
 
-- [Launch the team](/getting-started/first-federation#step-5-launch-the-team)
-- [Monitor team progress](/guides/monitoring)
-- [Send directives](/reference/signal-protocol)
+- [Launch the team](/vladi-plugins-marketplace/getting-started/first-federation#step-3-launch-the-team)
+- [Send directives to guide work](/vladi-plugins-marketplace/guides/federation-setup#step-5-send-a-directive-optional)
+- [Monitor team progress](/vladi-plugins-marketplace/guides/monitoring)
