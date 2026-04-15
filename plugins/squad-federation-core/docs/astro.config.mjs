@@ -31,6 +31,7 @@ export default defineConfig({
           items: [
             { label: 'Federation Setup', slug: 'guides/federation-setup' },
             { label: 'Team Onboarding', slug: 'guides/team-onboarding' },
+            { label: 'Multi-Team Walkthrough', slug: 'guides/multi-team-walkthrough' },
             { label: 'Communication Transports', slug: 'guides/communication-transports' },
             { label: 'Monitoring', slug: 'guides/monitoring' },
             { label: 'Knowledge Lifecycle', slug: 'guides/knowledge-lifecycle' },
@@ -39,9 +40,13 @@ export default defineConfig({
         {
           label: 'Reference',
           items: [
+            { label: 'Architecture Overview', slug: 'reference/architecture' },
             { label: 'SDK Types', slug: 'reference/sdk-types' },
             { label: 'Configuration', slug: 'reference/configuration' },
             { label: 'Signal Protocol', slug: 'reference/signal-protocol' },
+            { label: 'Launch Mechanics', slug: 'reference/launch-mechanics' },
+            { label: 'Archetype System', slug: 'reference/archetype-system' },
+            { label: 'Design Decisions', slug: 'reference/design-decisions' },
             { label: 'Scripts', slug: 'reference/scripts' },
           ],
         },

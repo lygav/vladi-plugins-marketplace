@@ -64,7 +64,7 @@ npx tsx plugins/squad-federation-core/scripts/create-archetype.ts \
   --name my-workflow --states "step1,step2,step3" --dry-run
 ```
 
-See [Creating Archetypes](plugins/squad-federation-core/CREATING_ARCHETYPES.md) for the full guide.
+See [Creating Archetypes](https://lygav.github.io/vladi-plugins-marketplace/archetypes/creating-archetypes) for the full guide.
 
 ## License
 
