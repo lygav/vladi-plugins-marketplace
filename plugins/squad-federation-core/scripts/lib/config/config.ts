@@ -22,6 +22,8 @@ export interface FederateConfig {
   teamsConfig?: {
     teamId: string;
     channelId: string;
+    /** Port for the agency MCP server (default: 3978) */
+    agencyPort?: number;
   };
   /** Playbook skill name (default: "domain-playbook") */
   playbookSkill?: string;
@@ -169,6 +171,14 @@ export function validateConfig(raw: unknown): FederateConfig {
       teamId: validateString(teamsConfig.teamId, 'teamsConfig.teamId'),
       channelId: validateString(teamsConfig.channelId, 'teamsConfig.channelId'),
     };
+
+    if ('agencyPort' in teamsConfig) {
+      const port = teamsConfig.agencyPort;
+      if (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535) {
+        throw new ConfigValidationError('teamsConfig.agencyPort must be an integer between 1 and 65535');
+      }
+      result.teamsConfig.agencyPort = port;
+    }
   }
 
   // Validate that teamsConfig is provided when communicationType is 'teams-channel'

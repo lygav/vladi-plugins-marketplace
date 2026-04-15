@@ -13,6 +13,7 @@ import { WorktreePlacement } from '../placement/worktree-placement.js';
 import { DirectoryPlacement } from '../placement/directory-placement.js';
 import { FileSignalCommunication } from '../communication/file-signal-communication.js';
 import { TeamsChannelCommunication } from '../communication/teams-channel-communication.js';
+import { McpTeamsClient, McpTeamsClientError } from '../communication/mcp-teams-client.js';
 import { OTelEmitter } from '../../../sdk/otel-emitter.js';
 
 /**
@@ -54,10 +55,36 @@ communicationAdapters.set('file-signal', (config, emitter) => {
 });
 
 /**
+ * Singleton McpTeamsClient — shared across all team contexts in a federation.
+ * Lazily initialized on first teams-channel adapter creation.
+ */
+let sharedMcpTeamsClient: McpTeamsClient | null = null;
+
+/**
  * Register the teams-channel adapter (v0.5.0).
+ *
+ * Creates a McpTeamsClient (singleton) and injects it into TeamsChannelCommunication.
+ * Falls back to file-signal with a warning if the MCP server cannot be reached.
  */
 communicationAdapters.set('teams-channel', (config, emitter) => {
-  return new TeamsChannelCommunication(config, emitter);
+  const teamId = config.teamId as string;
+  const channelId = config.channelId as string;
+  const agencyPort = config.agencyPort as number | undefined;
+  const placement = config.placement as TeamPlacement | undefined;
+
+  if (!teamId || !channelId) {
+    throw new Error('teams-channel requires teamId and channelId in teamsConfig');
+  }
+
+  if (!sharedMcpTeamsClient) {
+    sharedMcpTeamsClient = new McpTeamsClient({ port: agencyPort });
+  }
+
+  return new TeamsChannelCommunication(
+    { teamId, channelId },
+    sharedMcpTeamsClient,
+    emitter
+  );
 });
 
 /**
@@ -200,16 +227,31 @@ export function createTeamContext(
   const placement = createPlacement(teamEntry.placementType, placementConfig, emitter);
   
   // Create communication adapter (federation-scoped)
+  // Graceful degradation: if teams-channel fails, fall back to file-signal
   const communicationConfig = buildCommunicationConfig(
     federationConfig.communicationType,
     placement,
     federationConfig
   );
-  const communication = createCommunication(
-    federationConfig.communicationType,
-    communicationConfig,
-    emitter
-  );
+
+  let communication: TeamCommunication;
+  try {
+    communication = createCommunication(
+      federationConfig.communicationType,
+      communicationConfig,
+      emitter
+    );
+  } catch (error) {
+    if (federationConfig.communicationType === 'teams-channel') {
+      console.warn(
+        `⚠️  teams-channel communication failed to initialize: ${(error as Error).message}\n` +
+        `   Falling back to file-signal communication.`
+      );
+      communication = createCommunication('file-signal', { placement }, emitter);
+    } else {
+      throw error;
+    }
+  }
   
   return {
     domain: teamEntry.domain,
@@ -236,6 +278,8 @@ function buildCommunicationConfig(
       return {
         teamId: federationConfig.teamsConfig.teamId,
         channelId: federationConfig.teamsConfig.channelId,
+        agencyPort: federationConfig.teamsConfig.agencyPort,
+        placement, // passed through for fallback
       };
     default:
       return {};
