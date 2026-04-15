@@ -197,8 +197,6 @@ export const TeamEntrySchema = z.object({
  */
 export const FederateConfigSchema = z.object({
   description: z.string().optional(),
-  branchPrefix: z.string().default('squad/'),
-  worktreeDir: z.union([z.literal('parallel'), z.literal('inside'), z.string()]).default('parallel'),
   telemetry: z
     .object({
       enabled: z.boolean(),

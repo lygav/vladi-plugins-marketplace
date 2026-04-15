@@ -63,7 +63,7 @@ Each layer installs separately and owns its config:
 
 | Layer | Installs as | Owns | Example |
 |-------|-------------|------|---------|
-| **Core** | Plugin: `squad-federation-core` | `federate.config.json` | Branch prefix, MCP stack, telemetry, worktree location |
+| **Core** | Plugin: `squad-federation-core` | `federate.config.json` | Description, telemetry, communication type (file-signal or teams-channel) |
 | **Archetype** | Plugin: `squad-archetype-{name}` | `.squad/archetype-config.json` (per team) | State machine, playbook, aggregation logic |
 | **Project** | Your `.squad/` dir | Domain playbook skills, schemas, import hooks | Domain-specific workflows, validation rules |
 
