@@ -42,6 +42,36 @@ artifact using `scripts/aggregate.ts`.
              .squad/aggregation/        ← merged output
 ```
 
+## Progress Reporting
+
+Report progress at major milestones so meta and the user can track your work. Use the ProgressReporter from the SDK, or use OTel MCP tools directly.
+
+### Using MCP tools (in skill context):
+```
+otel_event name="team.progress.discovery_complete" attributes='{"team.domain": "{domain}", "progress.percent": 20, "progress.message": "Data sources identified"}'
+otel_event name="team.progress.analysis_complete" attributes='{"team.domain": "{domain}", "progress.percent": 40, "progress.message": "Breadth-first survey complete"}'
+otel_event name="team.progress.deep_dives_done" attributes='{"team.domain": "{domain}", "progress.percent": 60, "progress.message": "Deep-dive investigations complete"}'
+otel_event name="team.progress.validation_done" attributes='{"team.domain": "{domain}", "progress.percent": 80, "progress.message": "Validation complete"}'
+otel_event name="team.complete" attributes='{"team.domain": "{domain}", "summary": "Deliverable ready — distillation complete"}'
+```
+
+### Milestone guidelines for deliverable teams:
+- **20%**: Discovery complete, data sources identified
+- **40%**: Analysis complete, breadth-first survey done
+- **60%**: Deep-dives complete, fragments produced
+- **80%**: Validation complete, conflicts resolved
+- **100%**: Distillation complete, deliverable ready
+
+### Also write progress signals to outbox:
+Write a JSON file to `.squad/signals/outbox/` for meta relay to pick up:
+```bash
+echo '{"type":"progress","from":"{domain}","subject":"analysis_complete","body":"Surveyed 200 items across 5 data sources","metadata":{"percent":40}}' > .squad/signals/outbox/$(date +%s)-progress-analysis.json
+```
+
+**Important**: Only report major milestones. Don't spam with every file read.
+
+---
+
 ## Steps
 
 1. **Discovery** — Identify the domain boundaries AND the data sources available

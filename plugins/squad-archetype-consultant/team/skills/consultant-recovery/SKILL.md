@@ -14,6 +14,34 @@ Recovery procedures for consultant teams.
 - "consultant recovery"
 - "fix consultant team"
 
+## Progress Reporting
+
+Report progress at major milestones during recovery operations so meta and the user can track your work. Use the ProgressReporter from the SDK, or use OTel MCP tools directly.
+
+### Using MCP tools (in skill context):
+```
+otel_event name="team.progress.recovery_started" attributes='{"team.domain": "{domain}", "progress.percent": 25, "progress.message": "Recovery operation started"}'
+otel_event name="team.progress.diagnostics_complete" attributes='{"team.domain": "{domain}", "progress.percent": 50, "progress.message": "Diagnostics complete"}'
+otel_event name="team.progress.recovery_applied" attributes='{"team.domain": "{domain}", "progress.percent": 75, "progress.message": "Recovery action applied"}'
+otel_event name="team.complete" attributes='{"team.domain": "{domain}", "summary": "Recovery complete — team operational"}'
+```
+
+### Milestone guidelines for recovery operations:
+- **25%**: Recovery started, diagnosing issue
+- **50%**: Diagnostics complete, recovery action identified
+- **75%**: Recovery action applied, validating
+- **100%**: Recovery complete, team operational
+
+### Also write progress signals to outbox:
+Write a JSON file to `.squad/signals/outbox/` for meta relay to pick up:
+```bash
+echo '{"type":"progress","from":"{domain}","subject":"recovery_applied","body":"Re-established codebase access","metadata":{"percent":75}}' > .squad/signals/outbox/$(date +%s)-progress-recovery.json
+```
+
+**Important**: Only report major milestones. Don't spam with every recovery step.
+
+---
+
 ## Automated Recovery Actions
 
 ### Action 1: Re-establish Codebase Access

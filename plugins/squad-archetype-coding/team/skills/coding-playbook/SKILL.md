@@ -29,6 +29,34 @@ Every phase produces artifacts. Every phase updates your signal status. You neve
 
 ---
 
+## Progress Reporting
+
+Report progress at major milestones so meta and the user can track your work. Use the ProgressReporter from the SDK, or use OTel MCP tools directly.
+
+### Using MCP tools (in skill context):
+```
+otel_event name="team.progress.design_complete" attributes='{"team.domain": "{domain}", "progress.percent": 25, "progress.message": "Design phase complete"}'
+otel_event name="team.progress.implementation_done" attributes='{"team.domain": "{domain}", "progress.percent": 50, "progress.message": "Implementation complete"}'
+otel_event name="team.progress.tests_passing" attributes='{"team.domain": "{domain}", "progress.percent": 75, "progress.message": "All tests passing"}'
+otel_event name="team.complete" attributes='{"team.domain": "{domain}", "summary": "PR opened — ready for review"}'
+```
+
+### Milestone guidelines for coding teams:
+- **25%**: Design complete, approach planned
+- **50%**: Implementation complete, code written
+- **75%**: Tests passing, ready to open PR
+- **100%**: PR opened, ready for review
+
+### Also write progress signals to outbox:
+Write a JSON file to `.squad/signals/outbox/` for meta relay to pick up:
+```bash
+echo '{"type":"progress","from":"{domain}","subject":"implementation_done","body":"Implemented feature in 3 files","metadata":{"percent":50}}' > .squad/signals/outbox/$(date +%s)-progress-impl.json
+```
+
+**Important**: Only report major milestones. Don't spam with every file read.
+
+---
+
 ## Phase 1: Design
 
 ### Read your task
