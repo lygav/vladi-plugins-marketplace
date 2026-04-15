@@ -123,6 +123,7 @@ export interface TeamPlacement {
   readFile(teamId: string, filePath: string): Promise<string | null>;
   writeFile(teamId: string, filePath: string, content: string): Promise<void>;
   exists(teamId: string, filePath: string): Promise<boolean>;
+  stat?(teamId: string, filePath: string): Promise<{ isDirectory: boolean; size: number } | null>;
   workspaceExists(teamId: string): Promise<boolean>;
   getLocation(teamId: string): Promise<string>;
   listFiles(teamId: string, directory?: string): Promise<string[]>;
@@ -140,8 +141,10 @@ export interface TeamCommunication {
   readInboxSignals(teamId: string): Promise<SignalMessage[]>;
   writeInboxSignal(teamId: string, signal: SignalMessage): Promise<void>;
   readOutboxSignals(teamId: string): Promise<SignalMessage[]>;
+  listSignals(teamId: string, direction: 'inbox' | 'outbox', filter?: { type?: string; since?: string; from?: string }): Promise<SignalMessage[]>;
   readLearningLog(teamId: string): Promise<LearningEntry[]>;
   appendLearning(teamId: string, entry: LearningEntry): Promise<void>;
+  watchSignals?(teamId: string, direction: 'inbox' | 'outbox', callback: (signal: SignalMessage) => void): () => void;
 }
 ```
 

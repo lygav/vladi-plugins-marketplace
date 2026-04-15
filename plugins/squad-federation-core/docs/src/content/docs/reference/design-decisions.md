@@ -36,7 +36,7 @@ Core reads the schema at domain launch and validates each `status.json` write. `
 
 **Decision:** Team location (`TeamPlacement`) and communication protocol (`TeamCommunication`) are independent, composable abstractions.
 
-**Problem:** Prior design force-fit communication adapters with unnecessary placement parameters. `FileSignalCommunication` didn't need placement info but the signature included it.
+**Problem:** Coupling communication adapters with placement parameters creates unnecessary dependencies. `FileSignalCommunication` doesn't need placement info but a combined interface would force it into the signature.
 
 **Solution:** Two separate interfaces composed by a context factory:
 - `TeamPlacement` — WHERE teams live (worktree, directory, cloud)
