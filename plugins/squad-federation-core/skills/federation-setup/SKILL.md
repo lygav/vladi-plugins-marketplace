@@ -287,7 +287,9 @@ grep -c "| .* | .* | .* | Active |" .squad/team.md
 
 > "Squad is initialized but your leadership team hasn't been cast yet. Let's do that now — for a federation, your meta-squad typically needs a Lead (architecture + coordination) and optionally a few specialists. Describe what you need, or I'll propose a small leadership team based on your goal."
 
-Use the user's description from Step 1 to inform the casting proposal. The meta-squad MUST have at least one active member before proceeding — without members, Squad stays in Init Mode and federation commands won't work.
+Use the user's description from Step 1 to inform the casting proposal. The meta-squad is a **leadership team** — it governs, delegates, sets standards, and gives feedback. It does NOT directly produce work or orchestrate individual Squad agents. Its job is to instruct and coordinate the domain teams beneath it. Frame the casting proposal around leadership roles (strategy, architecture, quality, coordination) not implementation roles (frontend dev, backend dev, tester).
+
+The meta-squad MUST have at least one active member before proceeding — without members, Squad stays in Init Mode and federation commands won't work.
 
 **If team.md doesn't exist:** Run `squad init` first, then cast.
 
