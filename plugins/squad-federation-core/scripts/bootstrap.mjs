@@ -9,10 +9,9 @@
  * 1. Checks if node_modules exists at plugin root
  * 2. Runs npm install if missing
  * 3. Validates critical dependencies are loadable
- * 4. Sets up OTel endpoint from federate.config.json if available
  */
 import { execSync } from 'child_process';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -34,18 +33,6 @@ function bootstrap() {
   if (!existsSync(zodPath)) {
     console.log('📦 Dependencies incomplete, reinstalling...');
     execSync('npm install', { cwd: pluginRoot, stdio: 'inherit' });
-  }
-
-  // 3. Set OTel endpoint from config if available
-  const configPath = resolve(process.cwd(), 'federate.config.json');
-  if (existsSync(configPath)) {
-    try {
-      const config = JSON.parse(readFileSync(configPath, 'utf-8'));
-      if (config.telemetry?.endpoint && !process.env.OTEL_EXPORTER_OTLP_ENDPOINT) {
-        process.env.OTEL_EXPORTER_OTLP_ENDPOINT = config.telemetry.endpoint;
-        console.log(`📊 OTel endpoint: ${config.telemetry.endpoint}`);
-      }
-    } catch {}
   }
 
   console.log('✅ Bootstrap complete');

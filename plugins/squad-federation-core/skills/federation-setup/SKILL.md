@@ -140,12 +140,13 @@ Confirm it's running: "✅ Monitoring dashboard live at http://localhost:18888. 
 ```json
 {
   "telemetry": {
-    "enabled": true
+    "enabled": true,
+    "endpoint": "http://localhost:4318"
   }
 }
 ```
 
-No endpoint, port, or service name in config. The runtime uses sensible defaults. The OTel MCP server auto-starts with each team session via the plugin's `.mcp.json`.
+The `endpoint` field tells scripts where to send OTel data (traces, metrics, logs). If Aspire dashboard is running, this is its OTLP receiver. If omitted, telemetry is silent.
 
 ### Step 3: Communication Type
 
@@ -202,7 +203,8 @@ For file-signal:
 {
   "description": "...",
   "telemetry": {
-    "enabled": true
+    "enabled": true,
+      "endpoint": "http://localhost:4318"
   },
   "communicationType": "file-signal"
 }
@@ -213,7 +215,8 @@ For teams-channel:
 {
   "description": "...",
   "telemetry": {
-    "enabled": true
+    "enabled": true,
+      "endpoint": "http://localhost:4318"
   },
   "communicationType": "teams-channel",
   "teamsConfig": {
@@ -242,7 +245,8 @@ cat > federate.config.json << 'EOF'
 {
   "description": "...",
   "telemetry": {
-    "enabled": true
+    "enabled": true,
+      "endpoint": "http://localhost:4318"
   },
   "communicationType": "file-signal"
 }
@@ -345,7 +349,8 @@ No other fields in core config. Archetype-specific settings live in the team's w
 {
   "description": "Inventory all Azure services across the organization",
   "telemetry": {
-    "enabled": true
+    "enabled": true,
+      "endpoint": "http://localhost:4318"
   },
   "communicationType": "file-signal"
 }
@@ -356,7 +361,8 @@ No other fields in core config. Archetype-specific settings live in the team's w
 {
   "description": "Coordinate security audits across 12 microservices",
   "telemetry": {
-    "enabled": true
+    "enabled": true,
+      "endpoint": "http://localhost:4318"
   },
   "communicationType": "teams-channel",
   "teamsConfig": {
