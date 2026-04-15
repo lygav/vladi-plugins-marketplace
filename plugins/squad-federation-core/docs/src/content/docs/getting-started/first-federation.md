@@ -21,10 +21,20 @@ The federation-setup skill activates and guides you through a series of question
 **Want me to set up a monitoring dashboard?**
 > "Yes" (if Docker is available, the dashboard starts automatically)
 
-**How should your teams communicate?**
-> "File signals" (default, fastest option)
+The skill checks your environment (git, Node.js, Squad, Docker), then generates `federate.config.json` with your settings. You see the final config before it saves.
 
-The skill generates `federate.config.json` with your settings and shows you the final config before saving.
+After setup, the meta-squad is cast on the `main` branch — this is the leadership team that coordinates everything. Your project now looks like:
+
+```
+my-project/
+├── .squad/
+│   ├── team.md              ← meta-squad definition
+│   ├── skills/              ← shared skills (authoritative copies)
+│   └── learnings/
+│       └── log.jsonl        ← cross-team patterns (empty)
+├── federate.config.json     ← federation config
+└── (your existing files)
+```
 
 ## Step 2: Onboard Your First Team
 
@@ -66,7 +76,23 @@ The skill checks if the archetype plugin is installed, installs it if needed, th
    Branch: squad/frontend
 ```
 
-You confirm, and the team workspace is created automatically.
+You confirm, and the team workspace is created. The archetype seeds a launch prompt, playbook skills, and signal protocol into the worktree:
+
+```
+my-project-frontend/                     ← squad/frontend branch
+├── .squad/
+│   ├── team.md                          ← team agents
+│   ├── launch-prompt.md                 ← from coding archetype
+│   ├── skills/                          ← seeded from main
+│   ├── learnings/
+│   │   └── log.jsonl                    ← empty, fills during work
+│   └── signals/
+│       ├── status.json                  ← updated on launch
+│       ├── inbox/                       ← directives FROM meta-squad
+│       └── outbox/                      ← reports TO meta-squad
+├── DOMAIN_CONTEXT.md                    ← team's mission brief
+└── (your existing files)
+```
 
 ## Step 3: Launch the Team
 
@@ -77,8 +103,8 @@ Now that the workspace exists, start the team:
 The orchestration skill handles the launch. Behind the scenes:
 - A headless Copilot session starts in the team's worktree
 - The team reads its mission from `DOMAIN_CONTEXT.md`
-- It checks its inbox for directives
-- It begins scanning the repository
+- It follows the archetype's playbook (design → implement → test → PR)
+- It checks its inbox for directives before each step
 - Status updates are written to `.squad/signals/status.json`
 
 You'll see confirmation:
@@ -87,6 +113,8 @@ You'll see confirmation:
 📍 Running in: .worktrees/frontend
 🌿 Branch: squad/frontend
 ```
+
+The team runs independently — you can close your terminal and it keeps working.
 
 ## Step 4: Monitor Progress
 
@@ -114,7 +142,7 @@ Guide a team's work:
 
 > "Tell the frontend team to focus on authentication first"
 
-The skill writes a directive signal to the team's inbox. The team reads it on its next status update and adjusts its work accordingly.
+The skill writes a directive signal to the team's inbox. The team reads it at its next step boundary, acknowledges it, and adjusts course.
 
 ## Step 6: Review Results
 
@@ -123,9 +151,16 @@ Once the team finishes (state changes to `complete`), ask what it produced:
 > "What did the frontend team deliver?"
 
 The skill shows:
-- The deliverable file location
-- Recent learnings logged by the team
+- A completion report with what was built
+- The pull request (for coding teams)
+- Learnings logged during work
 - Any questions or alerts sent to the outbox
+
+You can also check what the team learned:
+
+> "What did the frontend team learn?"
+
+The knowledge-lifecycle skill shows learnings and identifies **graduation candidates** — high-confidence discoveries that could benefit future teams. You can promote these into shared skills so every new team starts with that knowledge.
 
 ## What's Next?
 
@@ -145,6 +180,8 @@ Now that you have one team running, you can:
 
 Each of these is handled conversationally through the federation skills.
 
+For a comprehensive walkthrough with multiple teams using different archetypes, see the [Multi-Team Walkthrough](/vladi-plugins-marketplace/guides/multi-team-walkthrough).
+
 ## How It Works
 
 While you interact through conversational skills, the system manages files and directories behind the scenes. You can see what was created:
@@ -157,12 +194,16 @@ While you interact through conversational skills, the system manages files and d
 
 This gives you conversational simplicity with full transparency into the underlying mechanics.
 
-### Advanced Use Cases
+### Key Principles
 
-For advanced use cases like CI/CD integration, you can access the underlying mechanics directly through the files and directories the system creates. All operations that the skills perform are also possible through direct file manipulation, though the conversational interface is recommended for most users.
+- **One writer per file** — `status.json` is written only by the team. `inbox/` only by meta-squad. `outbox/` only by the team. No race conditions.
+- **Archetypes are swappable** — Core works identically whether the team is coding, researching, or producing deliverables.
+- **Knowledge compounds** — Team learnings graduate into shared skills. The federation gets smarter over time.
+- **Worktrees are cheap** — Git worktrees share the object store. Ten teams don't consume 10× the disk.
 
 ## Next Steps
 
 - [Understand federation setup in detail](/vladi-plugins-marketplace/guides/federation-setup)
 - [Learn about team onboarding](/vladi-plugins-marketplace/guides/team-onboarding)
 - [Explore communication options](/vladi-plugins-marketplace/guides/communication-transports)
+- [Multi-team walkthrough with mixed archetypes](/vladi-plugins-marketplace/guides/multi-team-walkthrough)

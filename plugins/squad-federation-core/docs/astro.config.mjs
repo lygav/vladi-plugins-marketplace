@@ -31,6 +31,7 @@ export default defineConfig({
           items: [
             { label: 'Federation Setup', slug: 'guides/federation-setup' },
             { label: 'Team Onboarding', slug: 'guides/team-onboarding' },
+            { label: 'Multi-Team Walkthrough', slug: 'guides/multi-team-walkthrough' },
             { label: 'Communication Transports', slug: 'guides/communication-transports' },
             { label: 'Monitoring', slug: 'guides/monitoring' },
             { label: 'Knowledge Lifecycle', slug: 'guides/knowledge-lifecycle' },
