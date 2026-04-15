@@ -4,3 +4,5 @@ node_modules/
 *.js.map
 .DS_Store
 .worktrees
+plugins/squad-federation-core/docs/dist/
+plugins/squad-federation-core/docs/node_modules/
