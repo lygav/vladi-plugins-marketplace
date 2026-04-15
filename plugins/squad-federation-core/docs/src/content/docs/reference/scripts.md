@@ -263,6 +263,45 @@ npx tsx scripts/team-status.ts --team backend-api
 
 ---
 
+### `meta-heartbeat.ts`
+
+**What it does:** Runs periodic unattended Copilot sessions that check federation health, relay signals, and post summaries.
+
+**Called by:** `federation-orchestration` skill (via "start heartbeat", "stop heartbeat", "heartbeat status")
+
+**How it works:**
+1. Discovers how Copilot was launched via `COPILOT_LOADER_PID`
+2. Spawns fresh meta-squad sessions at the configured interval
+3. Each session reads team status files and signal outboxes, summarizes activity, highlights errors, and posts to Teams (if configured)
+4. Sessions have a 120-second timeout
+5. Writes PID file to `.squad/heartbeat.pid` and logs to `.squad/heartbeat.log`
+
+**Parameters:**
+- `--interval <seconds>` — Seconds between checks (default: 300)
+- `--once` — Run a single heartbeat check then exit
+- `--stop` — Stop a running heartbeat process
+- `--status` — Check if heartbeat is currently running
+
+**Example (manual invocation):**
+```bash
+# Start with default 5-minute interval
+npx tsx scripts/meta-heartbeat.ts
+
+# Custom 60-second interval
+npx tsx scripts/meta-heartbeat.ts --interval 60
+
+# Single check
+npx tsx scripts/meta-heartbeat.ts --once
+
+# Check if running
+npx tsx scripts/meta-heartbeat.ts --status
+
+# Stop
+npx tsx scripts/meta-heartbeat.ts --stop
+```
+
+---
+
 ## Advanced Usage
 
 ### Direct Script Invocation

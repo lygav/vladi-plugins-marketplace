@@ -212,6 +212,45 @@ If no: omit `teamsConfig` entirely.
 Use the `otel_event` tool with: name="teams.notification.configured", attributes='{"enabled": <true|false>}'
 Use the `otel_log` tool with: level="info", message="Teams notification channel: <enabled|disabled>"
 
+### Step 3½: Heartbeat (Optional)
+
+**Context:** The meta-squad can run a periodic heartbeat — an unattended background process that spawns fresh copilot sessions every few minutes to check on your teams, read signals, and post summaries. This is especially useful for long-running operations where you might step away.
+
+**Ask:** "Want me to run a heartbeat that periodically checks on your teams? It'll monitor progress and report status even when you're away. (recommended)"
+
+**Choices:** Yes (recommended) / No
+
+**Default:** Yes.
+
+**If yes:**
+
+Set `heartbeat.enabled: true` in the config. Optionally accept a custom interval (default: 300 seconds = 5 minutes).
+
+**Store as:**
+
+```json
+{
+  "heartbeat": {
+    "enabled": true
+  }
+}
+```
+
+After setup completes, tell the user:
+
+> "To start the heartbeat, run:
+> ```bash
+> node ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs && npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/meta-heartbeat.ts
+> ```
+> It will check on your teams every 5 minutes. Use `--status` to check if it's running, `--stop` to stop it."
+
+**If no:** Omit `heartbeat` from config entirely.
+
+**After the user makes their choice**, emit an OTel event:
+
+Use the `otel_event` tool with: name="heartbeat.configured", attributes='{"enabled": <true|false>}'
+Use the `otel_log` tool with: level="info", message="Heartbeat: <enabled|disabled>"
+
 ### Step 4: Generate config
 
 Assemble `federate.config.json` at the repository root with **only** core fields:
@@ -377,6 +416,12 @@ interface FederateConfig {
   teamsConfig?: {
     teamId: string;
     channelId: string;
+  };
+
+  /** Periodic unattended status checks (optional) */
+  heartbeat?: {
+    enabled: boolean;
+    intervalSeconds?: number; // default: 300
   };
 }
 ```

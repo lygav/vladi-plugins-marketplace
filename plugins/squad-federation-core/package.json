@@ -13,6 +13,7 @@
     "sweep": "tsx scripts/sweep-learnings.ts",
     "graduate": "tsx scripts/graduate-learning.ts",
     "dashboard": "tsx scripts/dashboard.ts",
+    "heartbeat": "tsx scripts/meta-heartbeat.ts",
     "test": "vitest run --config scripts/vitest.config.ts",
     "test:watch": "vitest --config scripts/vitest.config.ts",
     "test:coverage": "vitest run --config scripts/vitest.config.ts --coverage"

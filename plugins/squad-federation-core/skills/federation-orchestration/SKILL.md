@@ -232,3 +232,49 @@ Never reset when a refresh would suffice — resets discard learnings and signal
 - If a worktree is corrupted, remove and re-onboard: `git worktree remove` → `onboard.ts`.
 - Stale domains (no status update for >30 minutes during a run) likely indicate a hung session. Kill the process and re-launch with `--step`.
 - If output collection reports missing files, check the archetype's expected output configuration matches what the domain actually wrote.
+
+## Heartbeat Management
+
+The heartbeat is a background process that periodically spawns fresh copilot sessions to check team status, read signals, and post summaries. It's useful for long-running operations where the user steps away.
+
+### Start heartbeat
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs && npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/meta-heartbeat.ts
+```
+
+With a custom interval (in seconds):
+
+```bash
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/meta-heartbeat.ts --interval 60
+```
+
+### Stop heartbeat
+
+```bash
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/meta-heartbeat.ts --stop
+```
+
+### Check heartbeat status
+
+```bash
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/meta-heartbeat.ts --status
+```
+
+### Single heartbeat run (testing)
+
+```bash
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/meta-heartbeat.ts --once
+```
+
+### How it works
+
+1. Discovers the copilot launch command from `COPILOT_LOADER_PID`
+2. Every interval (default: 300s), spawns a fresh copilot session with a status-check prompt
+3. The session reads team outboxes, status files, and posts summaries
+4. If `teamsConfig` is set, the session posts to the configured Teams channel
+5. Sessions have a timeout (120s) — if one hangs, it's killed automatically
+6. Writes PID to `.squad/heartbeat.pid` for clean start/stop
+7. Logs to console and `.squad/heartbeat.log`
+
+When the user says "start heartbeat", "stop heartbeat", or "heartbeat status", run the corresponding command above.

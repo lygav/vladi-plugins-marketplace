@@ -31,6 +31,11 @@ export interface FederateConfig {
   deliverableSchema?: string;
   /** Import hook path (optional) */
   importHook?: string;
+  /** Heartbeat — periodic unattended status checks */
+  heartbeat?: {
+    enabled: boolean;
+    intervalSeconds?: number; // default: 300
+  };
 }
 
 const DEFAULT_CONFIG: Partial<FederateConfig> & { communicationType: string; telemetry: { enabled: boolean } } = {
@@ -99,6 +104,7 @@ export function validateConfig(raw: unknown): FederateConfig {
     'deliverable',
     'deliverableSchema',
     'importHook',
+    'heartbeat',
   ]);
 
   // Warn on unknown fields
@@ -194,6 +200,34 @@ export function validateConfig(raw: unknown): FederateConfig {
   // Validate optional importHook
   if ('importHook' in config) {
     result.importHook = validateString(config.importHook, 'importHook');
+  }
+
+  // Validate optional heartbeat
+  if ('heartbeat' in config) {
+    const heartbeat = validateObject(config.heartbeat, 'heartbeat');
+
+    if (!('enabled' in heartbeat)) {
+      throw new ConfigValidationError('heartbeat.enabled is required');
+    }
+
+    result.heartbeat = {
+      enabled: validateBoolean(heartbeat.enabled, 'heartbeat.enabled'),
+    };
+
+    if ('intervalSeconds' in heartbeat) {
+      const interval = heartbeat.intervalSeconds;
+      if (typeof interval !== 'number' || !Number.isInteger(interval) || interval < 10) {
+        throw new ConfigValidationError('heartbeat.intervalSeconds must be an integer >= 10');
+      }
+      result.heartbeat.intervalSeconds = interval;
+    }
+
+    const knownHeartbeatFields = new Set(['enabled', 'intervalSeconds']);
+    for (const key of Object.keys(heartbeat)) {
+      if (!knownHeartbeatFields.has(key)) {
+        console.warn(`⚠️  Unknown heartbeat field: "${key}"`);
+      }
+    }
   }
 
   return result;
