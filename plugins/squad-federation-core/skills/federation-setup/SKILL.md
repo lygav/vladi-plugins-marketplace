@@ -148,6 +148,14 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/dashboard.ts start
 
 Confirm it's running: "✅ Monitoring dashboard live at http://localhost:18888. All teams will report telemetry here automatically."
 
+**Then start the meta relay** to see team updates in your console:
+
+```bash
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/meta-relay.ts
+```
+
+This relay polls team signal outboxes and delivers curated summaries to you — either in the console (for file-signal mode) or as Teams posts (for teams-channel mode). The relay runs continuously, watching for team updates. You can stop it with Ctrl+C.
+
 **Store as:**
 
 ```json
