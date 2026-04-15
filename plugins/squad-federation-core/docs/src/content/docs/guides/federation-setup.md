@@ -134,7 +134,26 @@ You confirm, and `federate.config.json` is written to your project root.
 
 **No** - You can run `squad init` manually later.
 
-### 7. First Team (Optional)
+### 7. Heartbeat (Optional)
+
+**Skill asks:**
+> "Enable periodic heartbeat monitoring?"
+
+The heartbeat spawns unattended Copilot sessions at a regular interval to check team status, relay signals, and post summaries. It runs in the background so you get updates even when you're not actively interacting with the federation.
+
+**Yes** — Heartbeat enabled with 300-second (5-minute) default interval:
+```json
+{
+  "heartbeat": {
+    "enabled": true,
+    "intervalSeconds": 300
+  }
+}
+```
+
+**No** — Heartbeat disabled. You can enable it later by updating `federate.config.json` or by saying "start heartbeat" to the orchestration skill.
+
+### 8. First Team (Optional)
 
 **Skill asks:**
 > "Ready to onboard your first team?"
