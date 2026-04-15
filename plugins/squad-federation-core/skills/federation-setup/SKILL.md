@@ -96,6 +96,11 @@ Show all results before proceeding:
 
 If any required check fails, stop and provide remediation instructions. Don't continue past prerequisites with a broken environment.
 
+**After all prerequisites are validated successfully**, emit an OTel event:
+
+Use the `otel_event` tool with: name="prerequisites.validated", attributes='{"git": true, "squad": true, "node": true, "docker": <docker_available>}'
+Use the `otel_log` tool with: level="info", message="All prerequisites validated — ready to configure federation"
+
 ---
 
 ## Conversational Setup Flow
@@ -126,6 +131,14 @@ Accept whatever the user gives. Don't try to normalize it.
 **Default logic:**
 - Docker available → default **yes**
 - Docker not available → default **no**, explain: "Docker is needed for the Aspire dashboard. You can enable this later with `npx tsx scripts/dashboard.ts start`."
+
+**When the user confirms telemetry should be enabled**, emit OTel immediately so the dashboard lights up:
+
+Use the `otel_span` tool with: action="start", name="federation.setup"
+Use the `otel_event` tool with: name="telemetry.enabled"
+Use the `otel_log` tool with: level="info", message="Federation setup started — telemetry active"
+
+This ensures the dashboard shows activity the moment the user enables telemetry.
 
 **If yes and Docker is available**, start the dashboard immediately:
 
@@ -194,6 +207,11 @@ For teams-channel:
 }
 ```
 
+**After the user selects communication type**, emit an OTel event:
+
+Use the `otel_event` tool with: name="communication.selected", attributes='{"type": "<file-signal|teams-channel>"}'
+Use the `otel_log` tool with: level="info", message="Communication type selected: <type>"
+
 ### Step 4: Generate config
 
 Assemble `federate.config.json` at the repository root with **only** core fields:
@@ -253,6 +271,11 @@ cat > federate.config.json << 'EOF'
 EOF
 ```
 
+**After writing the config file**, emit an OTel event:
+
+Use the `otel_event` tool with: name="config.written", attributes='{"path": "federate.config.json", "communicationType": "<type>"}'
+Use the `otel_log` tool with: level="info", message="Federation config written to federate.config.json"
+
 ### Step 5: Cast the meta-squad
 
 Check if the meta-squad actually has members:
@@ -274,6 +297,11 @@ Use the user's description from Step 1 to inform the casting proposal. The meta-
 
 Don't prescribe specific roles. Let Squad's casting handle composition. But ensure casting COMPLETES — verify at least one member appears in the Members table before moving to Step 6.
 
+**After the meta-squad is successfully cast**, emit an OTel event:
+
+Use the `otel_event` tool with: name="meta.squad.cast", attributes='{"team_size": <member_count>}'
+Use the `otel_log` tool with: level="info", message="Meta-squad cast with <member_count> members"
+
 ### Step 6: Onboard first team
 
 **Ask:** "Ready to spin up your first team? What should it work on?"
@@ -287,6 +315,12 @@ Don't prescribe specific roles. Let Squad's casting handle composition. But ensu
 > "No problem. When you're ready, just say **'spin up a team for X'** or **'onboard a team'**. Each team gets to pick its own archetype during onboarding."
 
 Don't push. Setup is complete once the config exists and the meta-squad is cast. Onboarding teams is a separate concern — and that's where archetype selection happens.
+
+**When setup is complete** (config written and meta-squad cast), emit final OTel events:
+
+Use the `otel_span` tool with: action="end", name="federation.setup", status="ok"
+Use the `otel_event` tool with: name="federation.setup.complete"
+Use the `otel_log` tool with: level="info", message="Federation setup complete — ready to onboard teams"
 
 ---
 
