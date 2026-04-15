@@ -488,15 +488,14 @@ async function main(): Promise<void> {
     console.log('');
 
     // Step 1: Create team workspace (worktree or directory)
-    let location: string;
     let branch: string | undefined;
     let worktreeDir: string | undefined;
 
-    await emitter.span('workspace.create', async () => {
+    const { location } = await emitter.span('workspace.create', async () => {
       const result = await createTeamWorkspace(args, REPO_ROOT, config, domainTitle);
-      location = result.location;
       branch = result.branch;
       worktreeDir = result.worktreeDir;
+      return { location: result.location };
     });
 
     console.log(`✓ Team workspace created: ${location}`);

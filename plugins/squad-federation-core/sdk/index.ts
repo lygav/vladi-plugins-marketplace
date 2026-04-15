@@ -32,7 +32,8 @@ export * from './schemas.js';
 
 // Export base classes for archetype implementation
 export * from './monitor-base.js';
-export * from './triage-base.js';
+export { TriageBase } from './triage-base.js';
+export type { TriageResult as TriageFinding, RecoveryAction as RecoveryProcedure } from './triage-base.js';
 export * from './recovery-base.js';
 
 // Export telemetry infrastructure

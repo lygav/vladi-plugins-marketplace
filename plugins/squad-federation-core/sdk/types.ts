@@ -208,13 +208,13 @@ export interface TeamEntry {
   /** 
    * @deprecated Use placementType instead. Will be removed in v0.5.0.
    */
-  transport: 'worktree' | 'directory' | 'remote';
+  transport?: 'worktree' | 'directory' | 'remote';
   
   /**
    * Placement type (where files live).
    * @since v0.4.0
    */
-  placementType?: 'worktree' | 'directory';
+  placementType: 'worktree' | 'directory';
 
   location: string;
   createdAt: string;
