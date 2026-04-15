@@ -55,3 +55,18 @@ updated: 2025-04-15
 2. **Test signal routing** — Verify round-trip delivery
 3. **Ground truth from code** — When unsure, scan implementation
 
+## Session Learnings — 2026-04-15
+
+### Architecture Discoveries
+- **Two archetype.json files per archetype:** Root (plugin manifest for discovery, NOT marketplace catalog — it's a discovery marker with metadata) vs team/ (runtime state machine copied to teams)
+- **Ground truth scanning:** Systematic code scan produces reference doc feeding docs, team memory, and future Astro site content. Reusable pattern across federation.
+- **TeamRegistry refactor:** worktree-utils.ts was dead code — all team enumeration routes through TeamRegistry
+
+### Communication Protocol Refined
+- **Teams channel is REAL transport**, not notifications. Hashtag protocol: #meta (human priority), #meta-status (team updates), #{teamId} (directives)
+- **Federation-scoped communication:** Mixed transports within one federation = bad idea — meta needs one protocol
+- **Transport defaults:** File signals stay default; Teams channel for human-in-loop teams
+
+### Documentation Patterns
+- **Docs-audit pattern:** Scan code first (ground truth) → audit docs against it → fix from both inputs. Parallelizable workflow that ensures accuracy
+

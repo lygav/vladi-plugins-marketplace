@@ -124,3 +124,73 @@ Domain field: 'generalizable' for cross-team learnings
 - Adding archetype-specific params to generic factory methods
 - Documentation that doesn't match code reality
 - Backward compatibility promises before v1.0
+
+---
+
+## New Session Learnings: v0.5.0 Docs Rewrite
+
+### Docs Content Rules (CRITICAL for User-Facing Content)
+
+All documentation (README, Astro site, SKILL.md, guides) must follow these rules:
+
+1. **NO history references** — No "v0.4.0 introduced...", no "previously...", no evolution narrative. Describe current state ONLY.
+
+2. **NO manual CLI as primary path** — Users interact with SKILLS conversationally, not by running scripts manually. Primary instructions should describe "tell the skill to..." flow, not "run npx tsx scripts/...".
+
+3. **Describe conversational skill flow** — Show what the skill asks, what the user answers, what happens. Users don't see raw CLI.
+
+4. **Scripts are reference/advanced only** — Shell commands and script documentation are for advanced users and reference section. Not the main instruction path.
+
+5. **NO manual config editing** — Don't tell users to `cat`, `vim`, or manually edit JSON. Skills generate configs.
+
+6. **Product name accuracy** — Verify archetype names, feature names, and product references against actual code. Wrong names confuse users.
+
+7. **Base path on deployed sites** — GitHub Pages (Astro sites) require `site` + `base` in astro.config.mjs. CSS/JS loads from `/{base}/` not `/`. Test links in deployed environment.
+
+### Model Choice for Docs Review
+
+**Use claude-opus-4.6 for user-facing docs quality review** when content accuracy matters (wrong archetype names, broken links, stale references). Opus catches issues that Sonnet/Haiku miss. Cost is worth it for shipped documentation.
+
+### sed is Dangerous for Structured Formats
+
+Never use `sed` for YAML, JSON, or other structured files — one misplaced character breaks config. The `sed` corruption of deploy-docs.yml was avoidable. Use proper editors (edit tool) or rewrite the entire file block.
+
+### GitHub Pages Astro Configuration
+
+Astro sites on GitHub Pages require:
+```javascript
+// astro.config.mjs
+export default defineConfig({
+  site: 'https://username.github.io',
+  base: '/repo-name/',  // CRITICAL: without base, CSS/JS loads from / not /repo-name/
+  ...
+})
+```
+
+Also add `workflow_dispatch` trigger to deploy workflow for manual deploys.
+
+### Three-Pass Docs Review Pattern
+
+Effective for catching and fixing doc issues:
+
+1. **First pass (fast model, Haiku)** — Structure, completeness, missing sections
+2. **Second pass (Opus)** — Content accuracy, rule violations, broken links, stale references
+3. **Third pass (quick verification)** — Spot-check fixes, confirm changes applied
+
+Each pass caught issues the previous missed.
+
+### Parallel Docs Rewriting Strategy
+
+Split large doc rewrites by section (guides, reference, archetypes, etc.) — different agents work on different sections in parallel. No file overlap → clean parallel work, batch commit at end. Effective for large rewrites.
+### 2026-04-15T08:09Z: User directive — Docs content standards
+
+**By:** Vladi Lyga (via Copilot)
+
+**Rules for ALL documentation:**
+1. NO history references. No "v0.4.0 introduced...", no "previously...", no evolution narrative. Current state ONLY.
+2. NO manual script commands as primary instructions. Users interact with SKILLS conversationally — "tell the setup skill to...", not "run npx tsx scripts/onboard.ts --flags"
+3. Describe the CONVERSATIONAL flow — what the skill asks, what the user answers, what happens
+4. Scripts/CLI are ADVANCED/reference info, not the main path
+5. Links must include base path (/vladi-plugins-marketplace/)
+
+**Context:** The federation plugin works through Copilot skills that have conversations with users. The docs should reflect that UX, not a manual CLI tool experience.

@@ -65,3 +65,18 @@ Use for fast unit tests without disk I/O.
 3. **Real FS for integration** — Verify actual file ops
 4. **E2E before release** — Catch integration issues
 
+## Session Learnings — 2026-04-15
+
+**Testing Gaps Exposed**  
+Import path bugs (#121, #137) slipped past test suites—tests import functions directly, bypassing module resolution checks. Runtime failures only appeared in actual deployments. **Action:** tsc --noEmit as CI gate to catch ESM/CJS mismatches early. E2e smoke tests missing: running each entry-point script with `--help` would have surfaced 4 bugs instantly. Created #122 for TypeScript compile check + smoke test harness.
+
+**Test Patterns Working Well**  
+MockPlacement + MockCommunication are fast, reliable unit-test replacements for disk I/O. MockTeamsClient enables full Teams adapter testing without API calls. Contract tests across file-signal and teams-channel implementations caught interface compliance issues effectively. Bug found: otel-emitter span() needed generic return type—tests DO catch implementation bugs when written correctly.
+
+**Tests Can't Catch**  
+- ESM/CJS module boundary issues (need tsc --noEmit)
+- Config file errors (paths, baseURLs)
+- Git worktree-inherited file behavior
+
+These require static analysis, integration tests, or tsc checks. Unit tests excel at logic; integration/e2e needed for system-level issues.
+

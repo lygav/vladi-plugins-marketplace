@@ -56,3 +56,40 @@ All implementations provide: exists, read, write, delete, list, bootstrap (idemp
 3. **Idempotent bootstrap** — running twice is safe
 4. **Contract tests** — verify interface compliance
 
+## Docs Writing Lessons (v0.5.0 Session)
+
+**Finding:** Docs must describe the conversational skill flow, not manual CLI. Users interact with Copilot skills, not shell scripts directly.
+
+**Astro Site Lessons:**
+- Starlight Obsidian theme: simple, clean, matches brand
+- Config: `site` + `base` both required for GitHub Pages (CSS/JS load from `/{base}/` not `/`)
+- Deploy workflow: add `workflow_dispatch` trigger for manual deployments
+
+**Content Rules:** NO history references, NO manual editing instructions, NO script commands as primary path. Describe "you tell the skill to..." flow. Scripts are advanced/reference only.
+
+**Pattern:** Parallel docs rewriting (split by section) with different agents = clean, fast, batch commit at end.
+
+## Session Learnings — 2026-04-15
+
+### Package Boundary & Layering
+- **Fix:** Move `package.json` to plugin root (not sdk/scripts). Preserves layering: `sdk` → `lib` → `scripts`.
+- Modular `lib/` structure: 7 modules (placement, communication, registry, knowledge, orchestration, archetypes, config). Files that change together live together.
+
+### Adapter Registry Pattern
+- **Key:** Communication factory takes adapter-specific config, NOT TeamPlacement. Each adapter gets what it needs.
+- **TeamsChannelCommunication:** Inject TeamsClient for testability. Hashtag protocol for addressing.
+
+### Model Guidance
+- **Use:** `claude-sonnet-4.5` for implementation (streaming, focused execution).
+- **Avoid:** gpt-5.2-codex (wandered on broad tasks: 20+ min, 400+ tool calls).
+
+### Runtime Gotchas
+- `git worktree add` inherits all tracked files → must `rm -rf .squad/` before scaffolding.
+- Archetype paths resolve from plugin install dir, not CWD.
+- ESM imports across package boundaries fail even with correct paths—it's the boundary violation, not the path syntax.
+
+### Docs Refinement (Astro Starlight)
+- GitHub Pages: `site` + `base` required (CSS/JS load from `/{base}/`).
+- starlight-theme-obsidian for clean styling.
+- Describe skill flows (conversational), not manual CLI commands.
+
