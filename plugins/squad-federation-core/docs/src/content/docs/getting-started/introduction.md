@@ -41,9 +41,9 @@ Squad Federation operates on three layers:
 - Teams can use different placement types in the same federation
 
 **2. Communication** (federation-scoped): HOW teams exchange messages
-- File-based signals (default, fast, local)
-- Microsoft Teams channels (human-visible, real-time)
-- All teams in a federation use the same communication protocol
+- File-based signals — fast, local, works offline
+- Optional Teams notifications — meta-squad posts summaries to a Teams channel for human visibility
+- Extensible adapter registry for future transports
 
 **3. Knowledge** (shared): WHAT teams learn and share
 - Each team logs discoveries, patterns, and insights
