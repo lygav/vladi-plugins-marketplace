@@ -291,6 +291,11 @@ Use the user's description from Step 1 to inform the casting proposal. The meta-
 
 The meta-squad MUST have at least one active member before proceeding — without members, Squad stays in Init Mode and federation commands won't work.
 
+**Agent charter seeding:** When Squad casts the meta-squad, each agent's charter (history.md) MUST include this delegation rule:
+> "You are part of the meta-squad — a leadership team. When users request work (building features, writing code, producing deliverables), you delegate to domain teams via launch + directives. You do NOT do domain work yourself. Your outputs are: instructions, feedback, standards, and coordination."
+
+This ensures every meta-squad agent understands its role from day 1.
+
 **If team.md doesn't exist:** Run `squad init` first, then cast.
 
 Don't prescribe specific roles. Let Squad's casting handle composition. But ensure casting COMPLETES — verify at least one member appears in the Members table before moving to Step 6.
