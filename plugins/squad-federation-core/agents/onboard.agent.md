@@ -82,16 +82,15 @@ copilot plugin list | grep squad-archetype-{choice}
 
 **Store the archetype choice** — you'll pass it to the onboard script as `--archetype squad-archetype-{choice}`.
 
-### 4. Select transport
+### 4. Select placement
 
 **Ask:** "Where should this team's workspace live?"
 
 **Choices:**
 - **worktree** *(default)* — git worktree in a parallel or inside directory
 - **directory** — standalone directory (no git branch)
-- **teams** — Microsoft Teams channel integration
 
-Most teams use worktrees. Only choose directory if the team doesn't need git branching, or teams if they need real-time collaboration in a Teams channel.
+Most teams use worktrees. Only choose directory if the team doesn't need git branching.
 
 **Default:** worktree
 

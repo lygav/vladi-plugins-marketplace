@@ -94,19 +94,11 @@ Dashboard runs at `http://localhost:18888` showing traces, metrics, and logs fro
 }
 ```
 
-### 4. Communication Type
+### 4. Teams Notifications (Optional)
 
-**Skill asks:**
-> "How should your teams communicate? File signals (default) or Microsoft Teams channel?"
+Teams communicate via **file-based signals** — fast, offline, debuggable. This is not configurable; it's the only inter-team transport.
 
-**Your options:**
-
-**File signals** (recommended for most users):
-- Fastest, works offline
-- Signals stored as JSON files in `.squad/signals/`
-- Best for local development and git workflows
-
-Optionally, you can enable **Teams notifications** so the meta-squad posts summaries to a Microsoft Teams channel. If you choose this, the skill asks for your Teams team ID and channel ID:
+Optionally, you can enable **Teams notifications** so the meta-squad posts summaries to a Microsoft Teams channel and polls for your directives. If you want this, the skill asks for your Teams team ID and channel ID:
 
 ```json
 {
