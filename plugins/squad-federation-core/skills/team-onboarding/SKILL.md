@@ -1,14 +1,12 @@
 ---
 name: "team-onboarding"
 description: "Interactive wizard for onboarding a new team to the federation. Asks mission, discovers archetype, selects placement, then executes mechanical setup autonomously."
-version: "0.1.0"
+version: "0.2.0"
 ---
 
 ## Purpose
 
-Guide the user through the CONVERSATIONAL phase of team onboarding. This skill stays in the user's session and can ask questions. The mechanical work (creating branches, scaffolding) is delegated to the autonomous `onboard.ts` script.
-
-**Key principle:** This skill handles conversation. The script handles mechanics. No sub-agents are spawned — we stay in the user's session the entire time.
+Thin conversational wrapper over `scripts/onboard.ts` (ADR-001: Script-Drives-Skill). This skill collects user input conversationally, then delegates ALL logic to the script via `--non-interactive --output-format json`. No decision logic lives here.
 
 ## Trigger Phrases
 
@@ -204,28 +202,29 @@ Ready to create this team? [Y/n]
 
 ### Step 6: Execute Mechanical Setup
 
-Now that we have all parameters, call the mechanical script with fully resolved values.
+Now that we have all parameters, call the mechanical script with fully resolved values and `--non-interactive --output-format json`.
 
 The onboard script is located at `scripts/onboard.ts` relative to the plugin root.
 
-**Start mechanical span:**
-```tool-call
-otel_span action=start name="team.onboard.mechanical"
+**Build the command:**
+```bash
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/onboard.ts \
+  --name "<team-name>" \
+  --mission "<mission>" \
+  --archetype "<archetype>" \
+  --placement "<placement>" \
+  --non-interactive \
+  --output-format json
 ```
 
-**For worktree placement:**
-- If worktree should be placed **inside repo** (default): Do NOT pass `--worktree-dir` flag (script defaults to `.worktrees`)
-- If worktree should be in a **sibling directory**: Pass `--worktree-dir` with the base path (e.g., `--worktree-dir ../` or custom path)
+Add optional flags as needed:
+- `--domain-id "<uuid>"` — omit to auto-generate
+- `--worktree-dir "<path>"` — only if user chose non-default worktree location
+- `--path "<path>"` — only if directory placement
 
-**For directory placement:**
-- Add `--placement directory --path` with the full directory path
-
-**Monitor the script output for errors.** The script runs autonomously and requires NO user interaction — all parameters are passed via CLI flags.
-
-**End mechanical span:**
-```tool-call
-otel_span action=end name="team.onboard.mechanical" status=ok
-```
+**Parse the JSON output.** The script returns an `OnboardResult`:
+- If `success: true` — show the team details from the JSON
+- If `success: false` — show the `errors` array and offer recovery
 
 ### Step 7: Run Archetype Setup Skill (if applicable)
 
@@ -271,42 +270,18 @@ otel_span action=end name="team.onboard" status=ok
 
 ## Error Handling
 
-### During Archetype Discovery
-
-- **User is unsure which archetype:** Show all options with brief descriptions. Let them pick.
-- **Archetype install fails:** Show the error. Offer to retry, or proceed with manual installation instructions.
-
-### During Team Placement Selection
-
-- **User chooses directory but doesn't provide path:** Use default `.teams/NAME`.
-- **User chooses sibling worktree but doesn't provide base path:** Use default `../` (sibling to repo).
-- **Path already exists:** Error and ask for a different path or name.
-- **Worktree directory doesn't exist:** Script will create it automatically.
-
-### During Script Execution
-
-- **Script fails:** Show the error output. Check common causes:
-  - Branch already exists → suggest `git branch -D squad/NAME` or choose different name
-  - Worktree already exists → suggest `git worktree remove .worktrees/NAME`
-  - Archetype not found → verify archetype installation
-- **Script succeeds but no commit:** Warn that something went wrong. Check worktree state.
+All validation and error handling lives in the script. The skill reads the JSON `errors` array and presents them conversationally. Do NOT duplicate validation logic here.
 
 ## What This Skill Does NOT Do
 
-To keep the boundary clean, this skill explicitly avoids:
+- **No decision logic** — The script validates archetypes, placements, and names
+- **No sub-agents** — We stay in the user's session
+- **No filesystem operations** — The script handles all I/O
+- **No team roster/role decisions** — Squad casting handles composition
 
-- **Spawning sub-agents** — We stay in the user's session the entire time
-- **Asking for team rosters or roles** — Squad's casting handles composition
-- **Prescribing team sizes** — Casting decides based on the work
-- **Configuring archetype-specific settings during onboarding** — That's delegated to the archetype's setup skill AFTER mechanical onboarding completes
-- **Creating branches or directories directly** — The script handles all filesystem operations
-- **Running multiple teams in parallel** — This is a single-team onboarding wizard
-
-If the user asks about any of these during onboarding, clarify the boundary:
-
+If the user asks about these during onboarding:
 - Team composition → "Squad's casting will handle that when you launch the team"
-- Multiple teams → "Let's onboard one team first, then you can onboard more the same way"
-- Archetype configuration → "We'll configure that right after the workspace is created"
+- Multiple teams → "Let's onboard one team first, then repeat"
 
 ## Integration with Other Skills
 

@@ -21,37 +21,74 @@ This page documents the scripts for reference and troubleshooting, but you shoul
 
 ### `onboard.ts`
 
-**What it does:** Creates a new team workspace, seeds archetype files, registers team in `.squad/team-registry.json`.
+**What it does:** Creates a new team workspace, seeds archetype files, registers team in `.squad/team-registry.json`. Implements the **script-drives-skill** model (ADR-001) — the script owns all onboarding logic; skills are thin wrappers.
 
-**Called by:** `team-onboarding` skill
+**Called by:** `team-onboarding` skill (via `--non-interactive --output-format json`)
 
 **Parameters:**
-- `--archetype <id>` — Archetype to use (coding, deliverable, consultant, or custom)
-- `--domain <name>` — Team domain name
-- `--placement <type>` — `worktree` or `directory`
-- `--mission <text>` — Initial mission/directive
-- `--branch <name>` — (For worktree) Git branch to create
+- `--name <name>` / `--team <name>` — Team domain name *(required)*
+- `--archetype <id>` — Archetype to use (coding, deliverable, consultant, or custom) *(required)*
+- `--domain-id <uuid>` — Domain identifier *(auto-generated if omitted)*
+- `--description <text>` / `--mission <text>` — Team mission/description
+- `--placement <type>` — `worktree` (default) or `directory`
+- `--worktree-dir <path>` — Base directory for worktree (default: `.worktrees`)
+- `--path <path>` — Directory path (required when `--placement directory`)
+- `--base-branch <name>` — Git branch to create worktree from (default: current branch)
+- `--non-interactive` — No stdin prompts; all params via flags *(for CI/skill use)*
+- `--output-format <text|json>` — Output format; `json` produces structured `OnboardResult`
+- `--dry-run` — Validate inputs without creating anything; returns what *would* happen
 
 **What it creates:**
 ```
-.squad/
-  worktrees/{domain}/          (if placement=worktree)
-  OR teams/{domain}/           (if placement=directory)
-    .squad/
-      signals/inbox/
-      signals/outbox/
-      skills/
-      archetype.json           (team state machine)
-      deliverable.md           (placeholder)
+.worktrees/{name}/               (if placement=worktree)
+OR {path}/{name}/                (if placement=directory)
+  DOMAIN_CONTEXT.md
+  .squad/
+    signals/inbox/
+    signals/outbox/
+    learnings/
+    archetype.json
+    ceremonies.md
 ```
 
-**Example (manual invocation):**
+**Example (interactive):**
 ```bash
 npx tsx scripts/onboard.ts \
-  --archetype coding \
-  --domain backend-api \
-  --placement worktree \
+  --name backend-api \
+  --archetype squad-archetype-coding \
   --mission "Build REST API with PostgreSQL"
+```
+
+**Example (non-interactive with JSON output):**
+```bash
+npx tsx scripts/onboard.ts \
+  --name backend-api \
+  --archetype squad-archetype-coding \
+  --mission "Build REST API" \
+  --non-interactive \
+  --output-format json
+```
+
+**Example (dry run):**
+```bash
+npx tsx scripts/onboard.ts \
+  --name backend-api \
+  --archetype squad-archetype-coding \
+  --dry-run --non-interactive --output-format json
+```
+
+**JSON output structure (`OnboardResult`):**
+```json
+{
+  "success": true,
+  "domain": "backend-api",
+  "domainId": "auto-generated-uuid",
+  "archetype": "squad-archetype-coding",
+  "placement": "worktree",
+  "location": "/path/to/.worktrees/backend-api",
+  "branch": "squad/backend-api",
+  "dryRun": false
+}
 ```
 
 ---
