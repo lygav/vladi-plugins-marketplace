@@ -37,10 +37,10 @@ squad-federation-core is a Copilot plugin that enables federated multi-team coor
 ## 1. System Overview
 
 squad-federation-core is a Copilot plugin that implements a federated multi-team model.
-A **meta-squad** orchestrates N permanent **domain squads** via a **transport abstraction**.
+A **meta-squad** orchestrates N permanent **domain squads** via a **placement and communication abstraction**.
 Teams can exist in git worktrees, standalone directories, remote repos, or cloud storage—core
-is transport-agnostic. Domain squads accumulate expertise, run autonomously in headless sessions,
-and communicate via file-based signals.
+is placement-agnostic and protocol-agnostic. Domain squads accumulate expertise, run autonomously in headless sessions,
+and communicate via file-based signals or Microsoft Teams channels.
 
 ### Three-Layer Architecture
 
@@ -48,11 +48,11 @@ and communicate via file-based signals.
 ┌──────────────────────────────────────────────────────────────────────┐
 │  CORE LAYER — squad-federation-core plugin                         │
 │                                                                      │
-│  SDK (types, transport, base classes) · Team registry               │
-│  Signal protocol · Learning log · Launch mechanics                   │
-│  OTel MCP server · Skill sync engine · Hybrid monitoring             │
-│                                                                      │
-│  Transport-agnostic. Knows nothing about what squads DO or where     │
+│  SDK (types, placement, communication, base classes) · Team registry   │
+│  Signal protocol · Learning log · Launch mechanics                      │
+│  OTel MCP server · Skill sync engine · Hybrid monitoring                │
+│                                                                          │
+│  Placement-agnostic and protocol-agnostic. Knows nothing about what     │
 │  they live — only how they communicate, observe, and share knowledge.│
 ├──────────────────────────────────────────────────────────────────────┤
 │  ARCHETYPE LAYER — e.g. squad-archetype-deliverable                │
@@ -128,7 +128,7 @@ and communicate via file-based signals.
 
 **Key changes from v0.2.0 design to v0.3.x implementation:**
 
-1. **Minimal Federation Config** — `federate.config.json` reduced to just `description` + `telemetry`. Transport concerns (branch prefix, worktree location, MCP stack) moved to team-level decisions during onboarding.
+1. **Minimal Federation Config** — `federate.config.json` reduced to just `description`, `telemetry`, and `communicationType`. Placement concerns (worktree location) moved to team-level decisions during onboarding. MCP servers inherited from project `.mcp.json`.
 
 2. **Dynamic Archetype Discovery** — Archetypes auto-discovered from:
    - `marketplace.json` (npm packages declared in dependencies)
@@ -232,7 +232,7 @@ export interface TeamCommunication {
 
 Git worktree adapter. Teams live on permanent branches:
 
-**Branch naming:** `{branchPrefix}{team-name}` (default: `squad/team-alpha`)
+**Branch naming:** `squad/{team-name}` (e.g., `squad/team-alpha`)
 
 **Lifecycle:**
 ```bash
@@ -384,8 +384,7 @@ respective implementation docs.
 
 ### Branch Naming
 
-All domain branches follow the pattern `{branchPrefix}{team-name}`. The default
-prefix is `squad/`, configurable via `federate.config.json`.
+All domain branches follow the pattern `squad/{team-name}`.
 
 ```
 main                        ← meta-squad: skills, aggregation, governance

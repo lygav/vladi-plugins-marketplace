@@ -94,7 +94,7 @@ Modes:
 - **Reset** (`--reset`): wipes outputs and signals, restarts from scratch. Use when a domain's data is stale or fundamentally wrong.
 - **All** (`--all`): launches every onboarded domain in parallel. Each gets its own detached session.
 
-The launch script reads `federate.config.json` from the repo root for settings: MCP stack, playbook skill, telemetry toggle. Archetype plugins may add additional configuration checks based on their requirements.
+The launch script reads `federate.config.json` from the repo root for settings: playbook skill, telemetry toggle. MCP servers are inherited from project `.mcp.json`. Archetype plugins may add additional configuration checks based on their requirements.
 
 ### monitor.ts — Observe Domain Progress
 
@@ -117,7 +117,7 @@ Git worktrees are the isolation mechanism. Each domain gets a separate working d
 Key rules:
 - Worktrees live at `../worktrees/{domain}` relative to the repo root (one level up, in a `worktrees` directory). This keeps them outside the main repo tree.
 - Never `cd` into a worktree and run git commands that affect the main repo. Each worktree has independent staging.
-- Branch naming is strict: `scan/{domain-name}`. The prefix is configurable via `branchPrefix` in `federate.config.json`.
+- Branch naming follows the pattern: `squad/{team-name}` (e.g., `squad/team-alpha`).
 - Worktrees persist across sessions. `git worktree list` shows all active worktrees.
 - To remove a domain: `git worktree remove ../worktrees/{domain}` then `git branch -D scan/{domain}`.
 

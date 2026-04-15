@@ -43,7 +43,7 @@ Start a Copilot session and say any of these:
 
 The setup wizard walks you through:
 1. Describe your goal (what the federation is for)
-2. Configure MCP stack, telemetry, branch prefix, worktree location
+2. Configure telemetry and communication type (file-signal or Teams channel)
 3. Cast your meta-squad (leadership team)
 4. Optional: Onboard your first team
 
@@ -100,7 +100,7 @@ This plugin is the **Core layer** in a three-layer composition model:
 
 | Layer | Owns | Example config |
 |-------|------|----------------|
-| **Core** | `federate.config.json` | Branch prefix, MCP stack, telemetry, worktree location |
+| **Core** | `federate.config.json` | Description, telemetry, communication type (file-signal or Teams channel) |
 | **Archetype** | `.squad/archetype-config.json` (per team) | Deliverable schema, PR strategy, team playbook, state machine |
 | **Project** | `.squad/` skills, schemas, import hooks | Domain-specific playbook skills, validation rules |
 
@@ -120,7 +120,7 @@ Select work pattern → Core auto-installs archetype plugin
 Archetype setup wizard → fine-tune state machine, playbook, schemas
         │
         ▼
-Configure MCP stack + OTel dashboard
+Configure communication type + OTel dashboard
         │
         ▼
 Cast meta-squad → Squad framework handles agent creation
@@ -343,11 +343,11 @@ Most teams work on the same codebase:
 | Field | Default | Description |
 |-------|---------|-------------|
 | `description` | — | What this federation is for |
-| `branchPrefix` | `"squad/"` | Git branch prefix for team worktrees |
-| `worktreeDir` | `"parallel"` | Where worktrees live: `"parallel"` (sibling dirs), `"inside"` (`.worktrees/`), or custom path |
 | `telemetry.enabled` | `true` | OTel monitoring dashboard |
+| `communicationType` | `"file-signal"` | How teams communicate: `"file-signal"` or `"teams-channel"` |
+| `teamsConfig` | — | Required when using `teams-channel`: `{ teamId, channelId }` |
 
-That's it — 2 fields (+ 2 optional internal fields). Everything else is archetype or team-level config. MCP servers are configured via `.mcp.json` at the project level and teams inherit automatically.
+Everything else is archetype or team-level config. MCP servers are configured via `.mcp.json` at the project level and teams inherit automatically.
 
 > **Scripts reference:** See [ARCHITECTURE.md](ARCHITECTURE.md) §10 for all CLI commands.
 
