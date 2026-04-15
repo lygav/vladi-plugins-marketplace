@@ -2,6 +2,8 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 
 export default defineConfig({
+  site: 'https://lygav.github.io',
+  base: '/vladi-plugins-marketplace',
   integrations: [
     starlight({
       title: 'Squad Federation',
