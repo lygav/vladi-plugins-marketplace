@@ -33,6 +33,12 @@ export interface TeamEntry {
   location: string;
   /** ISO 8601 timestamp when team was registered */
   createdAt: string;
+  /** Team lifecycle status. @default 'active' @since v0.5.0 */
+  status?: 'active' | 'paused' | 'retired';
+  /** ISO 8601 timestamp when team was paused. @since v0.5.0 */
+  pausedAt?: string;
+  /** ISO 8601 timestamp when team was retired. @since v0.5.0 */
+  retiredAt?: string;
   /** Federation metadata (optional) */
   federation?: {
     /** Parent team identifier (e.g., "meta-squad") */
@@ -64,6 +70,9 @@ const TeamEntrySchema = z.object({
   placementType: z.enum(['worktree', 'directory']),
   location: z.string().min(1),
   createdAt: z.string().datetime(),
+  status: z.enum(['active', 'paused', 'retired']).optional().default('active'),
+  pausedAt: z.string().datetime().optional(),
+  retiredAt: z.string().datetime().optional(),
   federation: z.object({
     parent: z.string(),
     parentLocation: z.string(),
@@ -306,6 +315,38 @@ export class TeamRegistry {
   async exists(domainId: string): Promise<boolean> {
     const registry = await this.load();
     return registry.teams.some(t => t.domainId === domainId);
+  }
+
+  async updateStatus(domainOrId: string, status: 'active' | 'paused' | 'retired'): Promise<boolean> {
+    let result = false;
+    await this.emitter.span('registry.updateStatus', async () => {
+      result = await this.withLock(async () => {
+        const registry = await this.load();
+        const index = registry.teams.findIndex(t => t.domainId === domainOrId || t.domain === domainOrId);
+        if (index === -1) return false;
+        const team = registry.teams[index];
+        const currentStatus = team.status ?? 'active';
+        if (currentStatus === status) throw new Error(`Team "${team.domain}" is already ${status}`);
+        if (currentStatus === 'retired') throw new Error(`Team "${team.domain}" is retired and cannot change status`);
+        if (status === 'active' && currentStatus !== 'paused') throw new Error(`Only paused teams can be resumed to active (current: ${currentStatus})`);
+        const now = new Date().toISOString();
+        const updates: Partial<TeamEntry> = { status };
+        if (status === 'paused') updates.pausedAt = now;
+        else if (status === 'retired') updates.retiredAt = now;
+        else if (status === 'active') updates.pausedAt = undefined;
+        const updated = { ...team, ...updates };
+        if (updates.pausedAt === undefined) delete updated.pausedAt;
+        TeamEntrySchema.parse(updated);
+        registry.teams[index] = updated;
+        await this.save(registry);
+        await this.emitter.event('team.status.changed', {
+          'squad.domain': updated.domain, 'domain.id': updated.domainId,
+          'old.status': currentStatus, 'new.status': status,
+        });
+        return true;
+      });
+    }, { 'domain.id': domainOrId, 'target.status': status });
+    return result;
   }
 
   // ==================== Private Helpers ====================

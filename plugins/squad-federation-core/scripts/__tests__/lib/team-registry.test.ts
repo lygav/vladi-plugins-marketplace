@@ -225,7 +225,8 @@ describe('team-registry.ts', () => {
 
       const result = await registry.list();
       expect(result).toHaveLength(2);
-      expect(result).toEqual(teams);
+      expect(result[0]).toMatchObject({ domain: 'frontend', status: 'active' });
+      expect(result[1]).toMatchObject({ domain: 'backend', status: 'active' });
     });
 
     it('should return empty array when no teams registered', async () => {
@@ -290,7 +291,7 @@ describe('team-registry.ts', () => {
       );
 
       const result = await registry.get('frontend');
-      expect(result).toEqual(team);
+      expect(result).toMatchObject({ domain: 'frontend', domainId: 'uuid-1', status: 'active' });
     });
 
     it('should return null when team not found', async () => {
