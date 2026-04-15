@@ -80,3 +80,28 @@ MockPlacement + MockCommunication are fast, reliable unit-test replacements for 
 
 These require static analysis, integration tests, or tsc checks. Unit tests excel at logic; integration/e2e needed for system-level issues.
 
+## Session Summary — 2026-04-15 (v0.6.0)
+
+**Test Gaps Exposed by Runtime Bugs:**
+- #154: Skill docs missing --domain-id flag mention
+- #155: Non-interactive mode required for onboarding skill
+- #156: Teams communication crashes when MCP tools not loaded
+- #157: Launch.ts needs --communication-type override + headless mode fix
+
+**Root causes:**
+- Tests import functions directly → miss module resolution bugs
+- No e2e smoke tests → entry-point scripts not tested with `--help`
+- No tsc --noEmit in CI → ESM/CJS mismatches slip through
+
+**Action item:** Issue #122 created for TypeScript compile check + e2e smoke tests
+
+**MockTeamsClient:**
+- Enables Teams adapter testing without API calls
+- Pattern: inject mock client into TeamsChannelCommunication constructor
+- Fast, reliable, no network dependencies
+
+**Contract tests working:**
+- FileSignalCommunication + TeamsChannelCommunication both pass TeamCommunication interface tests
+- MockPlacement + MockCommunication enable fast unit tests
+- Tests catch implementation bugs when written correctly (e.g., otel-emitter span generic return type)
+

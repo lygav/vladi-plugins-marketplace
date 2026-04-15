@@ -64,3 +64,21 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 **Docs & comms:**
 - Astro Starlight + Obsidian theme reduced friction between local editing and deployed view. Conversational skill descriptions (not steps) improve clarity.
 
+## Session Summary — 2026-04-15 (v0.6.0)
+
+**ADR-001 — Script-Drives-Skill approved:**
+- Rule: "Scripts are functions. Skills are wrappers. If logic can be in the script, it MUST be in the script."
+- Rationale: Testable, deterministic scripts. Error handling is structured JSON, not LLM interpretation.
+- Execution plan: #159 (onboarding inversion) → #160 (setup.ts creation) → #161 (audit all flows)
+- APPROVED but NOT YET EXECUTED. Ready for next session.
+
+**Review quality lessons:**
+- PR #97 lesson reinforced: Factory methods must have universal params across ALL implementations. Caught `createCommunication(placement)` coupling post-merge.
+- Opus catches content accuracy issues (wrong archetype names, stale references) that haiku misses. Worth the cost for user-facing docs.
+- Three-pass review pattern (structure → accuracy → verification) essential for quality. Each pass catches different defect types.
+
+**SDLC gaps identified:**
+- Version-bump checklist needs marketplace.json enforcement
+- No migration burden in pre-1.0 — breaking changes are acceptable, teams re-initialize
+- Docs-with-code working well — prevents drift, reduces review friction
+

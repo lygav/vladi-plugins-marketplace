@@ -194,3 +194,82 @@ Split large doc rewrites by section (guides, reference, archetypes, etc.) — di
 5. Links must include base path (/vladi-plugins-marketplace/)
 
 **Context:** The federation plugin works through Copilot skills that have conversations with users. The docs should reflect that UX, not a manual CLI tool experience.
+
+---
+
+## Session Learnings: v0.6.0 — Script-Drives-Skill Pattern
+
+### Script-Drives-Skill Pattern (ADR-001)
+
+**Critical architectural principle:** Scripts are deterministic functions. Skills are wrappers that extract params from natural language and call scripts.
+
+**Rule:** If logic can be in the script, it MUST be in the script. Not in the skill, not in LLM heuristics.
+
+**Why:**
+- Scripts are testable (unit tests, fixtures, mocks)
+- Skills are not testable (require LLM + conversation state)
+- Error handling must be structured JSON, not LLM interpretation
+- Non-interactive mode requires zero skill logic
+
+**Current (wrong):**
+```
+skill orchestrates → calls script fragments → interprets output → decides next step
+```
+
+**Proposed (correct):**
+```
+script drives → emits structured prompts → skill provides input → script continues
+```
+
+**Pattern:** Script emits `{ type: "input_needed", prompt: "...", field: "teamId" }`. Skill extracts value from conversation and passes back. Script validates, continues.
+
+**Approved but NOT executed.** Execution: #159 (onboarding) → #160 (setup) → #161 (audit all flows).
+
+### Bootstrap Pattern for Plugin Dependencies
+
+**Problem:** Copilot CLI doesn't run `npm install` when loading plugins. Skills that import SDK types crash if dependencies aren't installed.
+
+**Solution:** `bootstrap.mjs` — plain Node.js script (no tsx), checks for node_modules, runs `npm ci` if missing. Skills call bootstrap BEFORE importing any script.
+
+**Key:** bootstrap.mjs uses ONLY Node.js built-ins (fs, child_process, path). No external deps. Cross-platform (Windows, macOS, Linux).
+
+**Applied:** All archetype skills now bootstrap before script imports.
+
+### OTel Reads Config Mechanically
+
+**Pattern:** `OTelEmitter` constructor reads `telemetry.endpoint` from `federate.config.json` in the plugin root. No environment variables needed.
+
+**Why:** `process.env` doesn't cross process boundaries. Teams launch in separate processes. Config file is ground truth.
+
+**Implementation:** Constructor takes `configPath`, reads JSON, initializes exporter if endpoint is set. No-op if missing (graceful degradation).
+
+### Meta Always Summarizes
+
+**Rule:** Meta always provides curated summaries, regardless of transport type.
+
+**File-based:** User sees ONLY meta's curated view (console output). Raw signals stay in .squad/inbox.json.
+
+**Teams-based:** User sees raw channel messages AND meta's periodic summaries in #meta channel.
+
+**Why:** Meta is federation orchestrator. User doesn't need to read every team's raw output. Meta filters, distills, highlights what matters.
+
+### Docs Content Standards (Reinforced)
+
+**Critical for user-facing content:**
+1. NO history — describe current state, not evolution
+2. NO manual CLI as primary — users interact with skills conversationally
+3. Describe the FLOW — what skill asks, what user answers, what happens
+4. Scripts/CLI are ADVANCED/reference, not main path
+5. Use opus (claude-opus-4.6) for content accuracy review
+
+**Pattern:** Three-pass review (structure → content accuracy → verification). Opus catches what haiku misses (wrong names, stale references, broken links).
+
+### sed Destroys Structured Formats
+
+**Anti-pattern:** Using `sed` to modify YAML, JSON, or other structured files.
+
+**Why:** One misplaced character breaks config. The `sed` corruption of `deploy-docs.yml` was avoidable.
+
+**Solution:** Use proper editors (edit tool) or rewrite the entire file block. For programmatic changes, use language-specific parsers (js-yaml, JSON.parse).
+
+**Rule:** NEVER use sed for structured formats. Only for plain text.

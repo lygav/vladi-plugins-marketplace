@@ -93,3 +93,28 @@ All implementations provide: exists, read, write, delete, list, bootstrap (idemp
 - starlight-theme-obsidian for clean styling.
 - Describe skill flows (conversational), not manual CLI commands.
 
+## Session Summary — 2026-04-15 (v0.6.0)
+
+**v0.4.0-v0.6.0 Implementation:**
+- v0.4.0: Transport/placement separation, adapter registry, 7-module lib/ structure
+- v0.5.0: TeamsCommunication with hashtag protocol (#meta, #meta-status, #{teamId})
+- v0.6.0: Bootstrap.mjs (cross-platform, auto-installs deps), OTel config reader, ProgressReporter, meta relay loop
+
+**Bootstrap Pattern:**
+- Copilot CLI doesn't run npm install. Solution: bootstrap.mjs (plain Node.js, no tsx) called by skills before imports.
+- Checks for node_modules, runs `npm ci` if missing. Cross-platform (Windows, macOS, Linux).
+- All archetype skills now bootstrap before script imports.
+
+**ProgressReporter Utility:**
+- Dual-channel progress: OTel spans + signal messages
+- Pattern: `reporter.start()` → `reporter.update(pct, msg)` → `reporter.complete()`
+- Used in federation-setup, team-onboarding, archetype skills
+
+**Model preference reinforced:**
+- Sonnet (claude-sonnet-4.5) is correct model. Fast, focused, streaming.
+- Codex models too slow for this workload (400+ tool calls, 20+ minutes on broad tasks).
+
+**OTel reads config mechanically:**
+- OTelEmitter reads `telemetry.endpoint` from federate.config.json in constructor
+- No env vars needed. Config file is ground truth.
+

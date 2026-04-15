@@ -70,3 +70,21 @@ updated: 2025-04-15
 ### Documentation Patterns
 - **Docs-audit pattern:** Scan code first (ground truth) → audit docs against it → fix from both inputs. Parallelizable workflow that ensures accuracy
 
+## Session Summary — 2026-04-15 (v0.6.0)
+
+**Teams Protocol Research:**
+- Teams channel communication is REAL transport, not just notifications
+- Hashtag protocol: #meta (federation-wide, human priority), #meta-status (periodic team updates), #{teamId} (team-specific directives)
+- Federation-scoped: all teams use same communication type (no mixing)
+
+**OTel Investigation:**
+- OTelEmitter reads `telemetry.endpoint` from federate.config.json
+- No environment variables needed — config file is ground truth
+- Graceful degradation when endpoint not configured (no-op)
+
+**Ground Truth Scanning Pattern:**
+- Systematic code scan → reference doc → feeds docs, team memory, Astro site
+- Docs-audit workflow: scan code first → audit docs against ground truth → fix from both
+- Parallelizable: different agents scan different sections
+- Reusable across federation for knowledge capture
+
