@@ -8,6 +8,13 @@ version: "0.1.0"
 
 **Before using this skill, check that `federate.config.json` exists in the project root.** If it does not exist, federation is not set up. Redirect the user to the federation-setup skill: *"Federation isn't configured yet. Let me run the setup wizard first."*
 
+### Bootstrap (run first)
+
+Before running any scripts, ensure the plugin environment is ready:
+```bash
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.ts
+```
+
 ## Purpose
 
 Guide the orchestration of a federated squad system where a **meta-squad** coordinates multiple **domain squads**, each running independently in isolated git worktrees. This skill covers architecture, lifecycle management, and the scripts that power the system.
