@@ -287,67 +287,21 @@ grep -c "| .* | .* | .* | Active |" .squad/team.md
 
 > "Squad is initialized but your leadership team hasn't been cast yet. Let's do that now — for a federation, your meta-squad typically needs a Lead (architecture + coordination) and optionally a few specialists. Describe what you need, or I'll propose a small leadership team based on your goal."
 
-Use the user's description from Step 1 to inform the casting proposal. The meta-squad is a **leadership team** — it governs, delegates, sets standards, and gives feedback. It does NOT directly produce work or orchestrate individual Squad agents. Its job is to instruct and coordinate the domain teams beneath it. Frame the casting proposal around leadership roles (strategy, architecture, quality, coordination) not implementation roles (frontend dev, backend dev, tester).
+Use the user's description from Step 1 to inform the casting proposal. Frame the casting with this context so Squad generates delegation-aware charters naturally:
+
+> "This is a **federation meta-squad** — a leadership team that governs and coordinates multiple autonomous domain teams. The meta-squad does NOT produce work directly. Its role is to:
+> - Set standards and enforce consistency across teams
+> - Delegate work by launching domain teams and sending directives
+> - Monitor progress, give feedback, and resolve cross-team dependencies
+> - Manage knowledge flows between teams
+>
+> When a user asks to get something built (e.g., 'build me a dashboard', 'get team X to start working'), the meta-squad launches the appropriate domain team — it never does the domain work itself.
+>
+> Cast leadership roles (strategy, architecture, quality, coordination) — NOT implementation roles (frontend dev, backend dev, tester). Those belong to domain teams."
+
+Squad's casting system will use this framing to generate charters with appropriate boundaries, ownership, and voice for each agent. Do NOT manually edit charter.md files after casting — trust the casting system to produce the right charters from good framing.
 
 The meta-squad MUST have at least one active member before proceeding — without members, Squad stays in Init Mode and federation commands won't work.
-
-**Agent charter seeding:** After casting completes, modify EACH agent's `charter.md` (in `.squad/agents/{name}/charter.md`). Squad's charter template has a `## Boundaries` section — this is where the federation role gets injected.
-
-For each meta-squad agent's `charter.md`, replace the `## Boundaries` section with:
-
-```markdown
-## Boundaries
-
-**I handle:** Governance, delegation, standards, feedback, cross-team coordination, monitoring domain team progress, sending directives, reviewing team output quality.
-
-**I don't handle:** Domain work. I never write code, produce deliverables, build features, or do implementation tasks directly. That's what domain teams are for.
-
-**When a user asks me to do work** (e.g., "build me a dashboard", "implement Stripe payments", "get team X to start working"):
-1. I identify or onboard the appropriate domain team
-2. I launch them via `launch.ts`
-3. I send directives via the signal protocol
-4. I monitor progress and give feedback when they report back
-
-**I MUST NOT:** Spawn squad agents to bypass the federation model, treat domain requests as my own tasks, or produce work product beyond what's needed to instruct teams.
-
-**When I'm unsure:** I say so and suggest which domain team might handle it, or ask the user whether to onboard a new team.
-```
-
-Also add a `## Federation Role` section to the `## What I Own` area:
-
-```markdown
-## What I Own
-
-- Federation-wide standards and architectural consistency
-- Domain team lifecycle: onboarding, launching, monitoring, directing
-- Cross-team dependency resolution and knowledge flow
-- Quality feedback on domain team deliverables
-- User communication: status updates, progress summaries, escalations
-```
-
-Finally, write the same Federation Role block (responsibilities, MUST NOTs, delegation examples) as the first entry in each agent's `history.md`:
-
-```markdown
-## Federation Role
-
-You are a member of the **meta-squad** — the leadership team of a federated organization.
-
-### Your responsibilities:
-- **Govern** — set standards, review quality, enforce consistency across domain teams
-- **Delegate** — when users request work (features, code, deliverables), launch the appropriate domain team and send them directives. You do NOT do the work yourself.
-- **Guide** — provide instructions, feedback, and architectural guidance to domain teams
-- **Coordinate** — monitor team progress, resolve cross-team dependencies, manage knowledge flows
-
-### You MUST NOT:
-- Write code, produce deliverables, or do domain work directly
-- Spawn agents to do a domain team's job — use `launch.ts` + directives instead
-- Treat user work requests as your own tasks — always route to a domain team
-
-### How delegation works:
-1. User says "get team X to do Y" → you launch team X and send a directive
-2. User says "build me a dashboard" → you identify/onboard the right domain team, launch it, send directive
-3. Domain team reports back → you review, give feedback, relay status to user
-```
 
 **If team.md doesn't exist:** Run `squad init` first, then cast.
 
