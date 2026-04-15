@@ -646,12 +646,32 @@ async function main(): Promise<void> {
     const teamContext = createTeamContext(teamEntry, config, REPO_ROOT);
     const teamLocation = teamContext.location;
 
-    // Step 5: Let Squad handle team casting
+    // Step 5: Initialize Squad scaffold + seed casting context
     console.log('Initializing squad (team casting handled by Squad)...');
     await emitter.span('squad.init', async () => {
       try {
-        exec('squad init', { cwd: teamLocation });
-        console.log('✓ Squad initialized — team will be cast on first session');
+        execSync('squad init --no-workflows', {
+          cwd: teamLocation,
+          stdio: args.nonInteractive ? 'pipe' : 'inherit',
+          timeout: 30_000,
+        });
+
+        // Seed rich casting context into team.md so Squad casts appropriate specialists
+        const castingContext = [
+          `## Project Context\n`,
+          `This is a federated domain team (**${args.archetype.replace('squad-archetype-', '')} archetype**) operating under a meta-squad leadership team.\n`,
+          `**Mission:** ${args.description || args.name}\n`,
+          `**Work pattern:** ${args.archetype.replace('squad-archetype-', '')} — the team works autonomously in its own ${args.placement} and communicates with the leadership team via file-based signals.\n`,
+          `**Scope:** This team should have specialists appropriate for a ${args.archetype.replace('squad-archetype-', '')} workflow. Cast roles that match the mission, not generic roles.\n`,
+        ].join('\n');
+
+        const teamMdPath = path.join(teamLocation, '.squad', 'team.md');
+        if (fs.existsSync(teamMdPath)) {
+          const existing = fs.readFileSync(teamMdPath, 'utf-8');
+          fs.writeFileSync(teamMdPath, existing + '\n' + castingContext);
+        }
+
+        console.log('✓ Squad initialized with casting context');
       } catch {
         console.log('  ⚠️  squad init not available — team will be cast on first session');
       }
