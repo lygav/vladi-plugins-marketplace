@@ -5,41 +5,41 @@ description: End-to-end walkthrough of a federation with multiple teams using di
 
 # Multi-Team Walkthrough
 
-This walkthrough builds a federation with multiple teams using different archetypes — coding teams that write code, a research team that produces analysis documents, and cross-team knowledge sharing. It picks up from the [Your First Federation](/vladi-plugins-marketplace/getting-started/first-federation) guide, which covers creating a federation with a single coding team.
+This walkthrough builds a federation with multiple teams using different archetypes — coding teams that write code, a consultant team that builds domain expertise and produces analysis, and cross-team knowledge sharing. It picks up from the [Your First Federation](/vladi-plugins-marketplace/getting-started/first-federation) guide, which covers creating a federation with a single coding team.
 
 ## The Scenario
 
 You have a portfolio site and want to redesign it as a modern React site with a blog. Your federation already has a `frontend-redesign` coding team working on the React migration. Now you want to expand with additional teams.
 
-## Adding a Research Team
+## Adding a Consultant Team
 
-You need a team to evaluate blogging platforms — this isn't code, it's analysis and documentation.
+You need a team to evaluate blogging platforms — this isn't code, it's deep analysis and expert recommendations.
 
-> "I need a research team to investigate blogging platforms for the React site"
+> "I need a consultant team to investigate blogging platforms for the React site"
 
 The team-onboarding skill activates:
 
 **What's this team's mission?**
 > "Evaluate blogging platforms and recommend the best one for our React site"
 
-**Will they be writing code, or producing research/documents?**
-> "Research and analysis docs"
+**Will they be writing code, or building domain expertise and answering questions?**
+> "Building expertise and producing analysis"
 
-**Based on your description, I recommend the 'research' archetype. Sound right?**
+**Based on your description, I recommend the 'consultant' archetype. Sound right?**
 > "Yes"
 
-The skill installs the research archetype if needed and creates the workspace:
+The skill installs the consultant archetype if needed and creates the workspace:
 
 ```
 📋 Team Setup Summary:
    Name: blog-research
    Mission: Evaluate blogging platforms
-   Archetype: research
+   Archetype: consultant
    Placement: worktree
    Communication: file-signal
 ```
 
-The research archetype seeds different templates than coding — research-oriented prompts, analysis templates, and a comparison matrix structure instead of a design→implement→test→PR workflow.
+The consultant archetype seeds different templates than coding — domain-expertise prompts, analysis workflows, and an indexing→ready→researching lifecycle instead of a design→implement→test→PR workflow.
 
 ## Adding a Second Coding Team
 
@@ -80,11 +80,11 @@ my-project-frontend-redesign/            ← squad/frontend-redesign branch
 my-project-blog-research/                ← squad/blog-research branch
 ├── .squad/
 │   ├── signals/
-│   │   └── status.json                  ← state: scanning
+│   │   └── status.json                  ← state: indexing
 │   └── learnings/
 │       └── log.jsonl
-├── research/
-│   ├── cms-comparison.md                ← research outputs
+├── analysis/
+│   ├── cms-comparison.md                ← consultant outputs
 │   └── integration-plan.md
 
 my-project-blog-feature/                 ← squad/blog-feature branch
@@ -113,7 +113,7 @@ The meta-squad monitors all teams through the same interface regardless of arche
 🟢 frontend-redesign        complete
    PR #42 opened (ready for review)
 
-🟡 blog-research            scanning
+🟡 blog-research            indexing
    Progress: 65%
    Deliverable: cms-comparison.md ready
 
@@ -232,7 +232,7 @@ The work pattern — defines **how** a team operates.
 | Playbook skill | Step-by-step guide for the team's workflow |
 | Cleanup hook | Clears artifacts on reset |
 
-Different archetypes (coding, research, deliverable) provide different prompts and playbooks — but core's operations work identically regardless.
+Different archetypes (coding, consultant, deliverable) provide different prompts and playbooks — but core's operations work identically regardless.
 
 ### Signal Flow
 
