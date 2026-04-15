@@ -1,6 +1,7 @@
 name: Deploy docs
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths: ['plugins/squad-federation-core/docs/**']
@@ -16,12 +17,14 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on:
+  workflow_dispatch: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version:
+  workflow_dispatch: 20
       - name: Install and build
         working-directory: plugins/squad-federation-core/docs
         run: npm ci && npx astro build
@@ -31,7 +34,8 @@ jobs:
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on:
+  workflow_dispatch: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
