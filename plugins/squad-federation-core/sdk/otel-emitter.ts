@@ -14,6 +14,8 @@
  */
 
 import { randomBytes } from 'crypto';
+import { readFileSync, existsSync } from 'fs';
+import { resolve } from 'path';
 
 // ==================== Types ====================
 
@@ -83,18 +85,43 @@ export class OTelEmitter {
   /**
    * Create a new OTelEmitter.
    * 
-   * Reads configuration from environment variables:
-   * - OTEL_EXPORTER_OTLP_ENDPOINT: OTLP endpoint (e.g., http://localhost:4318)
-   * - SQUAD_SERVICE_NAME: Service name for telemetry (default: squad-federation-core)
+   * Reads configuration from (in priority order):
+   * 1. endpoint parameter
+   * 2. OTEL_EXPORTER_OTLP_ENDPOINT environment variable
+   * 3. federate.config.json telemetry.endpoint (from CWD)
    * 
-   * If OTEL_EXPORTER_OTLP_ENDPOINT is not set, emitter is a no-op.
+   * Service name from:
+   * - serviceName parameter
+   * - SQUAD_SERVICE_NAME environment variable
+   * - Default: squad-federation-core
+   * 
+   * If no endpoint is configured, emitter is a no-op.
    * 
    * @param endpoint - Optional OTLP endpoint override
    * @param serviceName - Optional service name override
    */
   constructor(endpoint?: string, serviceName?: string) {
-    this.endpoint = endpoint || process.env.OTEL_EXPORTER_OTLP_ENDPOINT || null;
+    this.endpoint = endpoint 
+      || process.env.OTEL_EXPORTER_OTLP_ENDPOINT 
+      || OTelEmitter.readEndpointFromConfig()
+      || null;
     this.serviceName = serviceName || process.env.SQUAD_SERVICE_NAME || 'squad-federation-core';
+  }
+
+  /**
+   * Read OTel endpoint from federate.config.json if it exists.
+   * Checks CWD for the config file (where user runs federation commands).
+   */
+  private static readEndpointFromConfig(): string | null {
+    try {
+      const configPath = resolve(process.cwd(), 'federate.config.json');
+      if (!existsSync(configPath)) return null;
+      
+      const config = JSON.parse(readFileSync(configPath, 'utf-8'));
+      return config.telemetry?.endpoint || null;
+    } catch {
+      return null;
+    }
   }
 
   /**
