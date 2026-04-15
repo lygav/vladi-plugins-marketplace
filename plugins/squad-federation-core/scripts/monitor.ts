@@ -17,17 +17,17 @@ import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
 import {
-  createTeamContext
+  createTeamContext,
+  TeamRegistry,
+  loadAndValidateConfig
 } from './lib/index.js';
-import { loadAndValidateConfig } from './lib/config.js';
-import { TeamRegistry } from './lib/team-registry.js';
 import type {
   ScanStatus,
   SignalMessage,
   DomainWorktree,
   TeamCommunication
 } from '../sdk/types.js';
-import { loadAndValidateConfig } from './lib/config/config.js';
+
 
 // ==================== Configuration ====================
 
