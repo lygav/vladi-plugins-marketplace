@@ -59,7 +59,7 @@ You're ready to create your first federation. The setup skill will guide you thr
 
 1. Federation description
 2. Telemetry setup (optional observability dashboard)
-3. Communication type (file signals or Teams channel)
+3. Optional Teams notifications (meta-squad posts summaries to a channel)
 4. Meta-squad casting
 5. First team onboarding
 
