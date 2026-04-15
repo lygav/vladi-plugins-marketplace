@@ -130,7 +130,7 @@ Accept whatever the user gives. Don't try to normalize it.
 
 **Default logic:**
 - Docker available → default **yes**
-- Docker not available → default **no**, explain: "Docker is needed for the Aspire dashboard. You can enable this later with `npx tsx scripts/dashboard.ts start`."
+- Docker not available → default **no**, explain: "Docker is needed for the Aspire dashboard. You can enable this later with `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/dashboard.ts start`."
 
 **When the user confirms telemetry should be enabled**, emit OTel immediately so the dashboard lights up:
 

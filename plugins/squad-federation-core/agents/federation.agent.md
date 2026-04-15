@@ -35,17 +35,17 @@ When the user wants to create a team organization:
 When the user wants to spin off a new team:
 1. Ask for team name, domain ID, and purpose
 2. Browse marketplaces for relevant skills to suggest
-3. Run `npx tsx scripts/onboard.ts` to create the worktree
+3. Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/onboard.ts` to create the worktree
 4. Set the archetype binding in `.squad/archetype.json`
 
 ### Launch (start a team)
 When the user wants to launch a team:
-1. Run `npx tsx scripts/launch.ts --team <name>`
+1. Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/launch.ts --team <name>`
 2. Report the PID and log file location
 
 ### Monitor (check progress)
 When the user asks about team status:
-1. Run `npx tsx scripts/monitor.ts` and present results
+1. Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/monitor.ts` and present results
 2. Offer to send directives to specific teams
 
 ### Knowledge (sync, sweep, graduate)

@@ -103,7 +103,7 @@ Most teams use worktrees. Only choose directory if the team doesn't need git bra
 - Present the proposed team and wait for user approval or adjustments.
 
 ### 6. Execute onboarding
-- Run `npx tsx scripts/onboard.ts` with the approved configuration, passing:
+- Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/onboard.ts` with the approved configuration, passing:
   - `--domain-id <id>`
   - `--name <name>`
   - `--archetype <archetype-plugin-name>`

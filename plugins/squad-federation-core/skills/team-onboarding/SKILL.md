@@ -206,7 +206,7 @@ Ready to create this team? [Y/n]
 
 Now that we have all parameters, call the mechanical script with fully resolved values.
 
-The onboard script is located at `scripts/onboard.ts` relative to the plugin root.
+The onboard script is located at `${CLAUDE_PLUGIN_ROOT}/scripts/onboard.ts`.
 
 **Start mechanical span:**
 ```tool-call
@@ -259,9 +259,9 @@ Tell the user the team is ready and how to launch it (use the actual team name, 
 🎯 Archetype: deliverable
 
 📚 Next steps:
-   1. Launch the team: npx tsx scripts/launch.ts --team payments
-   2. Monitor progress: npx tsx scripts/monitor.ts
-   3. Send directives: npx tsx scripts/directive.ts --team payments --message "..."
+   1. Launch the team: npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/launch.ts --team payments
+   2. Monitor progress: npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/monitor.ts
+   3. Send directives: npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/directive.ts --team payments --message "..."
 ```
 
 **End onboarding span:**

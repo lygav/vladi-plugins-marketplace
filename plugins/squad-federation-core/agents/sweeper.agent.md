@@ -17,7 +17,7 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs
 ## Workflow
 
 ### 1. Run the sweep
-- Execute `npx tsx scripts/sweep-learnings.ts`.
+- Execute `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/sweep-learnings.ts`.
 - The script scans `.squad/learnings.jsonl` in every `scan/*` branch and produces a pattern report.
 
 ### 2. Review discovered patterns

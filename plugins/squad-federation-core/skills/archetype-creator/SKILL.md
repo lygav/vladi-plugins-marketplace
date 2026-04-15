@@ -393,7 +393,7 @@ Generate the full command with all required flags:
 
 ```bash
 cd plugins/squad-federation-core
-npx tsx scripts/create-archetype.ts \
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/create-archetype.ts \
   --name "{name}" \
   --states "{lifecycle.join(',')}" \
   --description "{description}" \
@@ -478,7 +478,7 @@ If user wants aggregation but output type isn't file artifacts:
 **Command:**
 
 ```bash
-npx tsx scripts/create-archetype.ts \
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/create-archetype.ts \
   --name "etl-pipeline" \
   --states "extracting,transforming,validating,loading" \
   --description "Teams that extract, transform, and load data pipelines" \
@@ -514,7 +514,7 @@ npx tsx scripts/create-archetype.ts \
 **Command:**
 
 ```bash
-npx tsx scripts/create-archetype.ts \
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/create-archetype.ts \
   --name "research" \
   --states "scoping,researching,analyzing,drafting,reviewing" \
   --description "Teams that conduct research and produce findings reports" \
