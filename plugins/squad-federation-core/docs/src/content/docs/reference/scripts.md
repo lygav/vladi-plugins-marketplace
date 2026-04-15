@@ -277,7 +277,7 @@ npx tsx scripts/launch.ts \
 
 ### `monitor.ts`
 
-**What it does:** Dashboard showing all teams' status + ability to send signals.
+**What it does:** Dashboard showing all teams' status + ability to send signals. Implements the **script-drives-skill** model (ADR-001).
 
 **Called by:** `federation-orchestration` skill
 
@@ -286,25 +286,22 @@ npx tsx scripts/launch.ts \
 - `--send <teamId>` — Send signal to team
 - `--directive <text>` — Signal body (when using `--send`)
 - `--type <directive|question|report|alert>` — Signal type
-
-**Dashboard output:**
-```
-Team                 State        Progress  Last Updated         
-────────────────────────────────────────────────────────────────
-backend-api          scanning     40%       30 seconds ago       
-docs-team            complete     100%      2 minutes ago        
-frontend-ui          distilling   75%       1 minute ago         
-```
+- `--output-format <text|json>` — Output format (default: `text`)
+- `--non-interactive` — Skip interactive prompts
 
 **Example (manual invocation):**
 ```bash
 # Watch dashboard
 npx tsx scripts/monitor.ts --watch
 
-# Send directive
+# JSON output for skill consumption
+npx tsx scripts/monitor.ts --non-interactive --output-format json
+
+# Send directive with JSON output
 npx tsx scripts/monitor.ts \
   --send backend-api \
-  --directive "Add rate limiting to login endpoint"
+  --directive "Add rate limiting to login endpoint" \
+  --non-interactive --output-format json
 ```
 
 ---

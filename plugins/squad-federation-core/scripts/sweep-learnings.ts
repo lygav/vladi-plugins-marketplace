@@ -35,6 +35,7 @@ const flags = {
   minOccurrences: parseInt(args.find(a => a.startsWith('--min-occurrences='))?.split('=')[1] || '2'),
   output: args.find(a => a.startsWith('--output='))?.split('=')[1] || null,
   tags: args.find(a => a.startsWith('--tags='))?.split('=')[1]?.split(',') || null,
+  outputFormat: (args.indexOf('--output-format') >= 0 && args[args.indexOf('--output-format') + 1] === 'json' ? 'json' : 'text') as 'text' | 'json',
 };
 
 // ==================== Discovery ====================

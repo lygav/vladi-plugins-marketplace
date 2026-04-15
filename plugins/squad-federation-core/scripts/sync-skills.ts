@@ -9,6 +9,7 @@
  *   npx tsx scripts/sync-skills.ts --skill my-skill        # Sync specific skill
  *   npx tsx scripts/sync-skills.ts --team my-team          # Sync to specific team
  *   npx tsx scripts/sync-skills.ts --dry-run               # Show what would change
+ *   npx tsx scripts/sync-skills.ts --non-interactive --output-format json
  */
 
 import * as fs from 'fs';
@@ -36,12 +37,25 @@ interface TeamSyncInfo {
   conflicts: string[];
 }
 
+type OutputFormat = 'text' | 'json';
+
+export interface SyncResult {
+  success: boolean;
+  teamsProcessed: number;
+  teamsSynced: number;
+  teamsSkipped: number;
+  teamsConflicted: number;
+  details: Array<{ domain: string; synced: boolean; conflicts: string[] }>;
+  dryRun: boolean;
+}
+
 // Parse CLI args
 const args = process.argv.slice(2);
 const flags = {
   skill: args.find(a => a.startsWith('--skill='))?.split('=')[1] || args.find((a, i) => args[i - 1] === '--skill') || null,
   domain: args.find(a => a.startsWith('--team='))?.split('=')[1] || args.find((a, i) => args[i - 1] === '--team') || null,
   dryRun: args.includes('--dry-run'),
+  outputFormat: (args.indexOf('--output-format') >= 0 && args[args.indexOf('--output-format') + 1] === 'json' ? 'json' : 'text') as OutputFormat,
 };
 
 // ==================== Discovery ====================
