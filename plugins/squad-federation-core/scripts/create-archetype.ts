@@ -819,7 +819,7 @@ How teams work through the {{name}} lifecycle.
 
 **Knowledge Integration:** Each phase description above should include a "**Knowledge:**" callout explaining what to log and when. Update this playbook skill with phase-specific knowledge capture instructions.
 `;
-}}
+}
 
 function getRecoverySkillTemplate(): string {
   return `---

@@ -24,7 +24,6 @@ import {
 import type {
   ScanStatus,
   SignalMessage,
-  DomainWorktree,
   TeamCommunication
 } from '../sdk/types.js';
 
@@ -128,8 +127,8 @@ async function gatherStatus(): Promise<DomainStatus[]> {
         deliverableExists,
         logExists,
         recentLearnings,
-        lastUpdateMinutes,
-      };
+        ...(lastUpdateMinutes !== undefined && { lastUpdateMinutes }),
+      } satisfies DomainStatus;
     } catch (error) {
       console.error(`Error collecting status for ${team.domain}:`, error);
       return null;

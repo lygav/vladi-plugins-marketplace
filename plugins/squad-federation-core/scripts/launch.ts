@@ -201,7 +201,7 @@ Recovery:
     let tmpl = fs.readFileSync(templatePath, 'utf-8');
     tmpl = tmpl.replace(/\{team\}/g, team);
     tmpl = tmpl.replace(/\{runType\}/g, runType);
-    tmpl = tmpl.replace(/\{playbookSkill\}/g, config.playbookSkill);
+    tmpl = tmpl.replace(/\{playbookSkill\}/g, config.playbookSkill ?? 'domain-playbook');
     base = tmpl;
   }
   // 4. Generic fallback

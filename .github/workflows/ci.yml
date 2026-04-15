@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths: ['plugins/squad-federation-core/**']
+  pull_request:
+    paths: ['plugins/squad-federation-core/**']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: cd plugins/squad-federation-core && npm ci
+      - run: cd plugins/squad-federation-core && npm run typecheck
+      - run: cd plugins/squad-federation-core && npm test

@@ -172,8 +172,8 @@ export const TeamEntrySchema = z.object({
   domain: z.string(),
   domainId: z.string(),
   archetypeId: z.string(),
-  transport: z.enum(['worktree', 'directory', 'remote']),
-  placementType: TeamPlacementTypeSchema.optional(),
+  transport: z.enum(['worktree', 'directory', 'remote']).optional(),
+  placementType: TeamPlacementTypeSchema,
   location: z.string(),
   createdAt: z.string(),
   federation: z
