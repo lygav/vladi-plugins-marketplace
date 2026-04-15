@@ -39,6 +39,20 @@ const __dirname = path.dirname(__filename);
 const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
 
 type RunType = 'first-run' | 'refresh' | 'reset';
+type OutputFormat = 'text' | 'json';
+
+/** Structured result for --output-format json */
+export interface LaunchResult {
+  success: boolean;
+  team: string;
+  domainId: string;
+  pid?: number;
+  logFile?: string;
+  runType?: RunType;
+  skipped?: boolean;
+  skipReason?: string;
+  error?: string;
+}
 
 // ==================== Config Loading ====================
 // Config loading now uses validated config from lib/config/config.ts
@@ -246,8 +260,15 @@ async function launchTeam(
   isReset: boolean,
   targetStep: string | null,
   promptSource: PromptSource,
-): Promise<void> {
+  outputFormat: OutputFormat = 'text',
+): Promise<LaunchResult> {
+  const fail = (error: string): LaunchResult => ({
+    success: false, team: team.domain, domainId: team.domainId, error,
+  });
+
   if (targetStep && isReset) {
+    const msg = 'Cannot use --step with --reset.';
+    if (outputFormat === 'text') {
     console.error('   ❌ Cannot use --step with --reset.');
     console.error('\nRecovery:');
     console.error('  1. To reset a team, use --reset alone:');
@@ -257,13 +278,16 @@ async function launchTeam(
     console.error('  3. To reset AND run a step, do it in two commands:');
     console.error(`     npx tsx scripts/launch.ts --team ${team.domain} --reset`);
     console.error(`     npx tsx scripts/launch.ts --team ${team.domain} --step "your task"`);
-    return;
+    }
+    return fail(msg);
   }
 
   const context = createTeamContext(team, config, REPO_ROOT);
   const validation = await validatePlacement(context.placement, team.domainId);
   if (!validation.valid) {
-    console.error(`   ❌ Invalid workspace: ${validation.issues.join(', ')}`);
+    const msg = `Invalid workspace: ${validation.issues.join(', ')}`;
+    if (outputFormat === 'text') {
+      console.error(`   ❌ ${msg}`);
     console.error(`   Path: ${validation.location}`);
     console.error('\nRecovery:');
     console.error('  1. Check if worktree directory exists:');
@@ -277,17 +301,20 @@ async function launchTeam(
     console.error(`     npx tsx scripts/onboard.ts --name ${team.domain} --domain-id <id> --archetype <name>`);
     console.error('  5. Check git worktree status:');
     console.error(`     git worktree list | grep ${team.domain}`);
-    return;
+    }
+    return fail(msg);
   }
 
   const runType = await detectRunType(context.communication, team.domainId, isReset);
   const worktreePath = validation.location;
 
   // Status header
-  const emoji = runType === 'first-run' ? '🆕' : runType === 'reset' ? '🔄' : '🚀';
-  const mode = targetStep ? `STEP: ${targetStep}` : runType;
-  console.log(`\n${emoji} Launching ${mode} for team ${team.domain}`);
-  console.log(`   Worktree: ${worktreePath}`);
+  if (outputFormat === 'text') {
+    const emoji = runType === 'first-run' ? '🆕' : runType === 'reset' ? '🔄' : '🚀';
+    const mode = targetStep ? `STEP: ${targetStep}` : runType;
+    console.log(`\n${emoji} Launching ${mode} for team ${team.domain}`);
+    console.log(`   Worktree: ${worktreePath}`);
+  }
 
   if (isReset && runType === 'reset') {
     resetTeam(worktreePath);
@@ -308,7 +335,9 @@ async function launchTeam(
   if (config.telemetry.enabled) {
     const otelServerPath = path.resolve(__dirname, 'mcp-otel-server.ts');
     if (!fs.existsSync(otelServerPath)) {
-      console.warn(`   ⚠️  OTel MCP server not found at ${otelServerPath}, skipping telemetry`);
+      if (outputFormat === 'text') {
+        console.warn(`   ⚠️  OTel MCP server not found at ${otelServerPath}, skipping telemetry`);
+      }
     } else {
       const worktreeMcpConfig = {
         mcpServers: {
@@ -325,7 +354,9 @@ async function launchTeam(
       };
       const mcpJsonPath = path.join(worktreePath, '.mcp.json');
       fs.writeFileSync(mcpJsonPath, JSON.stringify(worktreeMcpConfig, null, 2));
-      console.log(`   🔭 OTel MCP config written to ${mcpJsonPath}`);
+      if (outputFormat === 'text') {
+        console.log(`   🔭 OTel MCP config written to ${mcpJsonPath}`);
+      }
     }
   }
 
@@ -335,43 +366,99 @@ async function launchTeam(
     ? ['copilot', '--agent', 'squad', '-p', prompt, '--yolo', '--no-ask-user', '--autopilot']
     : ['-p', prompt, '--yolo', '--no-ask-user', '--autopilot'];
 
+  // Log the command for debugging (written into the log file itself)
+  const cmdLine = `${launcher} ${launcherArgs.map(a => a.includes(' ') ? `"${a}"` : a).join(' ')}`;
+  const header = `# launch.ts \u2014 ${new Date().toISOString()}\n# cwd: ${worktreePath}\n# cmd: ${cmdLine}\n\n`;
+  fs.writeSync(logStream, header);
+
   const proc = spawn(launcher, launcherArgs, {
     cwd: worktreePath,
-    stdio: ['ignore', logStream, logStream],
+    // stdin='pipe' avoids TTY issues that cause 0-byte output with 'inherit'
+    stdio: ['pipe', logStream, logStream],
     detached: true,
     env: process.env,
   });
 
+  // Close stdin immediately \u2014 headless sessions must not wait for input
+  proc.stdin?.end();
+
+  proc.on('error', (err) => {
+    const errMsg = `spawn error for ${team.domain}: ${err.message}`;
+    fs.writeSync(logStream, `\n# ERROR: ${errMsg}\n`);
+    if (outputFormat === 'text') {
+      console.error(`   \u274c ${errMsg}`);
+    }
+  });
+
   proc.unref();
 
-  console.log(`   ✅ Launched — PID: ${proc.pid}`);
-  console.log(`   📄 Log: ${logFile}`);
-  console.log(`   📊 Status: .squad/status.json`);
+  if (outputFormat === 'text') {
+    console.log(`   \u2705 Launched \u2014 PID: ${proc.pid}`);
+    console.log(`   \U0001f4c4 Log: ${logFile}`);
+    console.log(`   \U0001f4ca Status: .squad/status.json`);
+    console.log(`   \U0001f50d Command: ${cmdLine}`);
+  }
+
+  return {
+    success: true,
+    team: team.domain,
+    domainId: team.domainId,
+    pid: proc.pid,
+    logFile,
+    runType,
+  };
 }
 
 // ==================== CLI ====================
 
-async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  let teamName: string | null = null;
-  let allMode = false;
-  let isReset = false;
-  let targetStep: string | null = null;
-  let teamList: string[] = [];
-  let cliPrompt: string | null = null;
-  let cliPromptFile: string | null = null;
+export interface ParsedLaunchArgs {
+  teamName: string | null;
+  allMode: boolean;
+  isReset: boolean;
+  targetStep: string | null;
+  teamList: string[];
+  cliPrompt: string | null;
+  cliPromptFile: string | null;
+  outputFormat: OutputFormat;
+}
 
+export function parseLaunchArgs(args: string[]): ParsedLaunchArgs {
+  const parsed: ParsedLaunchArgs = {
+    teamName: null, allMode: false, isReset: false, targetStep: null,
+    teamList: [], cliPrompt: null, cliPromptFile: null, outputFormat: 'text',
+  };
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
-      case '--team': case '--domain': case '--offering': teamName = args[++i]; break;
-      case '--teams': case '--domains': case '--offerings': teamList = args[++i].split(','); break;
-      case '--all': allMode = true; break;
-      case '--reset': isReset = true; break;
-      case '--step': targetStep = args[++i]; break;
-      case '--prompt': cliPrompt = args[++i]; break;
-      case '--prompt-file': cliPromptFile = args[++i]; break;
+      case '--team': case '--domain': case '--offering': parsed.teamName = args[++i]; break;
+      case '--teams': case '--domains': case '--offerings': parsed.teamList = args[++i].split(','); break;
+      case '--all': parsed.allMode = true; break;
+      case '--reset': parsed.isReset = true; break;
+      case '--step': parsed.targetStep = args[++i]; break;
+      case '--prompt': parsed.cliPrompt = args[++i]; break;
+      case '--prompt-file': parsed.cliPromptFile = args[++i]; break;
+      case '--non-interactive': break;
+      case '--output-format': {
+        const fmt = args[++i];
+        if (fmt !== 'text' && fmt !== 'json') {
+          throw new Error('--output-format must be "text" or "json"');
+        }
+        parsed.outputFormat = fmt;
+        break;
+      }
     }
   }
+  return parsed;
+}
+
+async function main(): Promise<void> {
+  let parsed: ParsedLaunchArgs;
+  try {
+    parsed = parseLaunchArgs(process.argv.slice(2));
+  } catch (err) {
+    console.error(`Error: ${(err as Error).message}`);
+    process.exit(1);
+  }
+  const { teamName, allMode, isReset, targetStep, teamList, cliPrompt, cliPromptFile, outputFormat } = parsed;
 
   if (!teamName && !allMode && teamList.length === 0) {
     console.error('Usage:');
@@ -382,6 +469,7 @@ async function main(): Promise<void> {
     console.error('  npx tsx scripts/launch.ts --team <name> --prompt-file ./task.md');
     console.error('  npx tsx scripts/launch.ts --teams team-a,team-b');
     console.error('  npx tsx scripts/launch.ts --all');
+    console.error('  npx tsx scripts/launch.ts --all --non-interactive --output-format json');
     process.exit(1);
   }
 
@@ -389,27 +477,47 @@ async function main(): Promise<void> {
   const registry = new TeamRegistry(REPO_ROOT);
   const teams = await registry.list();
   const promptSource: PromptSource = { cliPrompt, cliPromptFile };
+  const results: LaunchResult[] = [];
 
   if (allMode) {
-    if (teams.length === 0) { console.log('No registered teams found.'); return; }
-    const activeTeams = teams.filter(t => (t.status ?? 'active') === 'active');
-    if (activeTeams.length === 0) {
-      console.log(`All ${teams.length} team(s) are paused or retired. No teams to launch.`);
+    if (teams.length === 0) {
+      if (outputFormat === 'json') { console.log(JSON.stringify([])); }
+      else { console.log('No registered teams found.'); }
       return;
     }
-    console.log(`Found ${activeTeams.length} active team(s) (${teams.length - activeTeams.length} skipped):`);
-    activeTeams.forEach((team, i) => console.log(`  ${i + 1}. ${team.domain} (${team.archetypeId})`));
-    for (const team of activeTeams) {
-      await launchTeam(team, config, isReset, targetStep, promptSource);
+    const activeTeams = teams.filter(t => (t.status ?? 'active') === 'active');
+    if (activeTeams.length === 0) {
+      if (outputFormat === 'text') {
+        console.log(`All ${teams.length} team(s) are paused or retired. No teams to launch.`);
+      } else {
+        console.log(JSON.stringify(teams.map(t => ({
+          success: false, team: t.domain, domainId: t.domainId,
+          skipped: true, skipReason: `status is "${t.status ?? 'active'}"`,
+        }))));
+      }
+      return;
     }
-    console.log(`\n✅ Launched ${activeTeams.length} team(s). Monitor with: npx tsx scripts/monitor.ts --watch`);
+    if (outputFormat === 'text') {
+      console.log(`Found ${activeTeams.length} active team(s) (${teams.length - activeTeams.length} skipped):`);
+      activeTeams.forEach((team, i) => console.log(`  ${i + 1}. ${team.domain} (${team.archetypeId})`));
+    }
+    for (const team of activeTeams) {
+      const result = await launchTeam(team, config, isReset, targetStep, promptSource, outputFormat);
+      results.push(result);
+    }
+    if (outputFormat === 'json') {
+      console.log(JSON.stringify(results));
+    } else {
+      console.log(`\n✅ Launched ${activeTeams.length} team(s). Monitor with: npx tsx scripts/monitor.ts --watch`);
+    }
   } else {
     const targets = teamName ? [teamName] : teamList;
     const matched = teams.filter(team => targets.includes(team.domain));
     if (matched.length === 0) {
-      console.error(`Team(s) not found: ${targets.join(', ')}`);
-      console.log('Available:', teams.map(t => t.domain).join(', ') || '(none)');
-      console.error('\nRecovery:');
+      if (outputFormat === 'text') {
+        console.error(`Team(s) not found: ${targets.join(', ')}`);
+        console.log('Available:', teams.map(t => t.domain).join(', ') || '(none)');
+        console.error('\nRecovery:');
       console.error('  1. List all registered teams:');
       console.error('     npx tsx scripts/monitor.ts');
       console.error('  2. Check team registry:');
@@ -420,6 +528,11 @@ async function main(): Promise<void> {
       console.error(`     npx tsx scripts/onboard.ts --name ${targets[0]} --domain-id <id> --archetype <name>`);
       console.error('  5. Verify correct team name (case-sensitive):');
       console.error(`     Available teams: ${teams.map(t => t.domain).join(', ')}`);
+      } else {
+        console.log(JSON.stringify(targets.map(t => ({
+          success: false, team: t, domainId: '', error: 'Team not found',
+        }))));
+      }
       process.exit(1);
     }
     for (const team of matched) {
@@ -433,7 +546,12 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error) => {
-  console.error(`Launch failed: ${(error as Error).message}`);
-  process.exit(1);
-});
+// Only execute main() when run directly (not when imported for testing)
+const isDirectRun = process.argv[1]?.endsWith('launch.ts') ||
+  process.argv[1]?.endsWith('launch.js');
+if (isDirectRun) {
+  main().catch((error) => {
+    console.error(`Launch failed: ${(error as Error).message}`);
+    process.exit(1);
+  });
+}

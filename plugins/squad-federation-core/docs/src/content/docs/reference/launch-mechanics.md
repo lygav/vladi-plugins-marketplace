@@ -99,8 +99,31 @@ npx tsx scripts/launch.ts --team <name> --step <step>      # run single step
 npx tsx scripts/launch.ts --team <name> --prompt "do X"    # override prompt
 npx tsx scripts/launch.ts --team <name> --prompt-file X.md # prompt from file
 npx tsx scripts/launch.ts --teams a,b,c                    # launch multiple
-npx tsx scripts/launch.ts --all                            # launch all teams
+npx tsx scripts/launch.ts --all                            # launch all active teams
+npx tsx scripts/launch.ts --all --non-interactive --output-format json  # ADR-001 mode
 ```
+
+### ADR-001 Flags
+
+For skill integration and CI use, `launch.ts` supports:
+
+- `--non-interactive` — Accepted for consistency (launch is always non-interactive)
+- `--output-format json` — Produces structured `LaunchResult` JSON instead of human-readable text
+
+### Headless Process Spawn
+
+The spawned Copilot process uses `stdio: ['pipe', logFile, logFile]` with stdin closed immediately after spawn. This avoids TTY issues that previously caused 0-byte log files when using `'inherit'` or `'ignore'` for stdin.
+
+Each log file begins with a debug header:
+```
+# launch.ts — 2025-01-15T10:30:00.000Z
+# cwd: /path/to/.worktrees/backend-api
+# cmd: copilot -p "..." --yolo --no-ask-user --autopilot
+```
+
+### Launch Guards
+
+Teams with `status: "paused"` or `status: "retired"` are automatically skipped. In `--all` mode, the count of skipped teams is reported. In targeted mode (single `--team`), each skipped team produces a warning or a JSON result with `skipped: true`.
 
 For a complete scripts listing, see [Scripts Reference](/vladi-plugins-marketplace/reference/scripts).
 
