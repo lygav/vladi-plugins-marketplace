@@ -499,9 +499,9 @@ Study the built-in archetypes to see how the same concepts map differently:
 |--------|-------------|--------|------------|
 | **Output** | File artifacts | Code changes (PRs) | Review reports |
 | **Spectrum** | Batch | Iterative | Service |
-| **Lifecycle** | 4 states (linear) | 5+ states (linear with pause) | 6 states (loop) |
+| **Lifecycle** | 4 states (linear) | 5+ states (linear with pause) | 5 states (loop) |
 | **Aggregation** | Yes (merge JSON files) | No (PRs are independent) | No |
-| **Pauseable** | No | Yes (`waiting-for-review`) | Yes (`waiting-for-feedback`) |
+| **Pauseable** | Yes | Yes (`pr-review`) | Yes (`waiting-for-feedback`) |
 | **External APIs** | None | GitHub API | None |
 
 ## Best Practices
