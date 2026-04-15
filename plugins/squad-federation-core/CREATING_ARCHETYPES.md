@@ -363,7 +363,7 @@ plugins/squad-archetype-{name}/
   "name": "squad-archetype-deliverable",
   "version": "0.1.0",
   "description": "Teams that produce file artifacts",
-  "coreCompatibility": ">=0.4.0",
+  "coreCompatibility": ">=0.5.0",
   "meta": {
     "skills": "meta/skills/",
     "agents": "meta/agents/",
