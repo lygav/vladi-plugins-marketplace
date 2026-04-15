@@ -1,28 +1,31 @@
 ---
-updated_at: 2025-04-15T06:00:00Z
-focus_area: v0.5.0 shipped — docs refresh in progress
-active_issues: [130, 122, 102, 6]
+updated_at: 2025-04-15T12:00:00Z
+focus_area: v0.5.0 shipped — docs refreshed, Astro site deployed
+active_issues: [122, 6]
 version: "0.5.0"
 ---
 
 # What We're Focused On
 
-v0.5.0 shipped with Teams channel communication. Currently refreshing all docs from code scan. Next: Astro docs site (#102), e2e smoke tests (#122), pipeline archetype (#6).
+v0.5.0 shipped successfully. Documentation refreshed and aligned with code reality. Astro Starlight docs site deployed to GitHub Pages. Package structure consolidated.
 
-## Key Outcomes This Sprint
+## Recent Completions
 - ✅ v0.5.0 released with `TeamsCommunication` adapter
-- ✅ Hashtag protocol for Teams channels (#meta, #meta-status, #{teamId})
-- 🔄 Documentation audit in progress — ground truth scan created
-- 📋 Next: Complete docs refresh aligned with code reality
+- ✅ Hashtag protocol (#meta, #meta-status, #{teamId}) implemented
+- ✅ Documentation audit completed and docs updated (issue #130)
+- ✅ Astro Starlight site deployed to GitHub Pages (issue #102)
+- ✅ Package.json moved to plugin root, ESM imports fixed
 
-## Current Blockers
-- Docs are out of sync with v0.5.0 architecture
-- Need Astro site for public docs (issue #102)
-- E2E smoke tests not in place (issue #122)
+## Next Up
+- E2E smoke tests (issue #122)
+- Pipeline archetype implementation (issue #6)
+
+## No Blockers
+All critical issues resolved. Ready for next iteration.
 
 ## Agents Active
 - **mal**: Architecture review, code quality
-- **kaylee**: SDK types & implementation
+- **kaylee**: SDK implementation (sonnet preferred)
 - **wash**: Federation patterns & signals
 - **zoe**: Test coverage & contract tests
 - **scribe**: Documentation & memory sync

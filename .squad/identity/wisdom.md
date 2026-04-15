@@ -14,12 +14,14 @@ last_updated: 2025-04-15
 - `TeamPlacement` interface: workspace mgmt, file I/O, bootstrap
 - Implementations: `DirectoryPlacement`, `WorktreePlacement`
 - Each team can use different placement types
+- Package.json at plugin root (not nested in scripts/)
 
 **Communication** = HOW teams exchange signals (federation-scoped, single strategy)
 - `TeamCommunication` interface: status, signals, learning log
 - Implementations: `FileSignalCommunication`, `TeamsCommunication`
 - All teams in a federation use same communication type
 - Signal protocol: inbox/outbox JSON files with signal types (directive, question, report, alert)
+- Teams channel hashtag protocol: #meta (federation), #meta-status (status), #{teamId} (team-specific)
 
 ### Adapter Registry Pattern
 
@@ -45,7 +47,7 @@ Extensible transport design:
 - `team-registry.ts` enumerates teams from placement
 - `getTeams()` returns `TeamContext` objects with placement + communication adapters
 - Contract: placement must have `getLocation(teamId)` to build team list
-- This is how scripts discover which teams exist
+- This is how scripts discover which teams exist (not worktree-utils)
 
 ### Script Architecture
 
@@ -87,9 +89,11 @@ Domain field: 'generalizable' for cross-team learnings
 
 ### Docs Live With Code
 
-- Documentation updates in SAME PR as code changes
+- Documentation updates in SAME PR as code changes (SDLC rule)
 - Ground truth scan reveals what code actually does
 - Never let docs drift from implementation
+- If a PR changes behavior, config, or interfaces → docs update required
+- Not a follow-up, not optional
 
 ### Interface Factories Must Be Universal
 

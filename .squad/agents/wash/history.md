@@ -13,107 +13,45 @@ updated: 2025-04-15
 - Archetype pattern analysis
 - Knowledge management system design
 
-## Key Knowledge
+## Federation Architecture
 
-### Federation Architecture
+### Structure
+- Teams organized by domain (unique domainId)
+- Teams coordinate via signals
+- **Placement** is per-team (can mix WorktreePlacement and DirectoryPlacement)
+- **Communication** is federation-wide (all teams use same transport)
 
-**Structure:**
-- Teams organized by domain (e.g., "ml", "infra", "frontend")
-- Each team has a `domainId` (unique identifier within domain)
-- Teams coordinate via signals across federation
-
-**Placement vs Communication:**
-- **Placement** is per-team — can mix WorktreePlacement and DirectoryPlacement in same federation
-- **Communication** is federation-wide — all teams use same transport (FileSignalCommunication or TeamsCommunication)
-- This allows heterogeneous placement strategies while maintaining unified communication
-
-### Signal Protocol Architecture
-
-**Core Components:**
-- **SignalMessage** interface: from, to, type, subject, body, protocol, id, timestamp
-- **Types**: directive (action request), question (need answer), report (status), alert (urgent)
-- **Direction**: inbox (received), outbox (sent)
-- **Storage**: JSON files in `.squad/inbox.json` and `.squad/outbox.json`
-- **Acknowledgment**: explicit `acknowledgeSignal()` call (remove from inbox)
-
-**v0.5.0 Addition: Teams Hashtags**
-- `#meta` — federation-wide announcements
-- `#meta-status` — status and health checks
-- `#{teamId}` — team-specific channels
+### Signal Protocol (v0.5.0)
+- **Types:** directive (action), question (need answer), report (status), alert (urgent)
+- **Direction:** inbox (received), outbox (sent)
+- **Storage:** JSON files in `.squad/inbox.json` and `.squad/outbox.json`
+- **Acknowledgment:** explicit `acknowledgeSignal()` call
+- **Teams hashtags:** #meta (federation), #meta-status (status), #{teamId} (team-specific)
 
 ### Archetype System
-
-**Purpose:**
-- Template for team initialization
-- Defines team lifecycle states and transitions
-- Contains team-specific skills and behaviors
-- Located in `plugins/squad-archetype-*/` directories
+**Purpose:** Template for team initialization with lifecycle states, skills, behaviors
 
 **Key Files:**
-- `agent.yaml` — Agent definition for archetype
-- `monitor.ts` — Archetype-specific monitoring logic (extends MonitorBase)
-- `triage.ts` — Issue classification logic (extends TriageBase)
-- `recovery.ts` — Automated recovery logic (extends RecoveryBase)
+- `agent.yaml` — Agent definition
+- `monitor.ts` — Extends MonitorBase
+- `triage.ts` — Extends TriageBase  
+- `recovery.ts` — Extends RecoveryBase
 
-**Archetype Registry:**
-- Teams have `archetypeId` field
-- PlacementRegistry and CommunicationRegistry keyed by archetypeId
-- Bootstrap uses archetypeId to instantiate correct placement
+**Registry:** PlacementRegistry and CommunicationRegistry keyed by archetypeId
 
 ### Knowledge Management
+**LearningEntry Types:** discovery, correction, pattern, technique, gotcha  
+**Confidence:** low, medium, high  
+**Domains:** Team-specific or 'generalizable'  
+**Graduation:** Mark `graduated: true`, link to skill/doc via `graduated_to`
 
-**LearningEntry Types:**
-- `discovery` — New insight about system/domain
-- `correction` — Fix to previous understanding
-- `pattern` — Reusable technique or architecture
-- `technique` — How-to knowledge
-- `gotcha` — Pitfall or edge case to watch
-
-**Confidence Levels:**
-- `low` — Uncertain, needs validation
-- `medium` — Fairly confident, observed in practice
-- `high` — Verified, proven in multiple contexts
-
-**Domains:**
-- Team-specific learning tagged with domain
-- 'generalizable' domain for federation-wide patterns
-- Enables cross-team learning without losing context
-
-**Graduation:**
-- Learning entries can be marked `graduated: true`
-- `graduated_to` field links to skill or documentation location
-- Tracks when knowledge moves from learning log to permanent system
-
-## Archetype Research Findings
-
-### Current Archetypes
-- **squad-archetype-ml-team** — ML domain (monitor, triage, recovery)
-- **squad-archetype-infra-team** — Infrastructure (monitor, triage, recovery)
-- **squad-archetype-[others]** — Additional domain-specific implementations
-
-### Pattern: Extensible Monitoring
-- `MonitorBase` abstract class with `monitor(teamId): Promise<MonitorResult>`
-- Archetype implements domain-specific health checks
-- Results aggregated by orchestration layer
-- Metrics emitted via OTel
-
-### Pattern: Intelligent Triage
-- `TriageBase` abstract class with `triage(issue): Promise<TriageResult>`
-- Classify issues by type, severity, automatable
-- Output feeds recovery system
-
-### Pattern: Automated Recovery
-- `RecoveryBase` abstract class with `recover(issue): Promise<RecoveryResult>`
-- Implement fix logic for known issue patterns
-- Fallback: escalate unrecognizable issues
+## Archetype Patterns
+- **MonitorBase** — Domain-specific health checks
+- **TriageBase** — Issue classification (type, severity, automatable)
+- **RecoveryBase** — Automated fix logic with fallback escalation
 
 ## SDLC Rules
-1. **Document as you design** — protocol changes need docs
-2. **Signal flow is critical** — test end-to-end signal routing
-3. **Attribution matters**: Co-authored-by trailers
-4. **Ground truth from code** — verify implementation against documentation
+1. **Document protocols** — Signal flow needs end-to-end docs
+2. **Test signal routing** — Verify round-trip delivery
+3. **Ground truth from code** — When unsure, scan implementation
 
-## Known Protocols
-- v0.5.0: Teams channel hashtag protocol
-- v0.4.0+: JSON file signals in .squad/ directories
-- Future: gRPC signals (planned, not implemented)
