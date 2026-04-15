@@ -84,6 +84,12 @@ export interface TeamContext {
 
 **What it does:** Encapsulates everything needed to work with a team—domain identity, workspace location, archetype type, and the adapters for file/signal operations.
 
+### TeamEntry
+
+Registry entry. Status field (v0.5.0+): `active` (default) | `paused` | `retired`.
+
+Lifecycle: `active → paused ⇄ active`, `active|paused → retired` (terminal).
+
 ## Data Schemas
 
 ### ScanStatus

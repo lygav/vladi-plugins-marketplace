@@ -218,6 +218,14 @@ export interface TeamEntry {
 
   location: string;
   createdAt: string;
+
+  /** Team lifecycle status. @default 'active' @since v0.5.0 */
+  status?: 'active' | 'paused' | 'retired';
+  /** ISO 8601 timestamp when team was paused. @since v0.5.0 */
+  pausedAt?: string;
+  /** ISO 8601 timestamp when team was retired. @since v0.5.0 */
+  retiredAt?: string;
+
   federation?: {
     parent: string;
     parentLocation: string;

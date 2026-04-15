@@ -166,6 +166,11 @@ export const ArchetypeManifestSchema = z.object({
 export const TeamPlacementTypeSchema = z.enum(['worktree', 'directory']);
 
 /**
+ * TeamStatus Schema — Validates team lifecycle status. @since v0.5.0
+ */
+export const TeamStatusSchema = z.enum(['active', 'paused', 'retired']);
+
+/**
  * TeamEntry Schema — Validates team registry entries
  */
 export const TeamEntrySchema = z.object({
@@ -176,6 +181,9 @@ export const TeamEntrySchema = z.object({
   placementType: TeamPlacementTypeSchema,
   location: z.string(),
   createdAt: z.string(),
+  status: TeamStatusSchema.optional().default('active'),
+  pausedAt: z.string().optional(),
+  retiredAt: z.string().optional(),
   federation: z
     .object({
       parent: z.string(),

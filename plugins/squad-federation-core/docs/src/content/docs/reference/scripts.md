@@ -216,6 +216,14 @@ npx tsx scripts/sync-skills.ts \
 
 ---
 
+### `offboard.ts`
+
+**What it does:** Retires, pauses, or resumes a team.
+
+**Parameters:** `--team`, `--mode retire|pause|resume`, `--force`, `--non-interactive`, `--output-format json`
+
+---
+
 ## Helper Scripts
 
 ### `init-federation.ts`

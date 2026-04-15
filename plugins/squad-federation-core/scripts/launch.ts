@@ -392,12 +392,17 @@ async function main(): Promise<void> {
 
   if (allMode) {
     if (teams.length === 0) { console.log('No registered teams found.'); return; }
-    console.log(`Found ${teams.length} team(s):`);
-    teams.forEach((team, i) => console.log(`  ${i + 1}. ${team.domain} (${team.archetypeId})`));
-    for (const team of teams) {
+    const activeTeams = teams.filter(t => (t.status ?? 'active') === 'active');
+    if (activeTeams.length === 0) {
+      console.log(`All ${teams.length} team(s) are paused or retired. No teams to launch.`);
+      return;
+    }
+    console.log(`Found ${activeTeams.length} active team(s) (${teams.length - activeTeams.length} skipped):`);
+    activeTeams.forEach((team, i) => console.log(`  ${i + 1}. ${team.domain} (${team.archetypeId})`));
+    for (const team of activeTeams) {
       await launchTeam(team, config, isReset, targetStep, promptSource);
     }
-    console.log(`\n✅ Launched ${teams.length} team(s). Monitor with: npx tsx scripts/monitor.ts --watch`);
+    console.log(`\n✅ Launched ${activeTeams.length} team(s). Monitor with: npx tsx scripts/monitor.ts --watch`);
   } else {
     const targets = teamName ? [teamName] : teamList;
     const matched = teams.filter(team => targets.includes(team.domain));
@@ -418,6 +423,11 @@ async function main(): Promise<void> {
       process.exit(1);
     }
     for (const team of matched) {
+      const teamStatus = team.status ?? 'active';
+      if (teamStatus !== 'active') {
+        console.error(`   ⏭️  Skipping ${team.domain} — status is "${teamStatus}"`);
+        continue;
+      }
       await launchTeam(team, config, isReset, targetStep, promptSource);
     }
   }
