@@ -32,6 +32,13 @@ If the file doesn't exist, redirect to federation-setup:
 
 Then invoke the `federation-setup` skill.
 
+### Bootstrap (run first)
+
+Before running any scripts, ensure the plugin environment is ready:
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs
+```
+
 ## Conversational Flow
 
 This is the CONVERSATIONAL phase — ask questions, collect parameters, then execute the mechanical script.

@@ -16,6 +16,13 @@ Team composition is handled by Squad's casting system. Don't ask for roles, team
 
 Before starting, verify the environment. Run all checks, collect results, then report a summary.
 
+### Bootstrap (run first)
+
+Before running any scripts, ensure the plugin environment is ready:
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs
+```
+
 ### Required: Squad
 
 ```bash

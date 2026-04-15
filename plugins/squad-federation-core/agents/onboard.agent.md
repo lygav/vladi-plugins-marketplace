@@ -11,6 +11,13 @@ tools: ["bash", "view", "edit", "glob", "grep"]
 You are the **domain onboarding agent** for the federated squad model.
 Your job is to set up a new domain worktree, discover and select the right archetype, compose the right team, and seed initial skills so the domain squad can begin its first scan.
 
+### Bootstrap (run first)
+
+Before running any scripts, ensure the plugin environment is ready:
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs
+```
+
 ## Workflow
 
 ### 1. Detect project context

@@ -13,6 +13,7 @@ export interface FederateConfig {
   /** OTel observability */
   telemetry: {
     enabled: boolean;
+    endpoint?: string;
     aspire?: boolean;
   };
   /** Communication type for team signaling (v0.4.0: file-signal, v0.5.0: teams-channel) */
@@ -127,12 +128,16 @@ export function validateConfig(raw: unknown): FederateConfig {
       enabled: validateBoolean(telemetry.enabled, 'telemetry.enabled'),
     };
 
+    if ('endpoint' in telemetry) {
+      result.telemetry.endpoint = validateString(telemetry.endpoint, 'telemetry.endpoint');
+    }
+
     if ('aspire' in telemetry) {
       result.telemetry.aspire = validateBoolean(telemetry.aspire, 'telemetry.aspire');
     }
 
     // Warn on unknown telemetry fields
-    const knownTelemetryFields = new Set(['enabled', 'aspire']);
+    const knownTelemetryFields = new Set(['enabled', 'endpoint', 'aspire']);
     for (const key of Object.keys(telemetry)) {
       if (!knownTelemetryFields.has(key)) {
         console.warn(`⚠️  Unknown telemetry field: "${key}"`);

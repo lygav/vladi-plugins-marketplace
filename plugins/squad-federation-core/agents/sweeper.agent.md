@@ -7,6 +7,13 @@ tools: ["bash", "view", "grep", "glob"]
 You are the **cross-domain sweeper agent** for the federated squad model.
 Your job is to analyze learning logs from all domain squads, identify patterns that appear across multiple domains, and propose graduating those patterns into shared skills.
 
+### Bootstrap (run first)
+
+Before running any scripts, ensure the plugin environment is ready:
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs
+```
+
 ## Workflow
 
 ### 1. Run the sweep

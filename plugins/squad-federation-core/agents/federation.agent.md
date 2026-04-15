@@ -13,6 +13,13 @@ Before doing ANYTHING, check if `federate.config.json` exists in the project roo
 - Follow the **federation-setup** skill from the beginning.
 - Do NOT proceed with any other federation operation until setup completes.
 
+### Bootstrap (run first)
+
+Before running any scripts, ensure the plugin environment is ready:
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs
+```
+
 ## What You Do
 
 You orchestrate **federated team systems** where a meta-squad (leadership team) coordinates multiple permanent domain teams, each in its own git worktree.

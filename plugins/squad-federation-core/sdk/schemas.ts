@@ -200,6 +200,7 @@ export const FederateConfigSchema = z.object({
   telemetry: z
     .object({
       enabled: z.boolean(),
+      endpoint: z.string().optional(),
       aspire: z.boolean().optional(),
     })
     .default({ enabled: true }),
