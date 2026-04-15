@@ -5,7 +5,7 @@ description: Inter-team communication formats and conventions
 
 # Signal Protocol
 
-Teams communicate via **signals**—typed messages for directives, questions, reports, and alerts. Squad Federation supports two transport protocols: **file-based** and **Teams channel**.
+Teams communicate via **signals**—typed messages for directives, questions, reports, and alerts. The built-in transport is **file-based** (`file-signal-v1`). Teams notifications (e.g., via Microsoft Teams) are a meta-only notification channel, not a signal transport.
 
 ## Signal Message Format
 
