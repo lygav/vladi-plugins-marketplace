@@ -10,6 +10,8 @@
  *   npx tsx scripts/monitor.ts
  *   npx tsx scripts/monitor.ts --watch --interval 30
  *   npx tsx scripts/monitor.ts --send my-product --directive "Skip repo legacy-utils"
+ *   npx tsx scripts/monitor.ts --non-interactive --output-format json
+ *   npx tsx scripts/monitor.ts --send my-product --directive "msg" --non-interactive --output-format json
  */
 
 import * as path from 'path';
@@ -39,6 +41,8 @@ const FEDERATION_CONFIG = loadAndValidateConfig(path.join(REPO_ROOT, 'federate.c
 
 // ==================== Types ====================
 
+type OutputFormat = 'text' | 'json';
+
 interface DomainStatus {
   domain: string;
   domainId: string;
@@ -48,6 +52,34 @@ interface DomainStatus {
   logExists: boolean;
   recentLearnings: string[];
   lastUpdateMinutes?: number;
+}
+
+export interface MonitorResult {
+  success: boolean;
+  teams: Array<{
+    domain: string;
+    domainId: string;
+    location: string;
+    state: string | null;
+    step: string | null;
+    progressPct: number | null;
+    error: string | null;
+    agentActive: string | null;
+    lastUpdateMinutes: number | null;
+    deliverableExists: boolean;
+    logExists: boolean;
+    recentLearnings: string[];
+  }>;
+  timestamp: string;
+}
+
+export interface DirectiveResult {
+  success: boolean;
+  signalId: string;
+  team: string;
+  directive: string;
+  timestamp: string;
+  error?: string;
 }
 
 // ==================== Helpers ====================
@@ -242,27 +274,21 @@ async function watchMode(intervalSeconds: number): Promise<void> {
   }, intervalSeconds * 1000);
 }
 
-async function sendDirective(domain: string, directiveText: string): Promise<void> {
-  console.log(`📤 Sending directive to ${domain}...\n`);
-
+async function sendDirective(domain: string, directiveText: string, outputFormat: OutputFormat = 'text'): Promise<DirectiveResult> {
+  if (outputFormat === 'text') {
+    console.log(`📤 Sending directive to ${domain}...\n`);
+  }
   const registry = new TeamRegistry(REPO_ROOT);
   const teams = await registry.list();
   const target = teams.find(team => team.domain === domain);
 
   if (!target) {
-    console.error(`❌ Domain not found: ${domain}`);
-    console.log('\nAvailable domains:');
-    teams.forEach(team => console.log(`  - ${team.domain}`));
-    console.error('\nRecovery:');
-    console.error('  1. List all teams to see available domains:');
-    console.error('     npx tsx scripts/monitor.ts');
-    console.error('  2. Check team registry:');
-    console.error('     cat .squad/teams.json');
-    console.error('  3. Verify domain name spelling (case-sensitive)');
-    console.error('  4. If domain should exist, check git worktrees:');
-    console.error('     git worktree list');
-    console.error('  5. If domain is missing, onboard it first:');
-    console.error(`     npx tsx scripts/onboard.ts --name ${domain} --domain-id <id> --archetype <name>`);
+    const result: DirectiveResult = {
+      success: false, signalId: '', team: domain, directive: directiveText,
+      timestamp: new Date().toISOString(), error: `Domain not found: ${domain}`,
+    };
+    if (outputFormat === 'json') { console.log(JSON.stringify(result, null, 2)); }
+    else { console.error(`❌ Domain not found: ${domain}`); }
     process.exit(1);
   }
 
@@ -277,12 +303,35 @@ async function sendDirective(domain: string, directiveText: string): Promise<voi
     body: directiveText,
     protocol: 'v1',
   };
-
   await context.communication.writeInboxSignal(target.domainId, signal);
 
-  console.log(`✅ Directive sent (ID: ${signal.id})`);
-  console.log(`   Location: ${target.location}/.squad/signals/inbox/`);
-  console.log(`   Message: "${directiveText}"\n`);
+  const result: DirectiveResult = {
+    success: true, signalId: signal.id, team: domain,
+    directive: directiveText, timestamp: signal.timestamp,
+  };
+  if (outputFormat === 'json') { console.log(JSON.stringify(result, null, 2)); }
+  else {
+    console.log(`✅ Directive sent (ID: ${signal.id})`);
+    console.log(`   Location: ${target.location}/.squad/signals/inbox/`);
+    console.log(`   Message: "${directiveText}"\n`);
+  }
+  return result;
+}
+
+function statusesToJson(statuses: DomainStatus[]): MonitorResult {
+  return {
+    success: true,
+    teams: statuses.map(ds => ({
+      domain: ds.domain, domainId: ds.domainId, location: ds.location,
+      state: ds.status?.state ?? null, step: ds.status?.step ?? null,
+      progressPct: ds.status?.progress_pct ?? null, error: ds.status?.error ?? null,
+      agentActive: ds.status?.agent_active ?? null,
+      lastUpdateMinutes: ds.lastUpdateMinutes ?? null,
+      deliverableExists: ds.deliverableExists, logExists: ds.logExists,
+      recentLearnings: ds.recentLearnings,
+    })),
+    timestamp: new Date().toISOString(),
+  };
 }
 
 // ==================== CLI Entry Point ====================
@@ -294,12 +343,19 @@ async function main() {
   const intervalIndex = args.indexOf('--interval');
   const sendIndex = args.indexOf('--send');
   const directiveIndex = args.indexOf('--directive');
+  const outputFormatIndex = args.indexOf('--output-format');
+  const outputFormat: OutputFormat =
+    (outputFormatIndex >= 0 && args[outputFormatIndex + 1] === 'json') ? 'json' : 'text';
 
   if (sendIndex >= 0 && args[sendIndex + 1] && directiveIndex >= 0 && args[directiveIndex + 1]) {
     const domain = args[sendIndex + 1];
     const directive = args[directiveIndex + 1];
-    await sendDirective(domain, directive);
+    await sendDirective(domain, directive, outputFormat);
   } else if (watchIndex >= 0) {
+    if (outputFormat === 'json') {
+      console.error('--watch is not compatible with --output-format json');
+      process.exit(1);
+    }
     let interval = DEFAULT_INTERVAL;
     if (intervalIndex >= 0 && args[intervalIndex + 1]) {
       interval = parseInt(args[intervalIndex + 1], 10) || DEFAULT_INTERVAL;
@@ -307,7 +363,11 @@ async function main() {
     await watchMode(interval);
   } else {
     const statuses = await gatherStatus();
-    displayDashboard(statuses);
+    if (outputFormat === 'json') {
+      console.log(JSON.stringify(statusesToJson(statuses), null, 2));
+    } else {
+      displayDashboard(statuses);
+    }
   }
 }
 

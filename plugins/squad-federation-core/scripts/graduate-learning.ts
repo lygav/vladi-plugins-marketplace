@@ -33,6 +33,7 @@ const flags = {
   targetSkill: args.find(a => a.startsWith('--target-skill='))?.split('=')[1] || args.find((a, i) => args[i - 1] === '--target-skill') || null,
   candidates: args.includes('--candidates'),
   fromSweep: args.find(a => a.startsWith('--from-sweep='))?.split('=')[1] || args.find((a, i) => args[i - 1] === '--from-sweep') || null,
+  outputFormat: (args.indexOf('--output-format') >= 0 && args[args.indexOf('--output-format') + 1] === 'json' ? 'json' : 'text') as 'text' | 'json',
 };
 
 // ==================== Discovery ====================
@@ -285,15 +286,32 @@ async function main(): Promise<void> {
 
   // --candidates mode
   if (flags.candidates) {
-    console.log('🔍 Finding graduation candidates...');
+    if (flags.outputFormat === 'text') {
+      console.log('🔍 Finding graduation candidates...');
+    }
     const candidates = await findGraduationCandidates();
 
     if (candidates.length === 0) {
-      console.log('⚪ No graduation candidates found.');
+      if (flags.outputFormat === 'json') {
+        console.log(JSON.stringify({ success: true, candidates: [] }, null, 2));
+      } else {
+        console.log('⚪ No graduation candidates found.');
+      }
       return;
     }
 
-    printCandidates(candidates);
+    if (flags.outputFormat === 'json') {
+      console.log(JSON.stringify({
+        success: true,
+        candidates: candidates.map(c => ({
+          id: c.entry.id, domain: c.domain, teamId: c.teamId,
+          title: c.entry.title, confidence: c.entry.confidence,
+          tags: c.entry.tags, relatedSkill: c.entry.related_skill || null, score: c.score,
+        })),
+      }, null, 2));
+    } else {
+      printCandidates(candidates);
+    }
     return;
   }
 
