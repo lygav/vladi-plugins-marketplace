@@ -147,7 +147,7 @@ copilot plugin install squad-archetype-consultant@vladi-plugins-marketplace
 
 ## Requires
 
-- [squad-federation-core](../squad-federation-core/) >=0.6.0
+- [squad-federation-core](../squad-federation-core/) >=0.7.0
 
 ## Testing
 

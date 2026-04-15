@@ -163,7 +163,7 @@ The root manifest tells core where to find resources:
   "name": "squad-archetype-deliverable",
   "version": "0.1.0",
   "description": "Teams that produce file artifacts",
-  "coreCompatibility": ">=0.6.0",
+  "coreCompatibility": ">=0.7.0",
   "meta": {
     "skills": "meta/skills/",
     "agents": "meta/agents/",
