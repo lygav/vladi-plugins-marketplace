@@ -68,10 +68,12 @@ function parseArgs(args: string[]): ParsedArgs {
     const arg = args[i];
     const value = args[i + 1];
     switch (arg) {
-      case '--name': parsed.name = value; i++; break;
+      case '--name':
+      case '--team': parsed.name = value; i++; break;
       case '--domain-id': parsed.domainId = value; i++; break;
       case '--base-branch': parsed.baseBranch = value; i++; break;
-      case '--description': parsed.description = value; i++; break;
+      case '--description':
+      case '--mission': parsed.description = value; i++; break;
       case '--archetype': parsed.archetype = value; i++; break;
       case '--placement':
       case '--transport':
@@ -221,6 +223,26 @@ async function createTeamWorkspace(
       location = path.isAbsolute(baseDir) || baseDir.startsWith('../')
         ? path.join(baseDir, args.name)
         : path.join(repoRoot, baseDir, args.name);
+
+      // Check if base branch exists (needed for fresh repos with no commits)
+      try {
+        execSync(`git rev-parse --verify "${args.baseBranch}" 2>/dev/null`, {
+          cwd: repoRoot,
+          encoding: 'utf-8',
+          stdio: 'pipe'
+        });
+      } catch {
+        console.log(`Base branch "${args.baseBranch}" doesn't exist yet. Creating initial commit...`);
+        try {
+          execSync('git commit --allow-empty -m "chore: initial commit"', {
+            cwd: repoRoot,
+            encoding: 'utf-8'
+          });
+        } catch (commitErr) {
+          console.error(`Failed to create initial commit: ${commitErr}`);
+          throw commitErr;
+        }
+      }
 
       console.log(`Creating worktree placement for branch: ${branchName}`);
       exec(`git worktree add "${location}" -b "${branchName}" "${args.baseBranch}"`, {
