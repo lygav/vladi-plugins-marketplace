@@ -14,6 +14,34 @@ How teams work through the consultant lifecycle.
 - "consultant workflow"
 - "consultant process"
 
+## Progress Reporting
+
+Report progress at major milestones so meta and the user can track your work. Use the ProgressReporter from the SDK, or use OTel MCP tools directly.
+
+### Using MCP tools (in skill context):
+```
+otel_event name="team.progress.indexing_started" attributes='{"team.domain": "{domain}", "progress.percent": 10, "progress.message": "Indexing codebase"}'
+otel_event name="team.progress.indexing_complete" attributes='{"team.domain": "{domain}", "progress.percent": 50, "progress.message": "Indexing complete — ready for questions"}'
+otel_event name="team.progress.researching" attributes='{"team.domain": "{domain}", "progress.percent": 75, "progress.message": "Researching answer to question"}'
+otel_event name="team.complete" attributes='{"team.domain": "{domain}", "summary": "Answer delivered"}'
+```
+
+### Milestone guidelines for consultant teams:
+- **10%**: Indexing started, analyzing codebase
+- **50%**: Indexing complete, consultant ready for questions
+- **75%**: Researching answer to specific question
+- **100%**: Answer delivered to outbox
+
+### Also write progress signals to outbox:
+Write a JSON file to `.squad/signals/outbox/` for meta relay to pick up:
+```bash
+echo '{"type":"progress","from":"{domain}","subject":"indexing_complete","body":"Analyzed 150 files","metadata":{"percent":50}}' > .squad/signals/outbox/$(date +%s)-progress-indexed.json
+```
+
+**Important**: Only report major milestones. Don't spam with every file read.
+
+---
+
 ## Lifecycle Phases
 
 
