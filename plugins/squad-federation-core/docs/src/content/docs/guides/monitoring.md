@@ -190,10 +190,10 @@ Archetype plugins include monitors that emit domain-specific metrics:
 - Schema validation status
 - Output file size
 
-**Research archetype:**
-- Documents analyzed
-- Patterns discovered
-- Insights logged
+**Consultant archetype:**
+- Questions answered
+- Domains indexed
+- Insights provided
 
 These metrics flow to the telemetry dashboard if enabled.
 

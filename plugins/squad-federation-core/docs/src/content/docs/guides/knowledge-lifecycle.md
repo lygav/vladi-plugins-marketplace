@@ -244,11 +244,7 @@ Teams can query skills conversationally:
 
 > "Do we have any testing patterns?"
 
-Or view files directly:
-```bash
-ls .squad/skills/
-cat .squad/skills/parallel-testing.md
-```
+Skills are stored as markdown files in `.squad/skills/` — the knowledge-lifecycle skill can list and summarize them for you.
 
 ## Learning Log Maintenance
 

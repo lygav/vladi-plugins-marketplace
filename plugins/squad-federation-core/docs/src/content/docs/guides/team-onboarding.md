@@ -161,19 +161,9 @@ You confirm, and the skill executes onboarding.
 
 ### 7. Autonomous Execution
 
-Behind the scenes, the skill calls `scripts/onboard.ts` with the parameters you confirmed:
+Behind the scenes, the skill runs the onboard script automatically with the parameters you confirmed. You don't need to run this yourself — the skill handles it.
 
-```bash
-npx tsx scripts/onboard.ts \
-  --name "frontend" \
-  --domain-id "frontend-abc123" \
-  --archetype "squad-archetype-coding" \
-  --placement worktree \
-  --worktree-dir .worktrees \
-  --description "Build and test React components for the frontend"
-```
-
-**The script:**
+**What happens:**
 1. Creates git branch `squad/frontend` and worktree
 2. Seeds archetype skills and configuration
 3. Bootstraps `.squad/` structure (signals, learnings)
