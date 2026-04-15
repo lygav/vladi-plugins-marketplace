@@ -35,7 +35,9 @@ const HEARTBEAT_PROMPT = `You are the meta-squad heartbeat. This is an automated
 2. Read team status files (.squad/signals/status.json in each worktree).
 3. Summarize what each team is doing in 1-2 lines each.
 4. If any team has alerts or errors, highlight them prominently.
-5. If teamsConfig is set in federate.config.json, post the summary to the Teams channel.
+5. If teamsConfig is configured in federate.config.json, post your summary to the Teams channel using PostChannelMessage and check for #directive messages using ListChannelMessages.
+   - To post: use PostChannelMessage with teamId and channelId from teamsConfig, and your summary as content.
+   - To poll: use ListChannelMessages with teamId and channelId from teamsConfig (top: 10), then act on any messages containing #directive.
 6. If any teams have pending questions in their outbox, relay them.
 7. Check for stuck teams (no status update in >10 minutes while not complete/failed).
 
