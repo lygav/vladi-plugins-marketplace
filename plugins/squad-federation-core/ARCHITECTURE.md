@@ -1,7 +1,7 @@
 # squad-federation-core — Architecture
 
 **Author:** Squad Team (Mal, Wash, Zoe, Ripley, Kaylee)
-**Version:** 0.4.0
+**Version:** 0.5.0
 **Status:** Current
 **Last Updated:** 2026-04-16
 

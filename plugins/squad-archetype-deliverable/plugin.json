@@ -1,7 +1,7 @@
 {
   "name": "squad-archetype-deliverable",
   "description": "Deliverable archetype for squad-federation-core \u2014 scatter-gather pattern producing file artifacts",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": {
     "name": "Vladi Lyga"
   },
@@ -16,7 +16,7 @@
     "git": ">=2.20.0"
   },
   "peerDependencies": {
-    "squad-federation-core": ">=0.4.0"
+    "squad-federation-core": ">=0.5.0"
   },
   "archetype": "archetype.json",
   "meta": {
