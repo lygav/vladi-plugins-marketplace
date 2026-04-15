@@ -34,6 +34,7 @@ import { createTeamContext } from './lib/orchestration/context-factory.js';
 import { TeamRegistry } from './lib/registry/team-registry.js';
 import type { TeamEntry } from '../sdk/types.js';
 import { OTelEmitter } from '../sdk/otel-emitter.js';
+import { v4 as uuidv4 } from 'uuid';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,7 +47,7 @@ const BRANCH_PREFIX = 'squad/';
 
 // ==================== Types ====================
 
-interface ParsedArgs {
+export interface ParsedArgs {
   name: string;
   domainId: string;
   baseBranch: string;
@@ -55,14 +56,42 @@ interface ParsedArgs {
   placement: 'worktree' | 'directory';
   path?: string;
   worktreeDir?: string; // Base directory for worktree placement (defaults to .worktrees)
+  nonInteractive: boolean;
+  outputFormat: 'text' | 'json';
+  dryRun: boolean;
+}
+
+/** Structured result for --output-format json */
+export interface OnboardResult {
+  success: boolean;
+  domain: string;
+  domainId: string;
+  archetype: string;
+  placement: string;
+  location: string;
+  branch?: string;
+  worktreeDir?: string;
+  description?: string;
+  dryRun: boolean;
+  errors?: string[];
 }
 
 // ==================== Argument Parsing ====================
 
-function parseArgs(args: string[]): ParsedArgs {
-  const parsed: Partial<ParsedArgs> = {
-    baseBranch: execSync('git branch --show-current', { encoding: 'utf-8' }).trim(),
+export function parseArgs(args: string[]): ParsedArgs {
+  let baseBranch: string;
+  try {
+    baseBranch = execSync('git branch --show-current', { encoding: 'utf-8', stdio: 'pipe' }).trim();
+  } catch {
+    baseBranch = 'main';
+  }
+
+  const parsed: Partial<ParsedArgs> & { nonInteractive: boolean; outputFormat: 'text' | 'json'; dryRun: boolean } = {
+    baseBranch,
     placement: 'worktree', // default placement
+    nonInteractive: false,
+    outputFormat: 'text',
+    dryRun: false,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -95,10 +124,25 @@ function parseArgs(args: string[]): ParsedArgs {
         break;
       case '--path': parsed.path = value; i++; break;
       case '--worktree-dir': parsed.worktreeDir = value; i++; break;
+      case '--non-interactive': parsed.nonInteractive = true; break;
+      case '--output-format':
+        if (value !== 'text' && value !== 'json') {
+          console.error('Error: --output-format must be "text" or "json"');
+          process.exit(1);
+        }
+        parsed.outputFormat = value as 'text' | 'json';
+        i++;
+        break;
+      case '--dry-run': parsed.dryRun = true; break;
     }
   }
 
-  if (!parsed.name || !parsed.domainId || !parsed.archetype) {
+  // Auto-generate domain-id if not provided (fixes #154)
+  if (!parsed.domainId) {
+    parsed.domainId = uuidv4();
+  }
+
+  if (!parsed.name || !parsed.archetype) {
     console.error('Usage:');
     console.error('  npx tsx scripts/onboard.ts \\');
     console.error('    --name "my-product" \\');
@@ -178,6 +222,16 @@ async function copyDirectory(src: string, dest: string): Promise<void> {
     } else {
       await fsp.copyFile(srcPath, destPath);
     }
+  }
+}
+
+function outputJson(result: OnboardResult): void {
+  process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+}
+
+function log(args: ParsedArgs, ...messages: string[]): void {
+  if (args.outputFormat !== 'json') {
+    console.log(...messages);
   }
 }
 
@@ -468,6 +522,60 @@ This squad uses the inter-squad signal protocol:
   console.log('✓ Federation state scaffolded');
 }
 
+// ==================== Dry Run Validation ====================
+
+export function validateDryRun(args: ParsedArgs, repoRoot: string): OnboardResult {
+  const errors: string[] = [];
+  const branchName = args.placement === 'worktree' ? `${BRANCH_PREFIX}${args.name}` : undefined;
+  const baseDir = args.worktreeDir || '.worktrees';
+
+  let location: string;
+  if (args.placement === 'worktree') {
+    location = path.isAbsolute(baseDir) || baseDir.startsWith('../')
+      ? path.join(baseDir, args.name)
+      : path.join(repoRoot, baseDir, args.name);
+  } else {
+    location = path.resolve(repoRoot, args.path!, args.name);
+  }
+
+  if (branchName) {
+    try {
+      execSync(`git rev-parse --verify ${branchName}`, { cwd: repoRoot, encoding: 'utf-8', stdio: 'pipe' });
+      errors.push(`Branch '${branchName}' already exists. Domain '${args.name}' may already be onboarded.`);
+    } catch { /* good */ }
+  }
+
+  if (fs.existsSync(location)) {
+    errors.push(`Location already exists: ${location}`);
+  }
+
+  const archetypePluginPath = findInstalledPluginPath(args.archetype)
+    || (fs.existsSync(path.join(repoRoot, 'plugins', args.archetype)) ? path.join(repoRoot, 'plugins', args.archetype) : null);
+  if (!archetypePluginPath) {
+    errors.push(`Archetype plugin not found: ${args.archetype}. Install with: copilot plugin install ${args.archetype}@vladi-plugins-marketplace`);
+  }
+
+  try {
+    loadAndValidateConfig(path.join(repoRoot, 'federate.config.json'));
+  } catch (e: any) {
+    errors.push(`Federation config error: ${e.message}`);
+  }
+
+  return {
+    success: errors.length === 0,
+    domain: args.name,
+    domainId: args.domainId,
+    archetype: args.archetype,
+    placement: args.placement,
+    location,
+    branch: branchName,
+    worktreeDir: args.placement === 'worktree' ? baseDir : undefined,
+    description: args.description,
+    dryRun: true,
+    errors: errors.length > 0 ? errors : undefined,
+  };
+}
+
 // ==================== Main ====================
 
 async function main(): Promise<void> {
@@ -480,6 +588,20 @@ async function main(): Promise<void> {
 
     const args = parseArgs(process.argv.slice(2));
     const domainTitle = toTitleCase(args.name);
+
+    // Dry run: validate and return without side effects
+    if (args.dryRun) {
+      const result = validateDryRun(args, REPO_ROOT);
+      if (args.outputFormat === 'json') {
+        outputJson(result);
+      } else if (result.success) {
+        console.log('Dry run passed');
+      } else {
+        console.error('Dry run failed:');
+        for (const err of result.errors!) console.error('  ' + err);
+      }
+      process.exit(result.success ? 0 : 1);
+    }
 
     console.log(`\n🏗️  Onboarding domain: ${domainTitle}`);
     console.log(`   Domain ID: ${args.domainId}`);
@@ -563,30 +685,48 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"`, { cwd: t
 
     emitter.event('onboard.complete', { domain: args.name });
 
-    console.log(`\n✅ Domain onboarded successfully!`);
-    console.log(`   Location: ${teamLocation}`);
-    if (branch) console.log(`   Branch: ${branch}`);
-    console.log(`\n📚 Next steps:`);
-    console.log(`   1. Launch the team: npx tsx scripts/launch.ts --team ${args.name}`);
-    console.log(`   2. Monitor progress: npx tsx scripts/monitor.ts`);
-    console.log(`   3. Send directives: npx tsx scripts/directive.ts --team ${args.name} --message "..."`);
+    if (args.outputFormat === 'json') {
+      const result: OnboardResult = {
+        success: true,
+        domain: args.name,
+        domainId: args.domainId,
+        archetype: args.archetype,
+        placement: args.placement,
+        location: teamLocation,
+        branch,
+        worktreeDir,
+        description: args.description,
+        dryRun: false,
+      };
+      outputJson(result);
+    } else {
+      console.log(`\n✅ Domain onboarded successfully!`);
+      console.log(`   Location: ${teamLocation}`);
+      if (branch) console.log(`   Branch: ${branch}`);
+      console.log(`\n📚 Next steps:`);
+      console.log(`   1. Launch the team: npx tsx scripts/launch.ts --team ${args.name}`);
+      console.log(`   2. Monitor progress: npx tsx scripts/monitor.ts`);
+      console.log(`   3. Send directives: npx tsx scripts/directive.ts --team ${args.name} --message "..."`);
+    }
   });
 }
 
-main().catch((err) => {
-  console.error(`\n❌ Onboarding failed: ${err.message}`);
-  console.error('\nRecovery:');
-  console.error('  1. Check if git repository is initialized:');
-  console.error('     git status');
-  console.error('  2. Verify federation is configured:');
-  console.error('     cat federate.config.json');
-  console.error('  3. Ensure working directory is clean:');
-  console.error('     git status --short');
-  console.error('  4. Check available archetypes:');
-  console.error('     copilot plugin list | grep archetype');
-  console.error('  5. Review full error above for specific failure details');
-  console.error('  6. If archetype installation failed, install manually:');
-  console.error('     copilot plugin install <archetype-name>@vladi-plugins-marketplace');
-  console.error('  7. Check disk space and file permissions');
-  process.exit(1);
-});
+// Only run main() when executed directly (not when imported by tests)
+const isDirectExecution = process.argv[1]?.endsWith('onboard.ts') || process.argv[1]?.endsWith('onboard.js');
+if (isDirectExecution) {
+  main().catch((err) => {
+    const isJsonOutput = process.argv.includes('--output-format') &&
+      process.argv[process.argv.indexOf('--output-format') + 1] === 'json';
+    if (isJsonOutput) {
+      outputJson({
+        success: false, domain: 'unknown', domainId: 'unknown',
+        archetype: 'unknown', placement: 'worktree', location: '',
+        dryRun: false, errors: [err.message],
+      });
+    } else {
+      console.error(`\n❌ Onboarding failed: ${err.message}`);
+      console.error('Recovery: git status && cat federate.config.json');
+    }
+    process.exit(1);
+  });
+}

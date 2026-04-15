@@ -161,7 +161,7 @@ You confirm, and the skill executes onboarding.
 
 ### 7. Autonomous Execution
 
-Behind the scenes, the skill runs the onboard script automatically with the parameters you confirmed. You don't need to run this yourself — the skill handles it.
+Behind the scenes, the skill calls the onboard script with `--non-interactive --output-format json`, passing all collected parameters as CLI flags. The script handles all logic — workspace creation, archetype seeding, federation scaffolding, and team registration.
 
 **What happens:**
 1. Creates git branch `squad/frontend` and worktree
@@ -169,6 +169,25 @@ Behind the scenes, the skill runs the onboard script automatically with the para
 3. Bootstraps `.squad/` structure (signals, learnings)
 4. Registers team in `.squad/teams.json`
 5. Runs `squad init` to cast the team agent
+6. Returns structured JSON result to the skill
+
+**Note:** You can also run onboarding directly from the CLI without the skill:
+```bash
+npx tsx scripts/onboard.ts \
+  --name frontend \
+  --archetype squad-archetype-coding \
+  --mission "Build and test React components" \
+  --non-interactive \
+  --output-format json
+```
+
+Use `--dry-run` to validate without creating anything:
+```bash
+npx tsx scripts/onboard.ts \
+  --name frontend \
+  --archetype squad-archetype-coding \
+  --dry-run --non-interactive --output-format json
+```
 
 **Output:**
 ```
