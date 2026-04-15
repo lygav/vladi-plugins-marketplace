@@ -227,6 +227,14 @@ async function createTeamWorkspace(
         cwd: repoRoot,
         silent: true
       });
+      
+      // Clean inherited .squad/ state from meta-squad
+      // git worktree add checks out from HEAD, which includes meta-squad's .squad/ files
+      const inheritedSquadDir = path.join(location, '.squad');
+      if (fs.existsSync(inheritedSquadDir)) {
+        console.log('Removing inherited meta-squad .squad/ state...');
+        fs.rmSync(inheritedSquadDir, { recursive: true, force: true });
+      }
       break;
     }
     case 'directory': {
@@ -437,17 +445,6 @@ This squad uses the inter-squad signal protocol:
   console.log('✓ Federation state scaffolded');
 }
 
-function cleanMetaSquadFiles(worktreePath: string): void {
-  console.log('Cleaning up meta-squad files...');
-  const toRemove = ['.squad/backlog.md', '.squad/identity', '.squad/orchestration-log'];
-  for (const f of toRemove) {
-    const fp = path.join(worktreePath, f);
-    if (fs.existsSync(fp)) {
-      fs.statSync(fp).isDirectory() ? fs.rmSync(fp, { recursive: true }) : fs.unlinkSync(fp);
-    }
-  }
-}
-
 // ==================== Main ====================
 
 async function main(): Promise<void> {
@@ -490,12 +487,7 @@ async function main(): Promise<void> {
   const teamContext = createTeamContext(teamEntry, config, REPO_ROOT);
   const teamLocation = teamContext.location;
 
-  // Step 5: Clean up meta-squad files for worktree teams
-  if (args.placement === 'worktree') {
-    cleanMetaSquadFiles(teamLocation);
-  }
-
-  // Step 6: Let Squad handle team casting
+  // Step 5: Let Squad handle team casting
   console.log('Initializing squad (team casting handled by Squad)...');
   try {
     exec('squad init', { cwd: teamLocation });
@@ -504,13 +496,13 @@ async function main(): Promise<void> {
     console.log('  ⚠️  squad init not available — team will be cast on first session');
   }
 
-  // Step 7: Register team in TeamRegistry
+  // Step 6: Register team in TeamRegistry
   console.log('Registering team in registry...');
   const registry = new TeamRegistry(REPO_ROOT);
   await registry.register(teamEntry);
   console.log('✓ Team registered');
 
-  // Step 8: Commit for worktree placement
+  // Step 7: Commit for worktree placement
   if (args.placement === 'worktree') {
     console.log('Creating initial commit...');
     exec('git add -A', { cwd: teamLocation });
