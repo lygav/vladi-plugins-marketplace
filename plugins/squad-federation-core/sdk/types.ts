@@ -206,7 +206,7 @@ export interface TeamEntry {
   archetypeId: string;
   
   /** 
-   * @deprecated Use placementType + communicationType instead. Will be removed in v0.5.0.
+   * @deprecated Use placementType instead. Will be removed in v0.5.0.
    */
   transport: 'worktree' | 'directory' | 'remote';
   

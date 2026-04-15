@@ -174,7 +174,6 @@ describe('team-context.test.ts', () => {
     beforeEach(() => {
       mockFederationConfig = {
         projectRoot: '/test/project',
-        communicationType: 'file-signal',
         teams: []
       };
     });
@@ -253,7 +252,6 @@ describe('team-context.test.ts', () => {
       // Federation config specifies communication type
       const config: FederateConfig = {
         projectRoot: '/test/project',
-        communicationType: 'file-signal', // <- from federation config
         teams: []
       };
 
@@ -338,28 +336,6 @@ describe('team-context.test.ts', () => {
         createTeamContext(teamEntry, mockFederationConfig);
       }).toThrow(/Unknown placement type/);
     });
-
-    it('should throw error for unknown communication type', () => {
-      const teamEntry: TeamEntry = {
-        domain: 'test-team',
-        domainId: 'test-id',
-        archetypeId: 'test-archetype',
-        transport: 'directory',
-        placementType: 'directory',
-        location: '/test/teams/test-team',
-        createdAt: new Date().toISOString()
-      };
-
-      const badConfig: FederateConfig = {
-        projectRoot: '/test/project',
-        communicationType: 'unknown-comm' as any,
-        teams: []
-      };
-
-      expect(() => {
-        createTeamContext(teamEntry, badConfig);
-      }).toThrow(/Unknown communication type/);
-    });
   });
 
   describe('placement + communication integration', () => {
@@ -376,7 +352,6 @@ describe('team-context.test.ts', () => {
 
       const config: FederateConfig = {
         projectRoot: '/mock',
-        communicationType: 'file-signal',
         teams: []
       };
 

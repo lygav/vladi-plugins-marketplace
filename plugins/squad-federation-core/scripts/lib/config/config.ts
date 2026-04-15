@@ -10,15 +10,15 @@ import * as fs from 'fs';
 export interface FederateConfig {
   /** Brief description of this federation (optional) */
   description?: string;
+  /** Communication transport type — adapter registry key (default: 'file-signal') */
+  communicationType: string;
   /** OTel observability */
   telemetry: {
     enabled: boolean;
     endpoint?: string;
     aspire?: boolean;
   };
-  /** Communication type for team signaling (v0.4.0: file-signal, v0.5.0: teams-channel) */
-  communicationType: 'file-signal' | 'teams-channel';
-  /** Teams channel configuration (required when communicationType is 'teams-channel') */
+  /** Teams channel for meta-squad notifications — meta posts summaries and polls for #directive from user */
   teamsConfig?: {
     teamId: string;
     channelId: string;
@@ -33,9 +33,9 @@ export interface FederateConfig {
   importHook?: string;
 }
 
-const DEFAULT_CONFIG: Partial<FederateConfig> & { telemetry: { enabled: boolean }; communicationType: 'file-signal' } = {
-  telemetry: { enabled: true },
+const DEFAULT_CONFIG: Partial<FederateConfig> & { communicationType: string; telemetry: { enabled: boolean } } = {
   communicationType: 'file-signal',
+  telemetry: { enabled: true },
   playbookSkill: 'domain-playbook',
 };
 
@@ -92,8 +92,8 @@ export function validateConfig(raw: unknown): FederateConfig {
   // Track known fields for unknown field warnings
   const knownFields = new Set([
     'description',
-    'telemetry',
     'communicationType',
+    'telemetry',
     'teamsConfig',
     'playbookSkill',
     'deliverable',
@@ -105,6 +105,14 @@ export function validateConfig(raw: unknown): FederateConfig {
   for (const key of Object.keys(config)) {
     if (!knownFields.has(key)) {
       console.warn(`⚠️  Unknown config field: "${key}" — this may be a typo`);
+    }
+  }
+
+  // Validate optional communicationType (default: 'file-signal')
+  if ('communicationType' in config) {
+    result.communicationType = validateString(config.communicationType, 'communicationType');
+    if (result.communicationType !== 'file-signal') {
+      console.warn(`⚠️  communicationType "${result.communicationType}" is not a registered adapter — only 'file-signal' is currently available`);
     }
   }
 
@@ -145,16 +153,7 @@ export function validateConfig(raw: unknown): FederateConfig {
     }
   }
 
-  // Validate communicationType
-  if ('communicationType' in config) {
-    const commType = validateString(config.communicationType, 'communicationType');
-    if (commType !== 'file-signal' && commType !== 'teams-channel') {
-      throw new ConfigValidationError('communicationType must be "file-signal" or "teams-channel"');
-    }
-    result.communicationType = commType as 'file-signal' | 'teams-channel';
-  }
-
-  // Validate teamsConfig (required when communicationType is 'teams-channel')
+  // Validate optional teamsConfig (meta-squad notification channel)
   if ('teamsConfig' in config) {
     const teamsConfig = validateObject(config.teamsConfig, 'teamsConfig');
     
@@ -169,11 +168,6 @@ export function validateConfig(raw: unknown): FederateConfig {
       teamId: validateString(teamsConfig.teamId, 'teamsConfig.teamId'),
       channelId: validateString(teamsConfig.channelId, 'teamsConfig.channelId'),
     };
-  }
-
-  // Validate that teamsConfig is provided when communicationType is 'teams-channel'
-  if (result.communicationType === 'teams-channel' && !result.teamsConfig) {
-    throw new ConfigValidationError('teamsConfig is required when communicationType is "teams-channel"');
   }
 
   // Validate optional playbookSkill

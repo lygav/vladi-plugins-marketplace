@@ -154,7 +154,7 @@ Confirm it's running: "✅ Monitoring dashboard live at http://localhost:18888. 
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/meta-relay.ts
 ```
 
-This relay polls team signal outboxes and delivers curated summaries to you — either in the console (for file-signal mode) or as Teams posts (for teams-channel mode). The relay runs continuously, watching for team updates. You can stop it with Ctrl+C.
+This relay polls team signal outboxes and delivers curated summaries to you in the console. The relay runs continuously, watching for team updates. You can stop it with Ctrl+C.
 
 **Store as:**
 
@@ -169,23 +169,21 @@ This relay polls team signal outboxes and delivers curated summaries to you — 
 
 The `endpoint` field tells scripts where to send OTel data (traces, metrics, logs). If Aspire dashboard is running, this is its OTLP receiver. If omitted, telemetry is silent.
 
-### Step 3: Communication Type
+### Step 3: Teams Notifications (Optional)
 
-**Context:** All teams in a federation use the same communication protocol. Communication transport is federation-scoped, not team-scoped.
+**Context:** The meta-squad can post summaries and poll for your directives via a Microsoft Teams channel. This is optional — without it, everything works via the console.
 
-**Ask:** "How should your teams communicate?"
-- **File signals** (default) — Fast, local, no setup needed. Teams write/read signal files in a shared directory.
-- **Teams channel** — Human-accessible message stream in Microsoft Teams. Requires channel details but lets you observe team discussions in real-time.
+**Ask:** "Want to get updates and interact with the leadership team via a Teams channel? (optional — you can always add this later)"
 
-**Default:** File signals (fastest, simplest, no dependencies).
+**Default:** No (console-only is simplest).
 
-**If Teams channel selected:**
+**If yes:**
 
-Ask for the Teams workspace ID and channel ID. Help them find these if needed:
+Ask for the Teams team ID and channel ID. Help them find these if needed:
 
-> "To use a Teams channel for team communication, I need two pieces of information:
-> 1. **Teams workspace ID** (GUID) — the ID of your Microsoft Teams workspace
-> 2. **Channel ID** — the ID of the specific channel where teams will communicate
+> "To set up Teams notifications, I need two pieces of information:
+> 1. **Teams team ID** (GUID) — the ID of your Microsoft Teams workspace
+> 2. **Channel ID** — the ID of the specific channel for meta-squad updates
 >
 > You can find these by running:
 > - List your Teams workspaces: `teams-list_workspaces`
@@ -197,17 +195,9 @@ Once you have both values, validate they're non-empty GUIDs (basic format check)
 
 **Store as:**
 
-For file-signal:
+If yes:
 ```json
 {
-  "communicationType": "file-signal"
-}
-```
-
-For teams-channel:
-```json
-{
-  "communicationType": "teams-channel",
   "teamsConfig": {
     "teamId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
     "channelId": "19:xxxxx@thread.tacv2"
@@ -215,28 +205,29 @@ For teams-channel:
 }
 ```
 
-**After the user selects communication type**, emit an OTel event:
+If no: omit `teamsConfig` entirely.
 
-Use the `otel_event` tool with: name="communication.selected", attributes='{"type": "<file-signal|teams-channel>"}'
-Use the `otel_log` tool with: level="info", message="Communication type selected: <type>"
+**After the user makes their choice**, emit an OTel event:
+
+Use the `otel_event` tool with: name="teams.notification.configured", attributes='{"enabled": <true|false>}'
+Use the `otel_log` tool with: level="info", message="Teams notification channel: <enabled|disabled>"
 
 ### Step 4: Generate config
 
 Assemble `federate.config.json` at the repository root with **only** core fields:
 
-For file-signal:
+Without Teams notifications:
 ```json
 {
   "description": "...",
   "telemetry": {
     "enabled": true,
       "endpoint": "http://localhost:4318"
-  },
-  "communicationType": "file-signal"
+  }
 }
 ```
 
-For teams-channel:
+With Teams notifications:
 ```json
 {
   "description": "...",
@@ -244,7 +235,6 @@ For teams-channel:
     "enabled": true,
       "endpoint": "http://localhost:4318"
   },
-  "communicationType": "teams-channel",
   "teamsConfig": {
     "teamId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
     "channelId": "19:xxxxx@thread.tacv2"
@@ -255,8 +245,7 @@ For teams-channel:
 **Rules for this config:**
 - `description` — from Step 1, verbatim
 - `telemetry.enabled` — from Step 2
-- `communicationType` — from Step 3 (`'file-signal'` or `'teams-channel'`)
-- `teamsConfig` — only if `communicationType` is `'teams-channel'`
+- `teamsConfig` — only if user opted into Teams notifications in Step 3
 
 **Nothing else goes in this file.** No deliverable, no schema, no universe, no importHook, no steps, no roles, no team definitions. Those are archetype or team-level concerns. MCP servers are configured via `.mcp.json` at the project level and teams inherit automatically.
 
@@ -273,15 +262,14 @@ cat > federate.config.json << 'EOF'
   "telemetry": {
     "enabled": true,
       "endpoint": "http://localhost:4318"
-  },
-  "communicationType": "file-signal"
+  }
 }
 EOF
 ```
 
 **After writing the config file**, emit an OTel event:
 
-Use the `otel_event` tool with: name="config.written", attributes='{"path": "federate.config.json", "communicationType": "<type>"}'
+Use the `otel_event` tool with: name="config.written", attributes='{"path": "federate.config.json"}'
 Use the `otel_log` tool with: level="info", message="Federation config written to federate.config.json"
 
 ### Step 5: Cast the meta-squad
@@ -338,11 +326,11 @@ After the config is written and confirmed, provide these reference notes:
 
 ### Adding teams
 
-> Say **"spin up a team for X"** anytime to onboard a new team. Each team gets its own workspace and agent crew — transport (worktree, directory, or Teams channel) is chosen during onboarding, and the crew is cast automatically by Squad based on what the team needs to do.
+> Say **"spin up a team for X"** anytime to onboard a new team. Each team gets its own workspace and agent crew — transport (worktree or directory) is chosen during onboarding, and the crew is cast automatically by Squad based on what the team needs to do.
 
 ### Changing configuration
 
-> Edit `federate.config.json` directly. The schema is minimal — `description` and `telemetry`. Changes take effect on the next team onboard or launch.
+> Edit `federate.config.json` directly. The schema is minimal — `description`, `telemetry`, and optionally `teamsConfig`. Changes take effect on the next team onboard or launch.
 
 ### Adding archetypes
 
@@ -371,10 +359,7 @@ interface FederateConfig {
     enabled: boolean;
   };
 
-  /** Communication type for team signaling */
-  communicationType: 'file-signal' | 'teams-channel';
-
-  /** Teams channel configuration (required when communicationType is 'teams-channel') */
+  /** Teams channel for meta-squad notifications (optional) */
   teamsConfig?: {
     teamId: string;
     channelId: string;
@@ -386,19 +371,18 @@ No other fields in core config. Archetype-specific settings live in the team's w
 
 ### Examples
 
-**File signal communication:**
+**Minimal config:**
 ```json
 {
   "description": "Inventory all Azure services across the organization",
   "telemetry": {
     "enabled": true,
       "endpoint": "http://localhost:4318"
-  },
-  "communicationType": "file-signal"
+  }
 }
 ```
 
-**Teams channel communication:**
+**With Teams notifications:**
 ```json
 {
   "description": "Coordinate security audits across 12 microservices",
@@ -406,7 +390,6 @@ No other fields in core config. Archetype-specific settings live in the team's w
     "enabled": true,
       "endpoint": "http://localhost:4318"
   },
-  "communicationType": "teams-channel",
   "teamsConfig": {
     "teamId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
     "channelId": "19:xxxxx@thread.tacv2"
@@ -443,7 +426,7 @@ To keep the boundary clean, this skill explicitly avoids:
 
 - **Asking for team rosters or roles** — Squad's casting handles composition
 - **Selecting archetypes** — archetype is a team property, chosen during onboarding
-- **Selecting transport mechanisms** — transport (worktree, directory, Teams channel) is chosen per-team during onboarding
+- **Selecting transport mechanisms** — transport (worktree or directory) is chosen per-team during onboarding
 - **Collecting deliverable filenames or schemas** — that's archetype config, handled by the archetype's setup skill during onboarding
 - **Defining pipeline steps** — archetype concern
 - **Setting up import hooks** — archetype concern

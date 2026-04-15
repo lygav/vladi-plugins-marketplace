@@ -20,7 +20,7 @@ interface SignalMessage {
   type: 'directive' | 'question' | 'report' | 'alert';
   subject: string;            // Short summary
   body: string;               // Full message content
-  protocol: string;           // 'file-signal-v1' or 'teams-channel-v1'
+  protocol: string;           // 'file-signal-v1'
   acknowledged?: boolean;     // Has recipient seen this?
   acknowledged_at?: string;   // When acknowledgment occurred
 }
@@ -173,83 +173,6 @@ To send a signal:
 2. Create `SignalMessage` object
 3. Write to recipient's `inbox/` as JSON
 4. Write to own `outbox/` for record
-
-## Teams Channel Protocol (`teams-channel-v1`)
-
-Signals are Microsoft Teams messages with hashtag routing.
-
-### Hashtags
-
-Teams use hashtags to route messages:
-
-- `#meta` — Message to meta-squad
-- `#{teamId}` — Message to specific team (e.g., `#backend-api`)
-- `#meta-status` — Status report from team to meta
-- `#meta-error` — Error alert from team to meta
-
-### Message Format
-
-**Plain text:**
-```
-#backend-api
-Subject: Implement user authentication
-
-Build JWT-based auth with login, logout, and token refresh endpoints.
-```
-
-**Adaptive Card:**
-```json
-{
-  "type": "AdaptiveCard",
-  "version": "1.4",
-  "body": [
-    {
-      "type": "TextBlock",
-      "text": "Implement user authentication",
-      "weight": "Bolder",
-      "size": "Medium"
-    },
-    {
-      "type": "TextBlock",
-      "text": "Build JWT-based auth with login, logout, and token refresh endpoints.",
-      "wrap": true
-    }
-  ],
-  "msteams": {
-    "entities": [
-      {
-        "type": "hashtag",
-        "text": "#backend-api"
-      }
-    ]
-  }
-}
-```
-
-### Parsing
-
-When polling Teams:
-1. Fetch messages from channel (newest first)
-2. Extract hashtags from message text or `msteams.entities`
-3. Determine `from` (author) and `to` (hashtag team)
-4. Parse subject (first line) and body (rest)
-5. Infer `type` from keywords or context
-6. Return as `SignalMessage`
-
-### Sending
-
-To send a signal:
-1. Format message with hashtag
-2. Post to Teams channel via Graph API
-3. Store message ID for acknowledgment tracking
-
-### Acknowledgment
-
-Recipient reacts to message with ✅ emoji or replies:
-```
-#meta
-Acknowledged: Implement user authentication
-```
 
 ## Signal Lifecycle
 

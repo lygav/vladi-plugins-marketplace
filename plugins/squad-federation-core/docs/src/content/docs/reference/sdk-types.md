@@ -137,7 +137,7 @@ interface SignalMessage {
 - `report` — Share findings or status
 - `alert` — Raise error or blocking issue
 
-**Protocol values:** `file-signal-v1` or `teams-channel-v1`
+**Protocol values:** `file-signal-v1`
 
 ### LearningEntry
 
@@ -179,21 +179,6 @@ File-based signals (JSON inbox/outbox).
 - Writes signals as JSON files
 - Reads by parsing directory contents
 - Acknowledgment via `.ack` files
-
-### TeamsChannelCommunication
-
-Microsoft Teams channel with hashtag protocol.
-
-**Hashtags:**
-- `#meta` — Messages to meta-squad
-- `#{teamId}` — Messages to specific team
-- `#meta-status` — Status reports from teams
-- `#meta-error` — Error alerts from teams
-
-**How it works:**
-- Posts signals as Adaptive Cards or text
-- Polls channel for messages with relevant hashtags
-- Parses hashtags to determine routing
 
 ## Next Steps
 

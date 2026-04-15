@@ -31,7 +31,6 @@ This page documents the scripts for reference and troubleshooting, but you shoul
 - `--placement <type>` — `worktree` or `directory`
 - `--mission <text>` — Initial mission/directive
 - `--branch <name>` — (For worktree) Git branch to create
-- `--communication <type>` — `file-signal` or `teams-channel`
 
 **What it creates:**
 ```
@@ -226,14 +225,11 @@ npx tsx scripts/sync-skills.ts \
 **Called by:** `federation-setup` skill
 
 **Parameters:**
-- `--communication <type>` — `file-signal` or `teams-channel`
 - `--description <text>` — (Optional) Federation description
-- `--teams-team-id <guid>` — (If teams-channel) Teams team ID
-- `--teams-channel-id <guid>` — (If teams-channel) Teams channel ID
 
 **Example (manual invocation):**
 ```bash
-npx tsx scripts/init-federation.ts --communication file-signal
+npx tsx scripts/init-federation.ts
 ```
 
 ---

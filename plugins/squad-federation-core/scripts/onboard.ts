@@ -484,7 +484,6 @@ async function main(): Promise<void> {
     console.log(`\n🏗️  Onboarding domain: ${domainTitle}`);
     console.log(`   Domain ID: ${args.domainId}`);
     console.log(`   Placement: ${args.placement}`);
-    console.log(`   Communication: ${config.communicationType}`);
     if (args.description) console.log(`   Description: ${args.description}`);
     console.log('');
 

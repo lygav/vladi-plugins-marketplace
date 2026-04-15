@@ -15,9 +15,6 @@ Located at the root of your repository. Created when you set up federation using
 
 ```typescript
 interface FederateConfig {
-  // Communication protocol
-  communicationType: 'file-signal' | 'teams-channel';
-  
   // Optional: Federation description
   description?: string;
   
@@ -29,7 +26,7 @@ interface FederateConfig {
     };
   };
   
-  // Optional: Teams channel configuration (when communicationType = 'teams-channel')
+  // Optional: Teams channel for meta-squad notifications
   teamsConfig?: {
     teamId: string;           // MS Teams team ID
     channelId: string;        // MS Teams channel ID
@@ -49,11 +46,10 @@ interface FederateConfig {
 }
 ```
 
-### Example (File Signals)
+### Example (Minimal)
 
 ```json
 {
-  "communicationType": "file-signal",
   "description": "Development federation for product API",
   "telemetry": {
     "enabled": true
@@ -63,12 +59,11 @@ interface FederateConfig {
 }
 ```
 
-### Example (Teams Channel)
+### Example (With Teams Notifications)
 
 ```json
 {
-  "communicationType": "teams-channel",
-  "description": "Cross-team coordination via Teams",
+  "description": "Cross-team coordination with Teams updates",
   "teamsConfig": {
     "teamId": "19:abc123...",
     "channelId": "19:xyz789..."
@@ -84,13 +79,6 @@ interface FederateConfig {
 
 ### Fields Reference
 
-#### `communicationType`
-
-**Required.** How teams exchange signals and status.
-
-- `file-signal` — File-based communication (`.squad/signals/`)
-- `teams-channel` — Microsoft Teams channel with hashtag protocol
-
 #### `description`
 
 **Optional.** Human-readable description of this federation's purpose.
@@ -105,7 +93,7 @@ interface FederateConfig {
 
 #### `teamsConfig`
 
-**Required when `communicationType = 'teams-channel'`.** Microsoft Teams workspace coordinates.
+**Optional.** Microsoft Teams channel for meta-squad notifications. When configured, the meta-squad skill layer posts summaries and polls for `#directive` messages from the user.
 
 - `teamId` — Teams team GUID
 - `channelId` — Channel GUID within that team
@@ -274,9 +262,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 npx tsx scripts/monitor.ts
 The SDK validates configuration on load:
 
 **Checks:**
-- `communicationType` is one of `file-signal` or `teams-channel`
-- If `communicationType` is `teams-channel`, `teamsConfig` is present
-- `teamsConfig.teamId` and `teamsConfig.channelId` are valid GUIDs
+- If `teamsConfig` is present, `teamsConfig.teamId` and `teamsConfig.channelId` are valid strings
 - Numeric fields (e.g., `lockVersion`) are integers
 - Timestamps are valid ISO 8601 strings
 

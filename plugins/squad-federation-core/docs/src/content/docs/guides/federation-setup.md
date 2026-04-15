@@ -105,27 +105,11 @@ Dashboard runs at `http://localhost:18888` showing traces, metrics, and logs fro
 - Fastest, works offline
 - Signals stored as JSON files in `.squad/signals/`
 - Best for local development and git workflows
-- Configuration:
-  ```json
-  {
-    "communicationType": "file-signal"
-  }
-  ```
 
-**Microsoft Teams channel:**
-- Human-visible in Teams chat
-- Real-time notifications
-- Hashtag protocol routes messages (#meta, #teamId)
-- Requires Teams workspace access
+Optionally, you can enable **Teams notifications** so the meta-squad posts summaries to a Microsoft Teams channel. If you choose this, the skill asks for your Teams team ID and channel ID:
 
-If you choose Teams, the skill asks:
-
-> "I need your Teams channel ID. Get it from: Channel → ... → Get link to channel"
-
-Paste the channel link, and the skill extracts the team ID and channel ID automatically:
 ```json
 {
-  "communicationType": "teams-channel",
   "teamsConfig": {
     "teamId": "abc-123-def-456",
     "channelId": "xyz-789-uvw-012"

@@ -166,12 +166,6 @@ export const ArchetypeManifestSchema = z.object({
 export const TeamPlacementTypeSchema = z.enum(['worktree', 'directory']);
 
 /**
- * TeamCommunicationType Schema — Validates communication type for team signaling.
- * @since v0.4.0
- */
-export const TeamCommunicationTypeSchema = z.enum(['file-signal', 'teams-channel']);
-
-/**
  * TeamEntry Schema — Validates team registry entries
  */
 export const TeamEntrySchema = z.object({
@@ -197,6 +191,7 @@ export const TeamEntrySchema = z.object({
  */
 export const FederateConfigSchema = z.object({
   description: z.string().optional(),
+  communicationType: z.string().optional().default('file-signal').describe('Communication adapter type (default: file-signal)'),
   telemetry: z
     .object({
       enabled: z.boolean(),
@@ -204,22 +199,15 @@ export const FederateConfigSchema = z.object({
       aspire: z.boolean().optional(),
     })
     .default({ enabled: true }),
-  communicationType: z.enum(['file-signal', 'teams-channel']).default('file-signal'),
   teamsConfig: z.object({
     teamId: z.string().describe('Teams workspace ID (GUID)'),
     channelId: z.string().describe('Teams channel ID')
-  }).optional(),
+  }).optional().describe('Meta-squad notification channel — posts summaries, polls for #directive'),
   playbookSkill: z.string().optional().default('domain-playbook'),
   deliverable: z.string().optional(),
   deliverableSchema: z.string().optional(),
   importHook: z.string().optional(),
-}).refine(
-  (config) => config.communicationType !== 'teams-channel' || config.teamsConfig !== undefined,
-  {
-    message: 'teamsConfig is required when communicationType is teams-channel',
-    path: ['teamsConfig'],
-  }
-);
+});
 
 /**
  * MonitorResult Schema — Validates monitoring script output
