@@ -31,34 +31,38 @@ squad-federation-core is a Copilot plugin that enables federated multi-team coor
 ## Three-Layer Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│  CORE LAYER — squad-federation-core plugin                         │
-│                                                                      │
-│  SDK (types, placement, communication, base classes) · Team registry   │
-│  Signal protocol · Learning log · Launch mechanics                      │
-│  OTel MCP server · Skill sync engine · Hybrid monitoring                │
-│                                                                          │
-│  Placement-agnostic and protocol-agnostic. Knows nothing about what     │
-│  teams do — only how they communicate, observe, and share knowledge.   │
-├──────────────────────────────────────────────────────────────────────┤
-│  ARCHETYPE LAYER — e.g. squad-archetype-deliverable                │
-│                                                                      │
-│  Meta: Orchestration skills · Aggregation scripts · Monitoring       │
-│  Team: Execution agents · Playbook skills · Cleanup hooks            │
-│  Archetype manifest (states, monitor config, triage, recovery)       │
-│                                                                      │
-│  Defines the WORK PATTERN for a class of squads. Installed into      │
-│  teams during onboarding. Multiple archetypes can coexist in         │
-│  a single federation.                                                │
-├──────────────────────────────────────────────────────────────────────┤
-│  PROJECT LAYER — your repository                                   │
-│                                                                      │
-│  .squad/teams.json (team registry) · DOMAIN_CONTEXT.md per team      │
-│  federate.config.json · Project-specific MCP servers · Custom skills │
-│                                                                      │
-│  Binds the federation to a concrete codebase and problem domain.     │
-└──────────────────────────────────────────────────────────────────────┘
+ ╔══════════════════════════════════════════════════════════════════╗
+ ║  PROJECT LAYER — your repository                                ║
+ ║                                                                  ║
+ ║  .squad/teams.json · DOMAIN_CONTEXT.md · federate.config.json   ║
+ ║  Project-specific MCP servers · Custom skills                    ║
+ ║                                                                  ║
+ ║  Binds the federation to a concrete codebase and problem domain. ║
+ ╠══════════════════════════════════════════════════════════════════╣
+ ║                          ▲ extends                               ║
+ ╠══════════════════════════════════════════════════════════════════╣
+ ║  ARCHETYPE LAYER — e.g. squad-archetype-deliverable             ║
+ ║                                                                  ║
+ ║  Meta side: Orchestration skills · Aggregation · Monitoring      ║
+ ║  Team side: Execution agents · Playbook skills · Cleanup hooks   ║
+ ║  Manifest:  States, monitor config, triage, recovery             ║
+ ║                                                                  ║
+ ║  Defines the WORK PATTERN. Multiple archetypes can coexist.      ║
+ ╠══════════════════════════════════════════════════════════════════╣
+ ║                          ▲ extends                               ║
+ ╠══════════════════════════════════════════════════════════════════╣
+ ║  CORE LAYER — squad-federation-core plugin                      ║
+ ║                                                                  ║
+ ║  SDK (types, placement, communication, base classes)             ║
+ ║  Team registry · Signal protocol · Learning log                  ║
+ ║  Launch mechanics · OTel · Skill sync · Hybrid monitoring        ║
+ ║                                                                  ║
+ ║  Placement-agnostic, protocol-agnostic. Knows nothing about      ║
+ ║  what teams do — only how they communicate and share knowledge.  ║
+ ╚══════════════════════════════════════════════════════════════════╝
 ```
+
+Each layer only depends downward. Core never imports archetype code; archetypes never import project code.
 
 ## Runtime Topology
 
@@ -116,41 +120,40 @@ Team location and communication protocol are independent, composable abstraction
 
 ### TeamPlacement Interface
 
-Abstracts **where** team files live. Defined in `sdk/placement.ts`:
+**TeamPlacement** — abstracts where team files live (`readFile`, `writeFile`, `exists`, `listFiles`, `bootstrap`, etc.). Two built-in implementations: WorktreePlacement (git worktrees) and DirectoryPlacement (standalone dirs).
 
-```typescript
-export interface TeamPlacement {
-  readFile(teamId: string, filePath: string): Promise<string | null>;
-  writeFile(teamId: string, filePath: string, content: string): Promise<void>;
-  exists(teamId: string, filePath: string): Promise<boolean>;
-  stat?(teamId: string, filePath: string): Promise<{ isDirectory: boolean; size: number } | null>;
-  workspaceExists(teamId: string): Promise<boolean>;
-  getLocation(teamId: string): Promise<string>;
-  listFiles(teamId: string, directory?: string): Promise<string[]>;
-  bootstrap(teamId: string, archetypeId: string, config: Record<string, unknown>): Promise<void>;
-}
-```
+→ [Full interface reference](/vladi-plugins-marketplace/reference/sdk-types/#teamplacement)
 
 ### TeamCommunication Interface
 
-Abstracts **how** teams receive signals. Defined in `sdk/communication.ts`:
+**TeamCommunication** — abstracts how teams exchange signals and status (`readStatus`, `readInboxSignals`, `writeInboxSignal`, `readOutboxSignals`, `listSignals`, `readLearningLog`, `appendLearning`, optional `watchSignals`). Default implementation: FileSignalCommunication (JSON files in `.squad/signals/`).
 
-```typescript
-export interface TeamCommunication {
-  readStatus(teamId: string): Promise<ScanStatus | null>;
-  readInboxSignals(teamId: string): Promise<SignalMessage[]>;
-  writeInboxSignal(teamId: string, signal: SignalMessage): Promise<void>;
-  readOutboxSignals(teamId: string): Promise<SignalMessage[]>;
-  listSignals(teamId: string, direction: 'inbox' | 'outbox', filter?: { type?: string; since?: string; from?: string }): Promise<SignalMessage[]>;
-  readLearningLog(teamId: string): Promise<LearningEntry[]>;
-  appendLearning(teamId: string, entry: LearningEntry): Promise<void>;
-  watchSignals?(teamId: string, direction: 'inbox' | 'outbox', callback: (signal: SignalMessage) => void): () => void;
-}
+→ [Full interface reference](/vladi-plugins-marketplace/reference/sdk-types/#teamcommunication)
+
+**Key design:** Placement knows WHERE teams live. Communication knows HOW they receive signals. Neither is tightly coupled — you can mix worktree placement with file signals, or directory placement with a future HTTP adapter.
+
+### Communication Flow
+
+```
+ ┌──────────────┐                          ┌──────────────┐
+ │  Meta-Squad   │    directive / sync      │  Team Alpha   │
+ │  (main)       │ ──────────────────────→  │  (.squad/     │
+ │               │                          │   signals/    │
+ │  Reads outbox │ ←──────────────────────  │   inbox/)     │
+ │  aggregates   │    report / learning     │               │
+ └──────┬───────┘                          └──────────────┘
+        │
+        │  directive / sync
+        ▼
+ ┌──────────────┐         ┌──────────────┐
+ │  Team Beta    │         │  Team Gamma   │
+ │  (.squad/     │         │  (.squad/     │
+ │   signals/    │         │   signals/    │
+ │   inbox/)     │         │   inbox/)     │
+ └──────────────┘         └──────────────┘
 ```
 
-**Key design:** Placement knows WHERE teams live. Communication knows HOW they receive signals. Neither is tightly coupled.
-
-For complete interface details, see [SDK Types](/vladi-plugins-marketplace/reference/sdk-types).
+Teams never communicate directly — all coordination flows through the meta-squad.
 
 ### Placement Implementations
 
@@ -160,24 +163,38 @@ For complete interface details, see [SDK Types](/vladi-plugins-marketplace/refer
 
 ### Adapter Registry
 
-Communication adapters register at runtime:
-
-```typescript
-const registry = new CommunicationRegistry(config);
-registry.register('file-signal', FileSignalCommunication);
-const adapter = registry.get('file-signal');
-```
+Communication adapters register at runtime via `CommunicationRegistry`. Register a name → implementation mapping, then retrieve adapters by name. This decouples core from any specific transport.
 
 Adding a new communication adapter requires:
 1. Implement `TeamCommunication` interface
 2. Call `registry.register(name, implementation)` during bootstrap
 3. No changes to core scripts, signals, or knowledge lifecycle
 
+→ [TeamCommunication interface](/vladi-plugins-marketplace/reference/sdk-types/#teamcommunication) · [Communication Transports guide](/vladi-plugins-marketplace/guides/communication-transports)
+
 ### Context Factory
 
 `lib/orchestration/context-factory.ts` composes placement + communication at runtime:
 
+```
+ ┌─────────────────┐   ┌──────────────────────┐
+ │  TeamPlacement   │   │  TeamCommunication    │
+ │  (worktree or    │   │  (file-signal or      │
+ │   directory)     │   │   custom adapter)     │
+ └────────┬────────┘   └──────────┬───────────┘
+          │                       │
+          └───────────┬───────────┘
+                      ▼
+              ┌───────────────┐
+              │  TeamContext   │
+              │  domain, id,  │
+              │  location,    │
+              │  archetypeId  │
+              └───────────────┘
+```
+
 ```typescript
+// Simplified — see context-factory.ts for full implementation
 export function createTeamContext(
   team: TeamMetadata,
   placementType: string,
@@ -189,7 +206,11 @@ export function createTeamContext(
 }
 ```
 
+> **Note:** The code above is a simplified illustration of the composition pattern. The actual `createTeamContext` includes additional fields and error handling.
+
 A federation can have mixed placement types and communication adapters.
+
+→ [TeamContext interface](/vladi-plugins-marketplace/reference/sdk-types/#teamcontext)
 
 ## Git Mechanics (WorktreePlacement)
 
