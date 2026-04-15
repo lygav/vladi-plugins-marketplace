@@ -37,3 +37,6 @@ export * from './recovery-base.js';
 
 // Export telemetry infrastructure
 export * from './otel-emitter.js';
+
+// Export progress reporting utilities
+export * from './progress-reporter.js';
