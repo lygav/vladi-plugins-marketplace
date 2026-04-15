@@ -1,499 +1,389 @@
 ---
-title: Scripts
-description: CLI scripts for managing federations and teams
+title: Scripts Reference
+description: Under-the-hood automation scripts for federation management
 ---
 
-# Scripts
+# Scripts Reference
 
-Squad Federation provides CLI scripts for federation management. All scripts are located in `scripts/` and run via `npx tsx`.
+Squad Federation includes TypeScript automation scripts in `scripts/`. These power the conversational skills you interact with via Copilot—you typically won't run them directly.
 
-## onboard.ts
+## What These Scripts Do
 
-**Purpose:** Add a new team to the federation
+The **federation skills** (federation-setup, federation-orchestration, etc.) call these scripts under the hood when you use natural language. For example:
 
-**Usage:**
+**You say:** "Onboard a coding team for the backend API"
+
+**Copilot calls:** `npx tsx scripts/onboard.ts --archetype coding --domain backend-api ...`
+
+This page documents the scripts for reference and troubleshooting, but you should **use the Copilot skills as your primary interface**.
+
+## Core Scripts
+
+### `onboard.ts`
+
+**What it does:** Creates a new team workspace, seeds archetype files, registers team in `.squad/team-registry.json`.
+
+**Called by:** `team-onboarding` skill
+
+**Parameters:**
+- `--archetype <id>` — Archetype to use (coding, deliverable, consultant, or custom)
+- `--domain <name>` — Team domain name
+- `--placement <type>` — `worktree` or `directory`
+- `--mission <text>` — Initial mission/directive
+- `--branch <name>` — (For worktree) Git branch to create
+- `--communication <type>` — `file-signal` or `teams-channel`
+
+**What it creates:**
+```
+.squad/
+  worktrees/{domain}/          (if placement=worktree)
+  OR teams/{domain}/           (if placement=directory)
+    .squad/
+      signals/inbox/
+      signals/outbox/
+      skills/
+      archetype.json           (team state machine)
+      deliverable.md           (placeholder)
+```
+
+**Example (manual invocation):**
 ```bash
 npx tsx scripts/onboard.ts \
-  --domain {team-name} \
-  --mission "{team-objective}" \
-  --archetype {archetype-id} \
-  --placement {placement-type} \
-  [placement-specific-options]
-```
-
-**Required Arguments:**
-
-| Argument | Type | Description |
-|----------|------|-------------|
-| `--domain` | string | Team name (slug, kebab-case) |
-| `--mission` | string | Team objective (quoted) |
-| `--archetype` | string | Archetype ID (`coding`, `deliverable`, `consultant`) |
-| `--placement` | string | Placement type (`worktree`, `directory`, `custom`) |
-
-**Placement-Specific Options:**
-
-### Worktree
-
-```bash
---placement worktree \
---branch squad/frontend \
-[--worktree-path .worktrees/frontend]
-```
-
-- `--branch` (required) - Git branch name
-- `--worktree-path` (optional) - Custom worktree path (default: `.worktrees/{domain}`)
-
-### Directory
-
-```bash
---placement directory \
---path ./teams/frontend
-```
-
-- `--path` (required) - Directory path (absolute or relative)
-
-### Custom
-
-```bash
---placement custom \
---plugin-id s3-placement \
---plugin-option bucket=my-bucket \
---plugin-option prefix=teams/frontend/
-```
-
-- `--plugin-id` (required) - Custom placement plugin identifier
-- `--plugin-option` (repeatable) - Plugin-specific options as `key=value`
-
-**Examples:**
-
-**Worktree placement:**
-```bash
-npx tsx scripts/onboard.ts \
-  --domain frontend \
-  --mission "Build authentication UI" \
   --archetype coding \
+  --domain backend-api \
   --placement worktree \
-  --branch squad/frontend
+  --mission "Build REST API with PostgreSQL"
 ```
 
-**Directory placement:**
-```bash
-npx tsx scripts/onboard.ts \
-  --domain backend \
-  --mission "Implement auth API" \
-  --archetype coding \
-  --placement directory \
-  --path ./teams/backend
-```
+---
+
+### `launch.ts`
+
+**What it does:** Starts a headless Copilot session for a team.
+
+**Called by:** `federation-orchestration` skill
+
+**Parameters:**
+- `--team <domainId>` — Team to launch
+- `--model <name>` — (Optional) Override model (default from archetype)
+- `--max-turns <n>` — (Optional) Max conversation turns before auto-pause
 
 **What it does:**
+1. Reads team's `archetype.json` state machine
+2. Starts Copilot agent with team's system prompt
+3. Runs autonomously, checking inbox for signals
+4. Updates status as work progresses
+5. Writes deliverable when complete
 
-1. Validates archetype exists
-2. Creates placement (worktree, directory, or custom)
-3. Copies archetype files to team placement
-4. Initializes `.squad/` directory in team workspace
-5. Registers team in `.squad/teams.json`
-6. Creates `.mcp.json` if telemetry enabled
-7. Outputs team ID and next steps
-
-**Output:**
-
-```
-✅ Team onboarded successfully!
-
-Team ID: team-abc-123-def-456
-Domain: frontend
-Placement: worktree (.worktrees/frontend)
-Branch: squad/frontend
-
-Next steps:
-1. Launch the team: npx tsx scripts/launch.ts --team frontend
-2. Monitor progress: npx tsx scripts/monitor.ts
+**Example (manual invocation):**
+```bash
+npx tsx scripts/launch.ts --team backend-api
 ```
 
 ---
 
-## launch.ts
+### `monitor.ts`
 
-**Purpose:** Start a team's work session
+**What it does:** Dashboard showing all teams' status + ability to send signals.
 
-**Usage:**
+**Called by:** `federation-orchestration` skill
+
+**Parameters:**
+- `--watch` — (Optional) Live-updating dashboard
+- `--send <teamId>` — Send signal to team
+- `--directive <text>` — Signal body (when using `--send`)
+- `--type <directive|question|report|alert>` — Signal type
+
+**Dashboard output:**
+```
+Team                 State        Progress  Last Updated         
+────────────────────────────────────────────────────────────────
+backend-api          scanning     40%       30 seconds ago       
+docs-team            complete     100%      2 minutes ago        
+frontend-ui          distilling   75%       1 minute ago         
+```
+
+**Example (manual invocation):**
 ```bash
-npx tsx scripts/launch.ts --team {domain}
-```
-
-**Required Arguments:**
-
-| Argument | Type | Description |
-|----------|------|-------------|
-| `--team` | string | Team domain name |
-
-**Example:**
-
-```bash
-npx tsx scripts/launch.ts --team frontend
-```
-
-**What it does:**
-
-1. Reads team config from registry
-2. Resolves archetype and placement
-3. Starts Copilot CLI session in team workspace
-4. Redirects output to `run-output.log`
-5. Returns immediately (session runs in background)
-
-**Output:**
-
-```
-🚀 Launching team: frontend
-Placement: .worktrees/frontend
-Archetype: coding
-Session started. Check run-output.log for progress.
-```
-
-**Stopping a session:**
-
-(No built-in stop command in v0.5.0 - use process management)
-
-```bash
-ps aux | grep copilot | grep frontend
-kill {PID}
-```
-
----
-
-## monitor.ts
-
-**Purpose:** View team status and send signals
-
-**Usage:**
-
-### Dashboard Mode
-
-```bash
-npx tsx scripts/monitor.ts [--watch] [--interval {seconds}]
-```
-
-**Arguments:**
-
-| Argument | Type | Description |
-|----------|------|-------------|
-| `--watch` | flag | Continuous monitoring (updates every `--interval` seconds) |
-| `--interval` | number | Update interval in seconds (default: 30) |
-
-**Example:**
-
-```bash
-npx tsx scripts/monitor.ts --watch --interval 30
-```
-
-**Output:**
-
-```
-📊 Squad Federation Dashboard
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Team         State       Step              Progress  Updated
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-❌ backend   failed      analyzing routes  65%       1m ago
-🔄 frontend  scanning    auth module       45%       2m ago
-✅ infra     complete    -                 100%      5m ago
-⏸️  testing  paused      -                 80%       12m ago
-```
-
-### Send Signal Mode
-
-```bash
-npx tsx scripts/monitor.ts \
-  --send {team-domain} \
-  --directive "{message}" | \
-  --question "{message}" | \
-  --report "{message}" | \
-  --alert "{message}"
-```
-
-**Arguments:**
-
-| Argument | Type | Description |
-|----------|------|-------------|
-| `--send` | string | Recipient team domain |
-| `--directive` | string | Send directive signal (mutually exclusive) |
-| `--question` | string | Send question signal (mutually exclusive) |
-| `--report` | string | Send report signal (mutually exclusive) |
-| `--alert` | string | Send alert signal (mutually exclusive) |
-
-**Example:**
-
-```bash
-npx tsx scripts/monitor.ts \
-  --send frontend \
-  --directive "Focus on login flow first"
-```
-
-**Output:**
-
-```
-📨 Signal sent to frontend
-Type: directive
-Message: Focus on login flow first
-```
-
----
-
-## sweep.ts
-
-**Purpose:** Analyze learnings across teams to find patterns
-
-**Usage:**
-
-```bash
-npx tsx scripts/sweep.ts [--tag {tag}] [--domain {domains}] [--since {date}]
-```
-
-**Arguments:**
-
-| Argument | Type | Description |
-|----------|------|-------------|
-| `--tag` | string | Filter by tag (e.g., `performance`) |
-| `--domain` | string | Filter by team domains (comma-separated) |
-| `--since` | string | Filter by date (ISO 8601, e.g., `2025-01-01`) |
-
-**Example:**
-
-```bash
-npx tsx scripts/sweep.ts --tag performance
-```
-
-**Output:**
-
-```
-🔍 Pattern Cluster: testing + performance (3 teams)
-  - frontend: Parallel test execution reduces CI time
-  - backend: Mock external APIs in integration tests
-  - infra: Use test containers for database tests
-
-🔍 Pattern Cluster: auth + security (2 teams)
-  - frontend: Store tokens in httpOnly cookies
-  - backend: Validate JWT signatures on every request
-```
-
-**What it does:**
-
-1. Loads all learnings from `.squad/learnings/log.jsonl`
-2. Groups by tag combinations
-3. Finds clusters with 2+ teams
-4. Ranks by frequency and tag overlap
-5. Outputs pattern candidates
-
----
-
-## graduate.ts
-
-**Purpose:** Promote a learning to a skill
-
-**Usage:**
-
-```bash
-npx tsx scripts/graduate.ts \
-  --learning-id {learning-timestamp} \
-  --skill-name {skill-slug}
-```
-
-**Arguments:**
-
-| Argument | Type | Description |
-|----------|------|-------------|
-| `--learning-id` | string | Learning timestamp from `log.jsonl` |
-| `--skill-name` | string | Skill filename (kebab-case, no `.md`) |
-
-**Example:**
-
-```bash
-npx tsx scripts/graduate.ts \
-  --learning-id "1706611200000" \
-  --skill-name "parallel-testing"
-```
-
-**What it does:**
-
-1. Reads learning from `.squad/learnings/log.jsonl`
-2. Creates skill file in `.squad/skills/{skill-name}.md`
-3. Adds skill metadata (tags, category, source, promoted date)
-4. Appends "graduated" marker to learning log
-
-**Output:**
-
-```
-📚 Learning graduated to skill!
-
-Skill: .squad/skills/parallel-testing.md
-Learning ID: 1706611200000
-Source: frontend
-Tags: testing, performance, ci-cd
-```
-
----
-
-## sync.ts
-
-**Purpose:** Distribute skills to all teams
-
-**Usage:**
-
-```bash
-npx tsx scripts/sync.ts [--team {domains}] [--skill {skill-name}] [--dry-run]
-```
-
-**Arguments:**
-
-| Argument | Type | Description |
-|----------|------|-------------|
-| `--team` | string | Sync to specific teams (comma-separated, optional) |
-| `--skill` | string | Sync specific skill (optional) |
-| `--dry-run` | flag | Preview changes without applying |
-
-**Example:**
-
-```bash
-npx tsx scripts/sync.ts --team frontend,backend
-```
-
-**Output:**
-
-```
-📡 Syncing skills...
-
-Synced to frontend:
-  - parallel-testing.md
-  - error-handling.md
-
-Synced to backend:
-  - parallel-testing.md
-  - error-handling.md
-
-Total: 2 teams, 2 skills
-```
-
-**Dry-run:**
-
-```bash
-npx tsx scripts/sync.ts --dry-run
-```
-
-```
-📡 Dry-run mode (no changes applied)
-
-Would sync to frontend:
-  - parallel-testing.md
-  - error-handling.md
-
-Would sync to backend:
-  - parallel-testing.md
-  - error-handling.md
-```
-
----
-
-## Common Workflows
-
-### Initialize Federation
-
-```bash
-# 1. Create config
-echo '{"federationName":"my-project"}' > federate.config.json
-
-# 2. Onboard first team
-npx tsx scripts/onboard.ts \
-  --domain frontend \
-  --mission "Build auth UI" \
-  --archetype coding \
-  --placement worktree \
-  --branch squad/frontend
-
-# 3. Launch team
-npx tsx scripts/launch.ts --team frontend
-
-# 4. Monitor progress
+# Watch dashboard
 npx tsx scripts/monitor.ts --watch
-```
 
-### Send Directive
-
-```bash
+# Send directive
 npx tsx scripts/monitor.ts \
-  --send frontend \
-  --directive "Focus on login flow first"
-```
-
-### Discover Patterns
-
-```bash
-# 1. Sweep learnings
-npx tsx scripts/sweep.ts
-
-# 2. Graduate high-value pattern
-npx tsx scripts/graduate.ts \
-  --learning-id "1706611200000" \
-  --skill-name "parallel-testing"
-
-# 3. Sync to all teams
-npx tsx scripts/sync.ts
-```
-
-### Check Team Health
-
-```bash
-# Dashboard
-npx tsx scripts/monitor.ts
-
-# Team logs
-tail -100 .worktrees/frontend/run-output.log
-
-# Team status
-cat .worktrees/frontend/.squad/status.json | jq .
+  --send backend-api \
+  --directive "Add rate limiting to login endpoint"
 ```
 
 ---
+
+### `sweep-learnings.ts`
+
+**What it does:** Analyzes learning logs across teams, detects cross-domain patterns, suggests graduation to skills.
+
+**Called by:** `knowledge-lifecycle` skill
+
+**Parameters:**
+- `--output <path>` — (Optional) Where to save findings (default: `.squad/sweep-report.md`)
+
+**What it analyzes:**
+- Pattern repetition across teams
+- High-confidence learnings
+- Frequently tagged topics
+- Domain-agnostic insights
+
+**Output format:**
+```markdown
+# Learning Sweep Report
+
+## Cross-Domain Patterns
+
+### Pattern: JWT token refresh logic
+**Confidence:** High
+**Teams:** backend-api, auth-service, gateway
+**Suggestion:** Graduate to skill `jwt-refresh-pattern.md`
+
+## Graduation Candidates
+
+1. **Learning:** "Always validate JWT signature before parsing claims"
+   - **Category:** convention
+   - **Tags:** auth, security, jwt
+   - **Seen in:** 3 teams
+   - **Recommended skill:** `jwt-validation.md`
+```
+
+**Example (manual invocation):**
+```bash
+npx tsx scripts/sweep-learnings.ts
+```
+
+---
+
+### `graduate-learning.ts`
+
+**What it does:** Converts a specific learning log entry into a skill file.
+
+**Called by:** `knowledge-lifecycle` skill
+
+**Parameters:**
+- `--learning-id <id>` — Learning entry UUID
+- `--domain <teamId>` — Team that owns this learning
+- `--skill-name <name>` — (Optional) Skill filename (auto-generated if omitted)
+- `--global` — (Optional) Graduates to meta skills instead of team-specific
+
+**What it does:**
+1. Reads learning entry from team's `.squad/signals/learnings.jsonl`
+2. Generates skill markdown with frontmatter
+3. Writes to `.squad/skills/{name}.md` (or team's skills directory)
+4. Marks learning as `graduated: true` in log
+
+**Example (manual invocation):**
+```bash
+npx tsx scripts/graduate-learning.ts \
+  --learning-id abc-123 \
+  --domain backend-api \
+  --global
+```
+
+---
+
+### `sync-skills.ts`
+
+**What it does:** Copies skills from meta `.squad/skills/` to all teams' `.squad/skills/` directories.
+
+**Called by:** `knowledge-lifecycle` skill
+
+**Parameters:**
+- `--skill <name>` — (Optional) Sync specific skill
+- `--all` — (Optional) Sync all skills
+- `--teams <ids>` — (Optional) Sync to specific teams (comma-separated)
+
+**What it does:**
+1. Reads skills from `.squad/skills/`
+2. For each team in registry:
+   - Checks if team's `.squad/skills/` has the skill
+   - Copies if missing or outdated (based on file hash)
+3. Logs sync operations
+
+**Example (manual invocation):**
+```bash
+# Sync all skills to all teams
+npx tsx scripts/sync-skills.ts --all
+
+# Sync specific skill to specific teams
+npx tsx scripts/sync-skills.ts \
+  --skill jwt-validation.md \
+  --teams backend-api,auth-service
+```
+
+---
+
+## Helper Scripts
+
+### `init-federation.ts`
+
+**What it does:** Creates initial `federate.config.json` file.
+
+**Called by:** `federation-setup` skill
+
+**Parameters:**
+- `--communication <type>` — `file-signal` or `teams-channel`
+- `--description <text>` — (Optional) Federation description
+- `--teams-team-id <guid>` — (If teams-channel) Teams team ID
+- `--teams-channel-id <guid>` — (If teams-channel) Teams channel ID
+
+**Example (manual invocation):**
+```bash
+npx tsx scripts/init-federation.ts --communication file-signal
+```
+
+---
+
+### `validate-config.ts`
+
+**What it does:** Validates `federate.config.json` schema.
+
+**Called by:** Various scripts on startup
+
+**Example (manual invocation):**
+```bash
+npx tsx scripts/validate-config.ts
+```
+
+---
+
+### `team-status.ts`
+
+**What it does:** Gets detailed status for a specific team.
+
+**Called by:** `federation-orchestration` skill
+
+**Parameters:**
+- `--team <domainId>` — Team to query
+
+**Example (manual invocation):**
+```bash
+npx tsx scripts/team-status.ts --team backend-api
+```
+
+---
+
+## Advanced Usage
+
+### Direct Script Invocation
+
+If you need to run scripts directly (e.g., for automation or debugging):
+
+**Requirements:**
+- Node.js 18+
+- `tsx` installed (`npm install -g tsx`)
+- Run from repository root
+
+**Pattern:**
+```bash
+cd /path/to/your/repo
+npx tsx scripts/{script-name}.ts [options]
+```
+
+### Debugging
+
+All scripts support `--verbose` flag for detailed logging:
+
+```bash
+npx tsx scripts/onboard.ts --archetype coding --domain test-team --verbose
+```
+
+### Environment Variables
+
+Scripts respect these environment variables:
+
+- `SQUAD_TELEMETRY_ENABLED` — Enable/disable telemetry (true/false)
+- `OTEL_EXPORTER_OTLP_ENDPOINT` — OpenTelemetry endpoint
+- `SQUAD_CONFIG_PATH` — Path to `federate.config.json` (default: `./federate.config.json`)
+
+### Error Handling
+
+Scripts exit with codes:
+
+- `0` — Success
+- `1` — Configuration error
+- `2` — Validation error
+- `3` — File system error
+- `4` — Network error (Teams integration)
+
+## Common Patterns
+
+### Check All Team Status
+
+```bash
+npx tsx scripts/monitor.ts
+```
+
+### Send Directive to Team
+
+Use the `federation-orchestration` skill:
+
+**Via Copilot:** "Send a directive to backend-api: Add rate limiting"
+
+**Manual equivalent:**
+```bash
+npx tsx scripts/monitor.ts \
+  --send backend-api \
+  --directive "Add rate limiting to login endpoint"
+```
+
+### Review Learnings
+
+```bash
+npx tsx scripts/sweep-learnings.ts
+```
+
+### Sync New Skill to All Teams
+
+**Via Copilot:** "Sync jwt-validation skill to all teams"
+
+**Manual equivalent:**
+```bash
+npx tsx scripts/sync-skills.ts --skill jwt-validation.md --all
+```
 
 ## Troubleshooting
 
-### Script not found
+### Script Not Found
 
 **Error:** `Cannot find module 'scripts/onboard.ts'`
 
-**Solution:** Run from repository root:
-```bash
-cd /path/to/repo
-npx tsx scripts/onboard.ts --help
-```
+**Fix:** Ensure you're running from repository root where `scripts/` exists.
 
-### TypeScript errors
-
-**Error:** `TS2304: Cannot find name 'X'`
-
-**Solution:** Install dependencies:
-```bash
-npm install
-```
-
-### Permission denied
+### Permission Denied
 
 **Error:** `EACCES: permission denied`
 
-**Solution:** Check file permissions:
+**Fix:** Check file permissions on `.squad/` directory:
 ```bash
-chmod +x scripts/*.ts
+chmod -R u+w .squad/
 ```
 
-Or run with `npx tsx` (no execute bit needed):
+### Team Not Found
+
+**Error:** `Team 'backend-api' not found in registry`
+
+**Fix:** Verify team exists:
 ```bash
-npx tsx scripts/onboard.ts ...
+npx tsx scripts/monitor.ts
 ```
 
----
+### Invalid Configuration
+
+**Error:** `Invalid federate.config.json`
+
+**Fix:** Validate config:
+```bash
+npx tsx scripts/validate-config.ts
+```
 
 ## Next Steps
 
-- [Configure federation](/reference/configuration)
-- [Understand archetypes](/archetypes/overview)
-- [Monitor teams](/guides/monitoring)
+- [View SDK types](/vladi-plugins-marketplace/reference/sdk-types)
+- [Understand configuration](/vladi-plugins-marketplace/reference/configuration)
+- [Explore signal protocol](/vladi-plugins-marketplace/reference/signal-protocol)
+- **Use federation skills instead of manual scripts** — talk to Copilot naturally!

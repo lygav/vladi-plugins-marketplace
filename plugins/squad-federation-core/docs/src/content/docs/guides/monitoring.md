@@ -1,181 +1,112 @@
 ---
 title: Monitoring
-description: Dashboard, telemetry, and team health tracking
+description: How to track team progress through conversational skills and telemetry
 ---
 
 # Monitoring
 
-Squad Federation provides a **hybrid monitoring model**: a centralized dashboard for meta-squad oversight and archetype-specific monitors for deep team analysis.
+Squad Federation provides a **hybrid monitoring model**: conversational skills for quick status checks and optional OpenTelemetry dashboards for deep observability.
 
-## Dashboard (Meta-Squad View)
+## Monitoring Through Skills
 
-The `monitor.ts` script provides real-time status of all teams.
+The **federation-orchestration skill** answers questions about team status, progress, and health.
 
-### Running the Dashboard
+### Check All Teams
 
-**One-time check:**
-```bash
-npx tsx scripts/monitor.ts
-```
+> "How's my federation doing?"
 
-**Continuous monitoring:**
-```bash
-npx tsx scripts/monitor.ts --watch --interval 30
-```
-
-Updates every 30 seconds.
-
-### Dashboard Output
+The skill shows a dashboard:
 
 ```
 📊 Squad Federation Dashboard
-━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Team         State       Step              Progress  Updated
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ❌ backend   failed      analyzing routes  65%       1m ago
 🔄 frontend  scanning    auth module       45%       2m ago
 ✅ infra     complete    -                 100%      5m ago
-⏸️  testing  paused      -                 80%       12m ago
 ```
 
-**State emojis:**
+**State indicators:**
 - ❌ `failed` - Error occurred
-- 🔄 `initializing` - Just started
-- 🔄 `scanning` - Analyzing codebase
-- 🔄 `distilling` - Processing findings
-- ⏸️ `paused` - Manually paused
+- 🔄 Active states (initializing, scanning, distilling)
 - ✅ `complete` - Finished successfully
+- ⏸️ `paused` - Manually paused
 
-### Sorting
+### Check Specific Team
 
-Teams are sorted by state priority:
-1. Failed (needs attention)
-2. Initializing/Scanning/Distilling (active)
-3. Paused
-4. Complete
+> "What's the frontend team doing?"
 
-### Stalled Detection
-
-Dashboard warns if a team hasn't updated status in >10 minutes:
-
+The skill shows detailed status:
 ```
-⚠️  frontend: No update in 15m (possible stall)
+Frontend Team Status:
+  State: scanning
+  Step: analyzing authentication module
+  Progress: 45%
+  Last update: 2 minutes ago
+  Deliverable: ✅ Present
+  Recent learnings: 2
 ```
 
-Check the team's `run-output.log` for issues.
+### Check for Stalled Teams
 
-### Deliverable & Learning Checks
+> "Are any teams stuck?"
 
-Dashboard shows:
-- ✅ Deliverable exists
-- 📚 Recent learnings (last 5 entries)
+The skill warns if teams haven't updated in >10 minutes:
+```
+⚠️ Backend team: No update in 15m (possible stall)
+```
 
-Example:
+Check the team's log:
+```bash
+tail -100 .worktrees/backend/run-output.log
+```
+
+### View Deliverables
+
+> "Show me team deliverables"
+
 ```
 📦 Deliverables:
   frontend: ✅ deliverable.md
   backend:  ❌ Missing
+  infra:    ✅ OUTPUT.json
+```
 
+### View Recent Learnings
+
+> "What have my teams learned?"
+
+```
 📚 Recent Learnings:
-  frontend (2):
+  frontend (3):
     - pattern: Parallel test execution reduces CI time
     - discovery: Auth context passed via props
-```
-
-## Sending Directives
-
-Use the dashboard to send signals:
-
-```bash
-npx tsx scripts/monitor.ts --send frontend --directive "Focus on login flow first"
-```
-
-This writes a signal to the team's inbox.
-
-## Archetype-Specific Monitors
-
-Each archetype can provide a custom monitor for deeper analysis.
-
-### How Archetype Monitors Work
-
-Archetype plugins can include:
-
-```
-plugins/squad-archetype-coding/
-└── team/
-    └── monitors/
-        └── coding-monitor.ts
-```
-
-**Monitor base class:**
-```typescript
-abstract class MonitorBase {
-  abstract monitor(teamId: string): Promise<MonitorResult>
+    - convention: Name API routes with kebab-case
   
-  emitMetrics(name: string, value: number, attributes: object): void
-  emitEvent(name: string, attributes: object): void
-  logInfo/Warn/Error(message: string): void
-}
+  backend (2):
+    - pattern: Use dependency injection for database clients
+    - gotcha: Don't import barrel files in tests
 ```
 
-### Example: Coding Monitor
+## Telemetry Dashboard (Optional)
 
-```typescript
-class CodingMonitor extends MonitorBase {
-  async monitor(teamId: string): Promise<MonitorResult> {
-    const status = await this.readStatus(teamId);
-    const files = await this.listChangedFiles(teamId);
-    const tests = await this.countTests(files);
-    
-    this.emitMetrics('code.files_changed', files.length, { domain: teamId });
-    this.emitMetrics('code.test_count', tests, { domain: teamId });
-    
-    if (tests < files.length * 0.5) {
-      this.logWarn('Test coverage may be low');
-      return {
-        health: 'warning',
-        message: 'Consider adding more tests'
-      };
-    }
-    
-    return { health: 'healthy', message: 'On track' };
-  }
-}
-```
+If you enabled telemetry during federation setup, you have access to the OpenTelemetry Aspire dashboard.
 
-### Running Archetype Monitors
+### Accessing the Dashboard
 
-(Not directly exposed via CLI in v0.5.0 - monitors are called internally during team runs)
+The dashboard runs at `http://localhost:18888` (auto-started if you chose "Yes" during setup).
 
-Future: `npx tsx scripts/monitor.ts --team frontend --deep`
-
-## OpenTelemetry Integration
-
-Squad Federation instruments team operations with OTel spans, metrics, and events.
-
-### Enabling Telemetry
-
-In `federate.config.json`:
-
-```json
-{
-  "telemetry": {
-    "enabled": true
-  }
-}
-```
-
-Set the endpoint:
+If it's not running, start it:
 
 ```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-export OTEL_SERVICE_NAME=squad-federation
+docker run -p 18888:18888 -p 4318:18889 \
+  mcr.microsoft.com/dotnet/aspire-dashboard:latest
 ```
 
-### Telemetry Data
+### What You See
 
-**Spans:**
+**Traces:**
 - Team lifecycle operations (onboard, launch, monitor)
 - Placement operations (read, write, commit, push)
 - Communication operations (readSignals, writeSignals)
@@ -186,57 +117,15 @@ export OTEL_SERVICE_NAME=squad-federation
 - `squad.signals.sent` - Signal send rate
 - `squad.learnings.created` - Learning creation rate
 
-**Events:**
-- `team.onboarded` - Team created
-- `team.launched` - Session started
-- `team.completed` - Task finished
-- `learning.graduated` - Learning promoted to skill
+**Logs:**
+- Team startup/shutdown events
+- Signal send/receive events
+- Learning capture events
+- Error messages
 
-**Attributes:**
-- `squad.domain` - Team name
-- `domain.id` - Team ID
-- `archetype.id` - Archetype name
-- `placement.type` - Placement strategy
-- `communication.type` - Communication protocol
+### Team-Specific Telemetry
 
-### Viewing Telemetry
-
-#### Aspire Dashboard (Recommended)
-
-Enable in config:
-
-```json
-{
-  "telemetry": {
-    "enabled": true,
-    "aspire": true
-  }
-}
-```
-
-Run the dashboard:
-
-```bash
-docker run -p 18888:18888 -p 4318:18889 \
-  mcr.microsoft.com/dotnet/aspire-dashboard:latest
-```
-
-Access at `http://localhost:18888`.
-
-#### Jaeger (Alternative)
-
-Run Jaeger:
-
-```bash
-docker run -p 16686:16686 -p 4318:4318 \
-  jaegertracing/all-in-one:latest
-```
-
-Access at `http://localhost:16686`.
-
-### Team-Specific OTel Config
-
-Each team gets an `.mcp.json` file when launched (if telemetry enabled):
+Each team gets an `.mcp.json` file with telemetry config:
 
 ```json
 {
@@ -253,11 +142,11 @@ Each team gets an `.mcp.json` file when launched (if telemetry enabled):
 }
 ```
 
-This allows team agents to emit telemetry via MCP.
+Teams emit telemetry via the OpenTelemetry MCP server during their sessions.
 
 ## Status File Format
 
-Each team maintains `.squad/status.json`:
+Teams maintain `.squad/status.json` with current state:
 
 ```json
 {
@@ -278,61 +167,69 @@ Each team maintains `.squad/status.json`:
 - `failed` - Error occurred
 - `paused` - Manually paused
 
-**Fields:**
-- `step` - Current sub-task
-- `agent_active` - Active agent name
-- `progress_pct` - Estimated completion (0-100)
-- `error` - Error message if failed
+Ask the orchestration skill to show detailed status for a specific team:
+> "What's the frontend team status?"
 
-### Reading Status Programmatically
+The status file is also available at `.worktrees/frontend/.squad/signals/status.json`.
 
-```typescript
-const status = await communication.readStatus(teamId);
-console.log(`Team ${teamId} is ${status.state} at ${status.progress_pct}%`);
-```
+## Archetype-Specific Monitoring
+
+Each archetype can provide custom monitoring logic beyond the basic status check.
+
+### How It Works
+
+Archetype plugins include monitors that emit domain-specific metrics:
+
+**Coding archetype:**
+- Files changed count
+- Test count
+- PR readiness checks
+
+**Deliverable archetype:**
+- Deliverable completeness
+- Schema validation status
+- Output file size
+
+**Consultant archetype:**
+- Questions answered
+- Domains indexed
+- Insights provided
+
+These metrics flow to the telemetry dashboard if enabled.
 
 ## Troubleshooting
 
-### Team not appearing in dashboard
+### Team Not Appearing in Dashboard
 
-Check registry:
-```bash
-cat .squad/teams.json | jq '.teams[] | select(.domain == "frontend")'
-```
+Ask the orchestration skill:
+> "Why isn't the frontend team showing?"
 
-If missing, team wasn't registered. Re-run onboarding.
+The skill will check the team registry and help diagnose the issue.
 
-### Stale status (no updates)
+If the team is missing, re-run onboarding:
+> "Onboard a team for frontend"
 
-Check team session:
-```bash
-ps aux | grep copilot | grep frontend
-```
+### Team Shows "Stalled"
 
-If not running, team crashed. Check `run-output.log`:
-```bash
-tail -100 .worktrees/frontend/run-output.log
-```
+Ask the orchestration skill to check the team:
+> "Why is the frontend team stalled?"
 
-### Telemetry not appearing
+The skill will check the session status and error logs.
 
-Verify endpoint:
-```bash
-echo $OTEL_EXPORTER_OTLP_ENDPOINT
-```
+To restart:
+> "Restart the frontend team"
 
-Test connection:
-```bash
-curl http://localhost:4318/v1/traces
-```
+### Telemetry Not Appearing
 
-Check team `.mcp.json` was created:
-```bash
-cat .worktrees/frontend/.mcp.json
-```
+Ask the orchestration skill to check telemetry:
+> "Is telemetry working for my teams?"
+
+The skill will verify the dashboard is running and teams are exporting telemetry.
+
+If telemetry wasn't enabled, you can enable it by running federation setup again and choosing telemetry, then restarting teams.
 
 ## Next Steps
 
-- [Understand the signal protocol](/reference/signal-protocol)
-- [Manage knowledge lifecycle](/guides/knowledge-lifecycle)
-- [Configure telemetry](/reference/configuration)
+- [Send directives to guide teams](/vladi-plugins-marketplace/getting-started/first-federation#step-5-send-a-directive-optional)
+- [Learn about knowledge lifecycle](/vladi-plugins-marketplace/guides/knowledge-lifecycle)
+- [Understand communication protocols](/vladi-plugins-marketplace/guides/communication-transports)

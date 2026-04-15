@@ -1,86 +1,110 @@
 ---
 title: Coding Archetype
-description: Teams that write and modify code
+description: Teams that implement features, fix bugs, and modify codebases
 ---
 
 # Coding Archetype
 
-The **coding** archetype is designed for teams that implement features, fix bugs, and modify codebases.
+The **coding** archetype is for teams that write and modify code—implementing features, fixing bugs, refactoring, and writing tests.
 
-## Purpose
+## What It Does
 
 Coding teams:
-- Analyze existing code
+- Analyze existing codebases
 - Implement new features
 - Fix bugs and issues
 - Refactor code
-- Write tests
+- Write and update tests
+- Create pull requests
 
 **Output:** Code changes (commits, pull requests)
 
-## States
+## Lifecycle States
 
 ```
-initializing
-    ↓
-scanning ←→ paused
-    ↓
-distilling ←→ paused
-    ↓
-complete (✓)
+preparing
+  ↓
+implementing
+  ↓
+testing
+  ↓
+pr-open
+  ↓
+pr-review
+  ↓
+pr-approved
+  ↓
+merged
+  ↓
+complete
 
-(any state) → failed (✗)
+(any state) → failed
+(any non-terminal state) → paused
 ```
 
-| State | Description | Duration |
-|-------|-------------|----------|
-| `initializing` | Setting up workspace | <1min |
-| `scanning` | Analyzing codebase, finding relevant files | 5-15min |
-| `distilling` | Processing findings, implementing changes | 10-30min |
-| `complete` | Work finished, deliverable ready | (terminal) |
+| State | Description | Typical Duration |
+|-------|-------------|------------------|
+| `preparing` | Reading mission, planning work | 2-5 minutes |
+| `implementing` | Writing code, making changes | 15-30 minutes |
+| `testing` | Running tests, fixing failures | 10-20 minutes |
+| `pr-open` | Pull request created, awaiting review | (external) |
+| `pr-review` | Addressing review comments | 5-15 minutes |
+| `pr-approved` | PR approved by reviewers | (external) |
+| `merged` | Changes merged to main branch | <1 minute |
+| `complete` | Work finished | (terminal) |
 | `failed` | Error occurred | (terminal) |
 | `paused` | Manually paused | (indefinite) |
 
-## Agents
+### State Transitions
 
-### Lead Agent
+**preparing → implementing**
+- Read mission from inbox signal
+- Analyze codebase structure
+- Identify files to modify
+- Plan implementation approach
 
-**Role:** Primary architect and planner
+**implementing → testing**
+- Write or modify code
+- Commit changes
+- Run test suite
 
-**Responsibilities:**
-- Scan codebase for relevant files
-- Create plan of attack
-- Implement high-level changes
-- Coordinate with assistant agents
-- Review and integrate results
+**testing → pr-open**
+- All tests pass
+- No linting errors
+- Build succeeds
+- Open pull request
 
-**Tools:** `bash`, `edit`, `view`, `grep`, `glob`
+**pr-open → pr-review**
+- Reviewers request changes
+- Team reads review comments
 
-**Temperature:** 0.1 (low, precise)
+**pr-review → pr-approved**
+- Address all review comments
+- Push additional commits
+- Re-run tests
 
-### Assistant Agent (Future)
+**pr-approved → merged**
+- Reviewers approve PR
+- Merge to main branch
 
-**Role:** Execute specific sub-tasks
+**merged → complete**
+- Cleanup temporary files
+- Write deliverable summary
 
-**Responsibilities:**
-- Implement individual functions
-- Write tests
-- Fix isolated bugs
-- Follow lead's plan
-
-**Tools:** `bash`, `edit`, `view`
-
-**Temperature:** 0.2
+**(any state) → failed**
+- Build fails and cannot be fixed
+- Tests fail repeatedly
+- Critical error prevents progress
 
 ## Skills
 
-Coding teams have access to:
+Coding teams have access to domain-specific skills in `.squad/skills/`:
 
-1. **git-workflow.md** - Git conventions (branching, commits)
-2. **testing-standards.md** - Test coverage requirements
-3. **code-review.md** - Review checklist
+1. **git-workflow.md** — Git conventions (branching, commits, PRs)
+2. **testing-standards.md** — Test coverage requirements, naming conventions
+3. **code-review.md** — Review checklist, merge criteria
 
-### Example: Git Workflow
+### Example Skill: Git Workflow
 
 ```markdown
 ---
@@ -103,147 +127,146 @@ category: convention
 
 ## Pull Requests
 
-- Link to issue
-- Include description
-- Add attribution: `Co-authored-by: Kaylee (Squad) <noreply@squad.ai>`
+- Link to issue or signal
+- Include description of changes
+- Add attribution: `Co-authored-by: {TeamName} (Squad) <noreply@squad.ai>`
 ```
+
+Teams automatically read these skills when performing related work.
+
+## Agent Configuration
+
+### Lead Agent
+
+**Role:** Primary developer and implementer
+
+**Model:** `claude-sonnet-4`
+
+**Temperature:** `0.1` (low, precise execution)
+
+**Tools:** `bash`, `edit`, `view`, `grep`, `glob`
+
+**Responsibilities:**
+- Scan codebase for relevant files
+- Implement features or fixes
+- Run tests and linting
+- Create pull requests
+- Address review feedback
 
 ## Typical Workflow
 
-### Phase 1: Initialization (30s)
+### Phase 1: Preparing
 
-1. Team workspace created
-2. Archetype files copied
-3. `.squad/` directory initialized
-4. Status set to `initializing`
+1. Team receives signal: "Implement password reset flow"
+2. Agent scans codebase for auth-related files
+3. Identifies where changes are needed:
+   - `src/auth/AuthService.ts`
+   - `src/api/routes/auth.ts`
+   - `src/auth/AuthService.test.ts`
+4. Creates implementation plan
+5. Transitions to `implementing`
 
-### Phase 2: Scanning (5-15min)
+### Phase 2: Implementing
 
-1. Lead agent reads mission from signal
-2. Searches codebase for relevant files
-3. Analyzes dependencies and structure
-4. Creates high-level plan
-5. Logs findings to learning log
-6. Updates status: `state: "scanning", progress_pct: 30`
+1. Agent writes new code:
+   - Adds `requestPasswordReset()` method
+   - Adds `/auth/reset-request` endpoint
+   - Adds `/auth/reset-password` endpoint
+2. Commits changes with message: `feat: add password reset flow`
+3. Transitions to `testing`
 
-**Example findings:**
+### Phase 3: Testing
 
-```json
-{
-  "timestamp": "2025-01-30T12:00:00Z",
-  "domain": "frontend",
-  "category": "discovery",
-  "content": "Authentication flow uses JWT tokens stored in localStorage",
-  "tags": ["auth", "frontend"],
-  "context": "Found in src/auth/AuthContext.tsx"
-}
-```
+1. Agent runs test suite: `npm test`
+2. Sees 2 failing tests (new endpoints not tested)
+3. Writes tests:
+   - `src/auth/AuthService.test.ts` — Unit tests
+4. Re-runs tests — all pass
+5. Runs linting: `npm run lint` — no errors
+6. Transitions to `pr-open`
 
-### Phase 3: Distilling (10-30min)
+### Phase 4: PR Open
 
-1. Lead agent implements changes
-2. Writes/modifies code files
-3. Runs tests
-4. Commits changes
-5. Creates deliverable summary
-6. Updates status: `state: "distilling", progress_pct: 75`
+1. Agent creates pull request:
+   - Title: "feat: add password reset flow"
+   - Description: Links to signal, lists changes
+   - Attribution: `Co-authored-by: Backend Team (Squad) <noreply@squad.ai>`
+2. Waits for external review
+3. When review comments arrive, transitions to `pr-review`
 
-**Example deliverable.md:**
+### Phase 5: PR Review
 
-```markdown
-# Frontend Auth Implementation
+1. Agent reads review feedback:
+   - "Add rate limiting to reset endpoints"
+   - "Use bcrypt for token hashing"
+2. Implements requested changes
+3. Commits: `fix: add rate limiting and bcrypt hashing`
+4. Pushes to PR branch
+5. Transitions to `pr-approved`
 
-## Changes Made
+### Phase 6: Merged → Complete
 
-1. **src/auth/LoginForm.tsx** - Added form validation
-2. **src/auth/AuthContext.tsx** - Fixed token refresh logic
-3. **src/auth/LoginForm.test.tsx** - Added test coverage
-
-## Testing
-
-- ✅ All tests pass (45/45)
-- ✅ No linting errors
-- ✅ Build succeeds
-
-## Next Steps
-
-- Review changes in PR
-- Merge to main
-```
-
-### Phase 4: Complete (terminal)
-
-1. Status set to `complete`
-2. Deliverable available at `deliverable.md`
-3. Team session can be stopped
+1. Reviewers approve PR
+2. Agent merges to `main`
+3. Writes deliverable summary
+4. Transitions to `complete`
 
 ## Deliverable Format
 
 Coding teams produce `deliverable.md` with:
 
-1. **Summary** - High-level overview
-2. **Changes Made** - List of modified files
-3. **Testing** - Test results
-4. **Next Steps** - Follow-up actions
+1. **Summary** — High-level overview
+2. **Changes Made** — List of modified files
+3. **Testing** — Test results and coverage
+4. **Next Steps** — Follow-up actions (if any)
 
 **Example:**
 
 ```markdown
-# Authentication Module Refactor
+# Password Reset Implementation
 
 ## Summary
-Refactored login flow to use httpOnly cookies instead of localStorage for security.
+
+Implemented JWT-based password reset flow with email token delivery, rate limiting, and rollback validation.
 
 ## Changes Made
 
-1. **src/auth/AuthContext.tsx**
-   - Changed token storage from localStorage to httpOnly cookies
-   - Updated login/logout logic
-   - Added CSRF protection
+1. **src/auth/AuthService.ts**
+   - Added `requestPasswordReset(email)` method
+   - Added `resetPassword(token, newPassword)` method
+   - Implemented token generation and validation
 
-2. **src/api/client.ts**
-   - Added credentials: 'include' to fetch calls
-   - Removed manual Authorization header
+2. **src/api/routes/auth.ts**
+   - Added POST `/auth/reset-request` endpoint
+   - Added POST `/auth/reset-password` endpoint
+   - Applied rate limiting (5 requests per 15 min)
 
-3. **src/auth/LoginForm.test.tsx**
-   - Updated tests for cookie-based auth
-   - Added CSRF token validation tests
+3. **src/auth/AuthService.test.ts**
+   - Added unit tests for password reset methods
+   - Added tests for token expiration (1 hour)
+   - Added tests for rate limiting
 
 ## Testing
 
-- ✅ Unit tests: 32/32 passing
-- ✅ Integration tests: 8/8 passing
-- ✅ Manual testing: Login/logout works
+- ✅ Unit tests: 45/45 passing
+- ✅ Integration tests: 12/12 passing
 - ✅ No linting errors
 - ✅ Build succeeds
 
-## Learnings
+## Pull Request
 
-- httpOnly cookies prevent XSS token theft
-- CSRF tokens required for cookie-based auth
-- SameSite=Strict prevents CSRF attacks
+PR #123: https://github.com/repo/pull/123
+
+**Reviewers:** Alice, Bob
+
+**Status:** Merged to main
 
 ## Next Steps
 
-1. Deploy to staging
-2. Test with real users
-3. Update documentation
+1. Update API documentation with new endpoints
+2. Create email templates for reset notifications
+3. Monitor reset endpoint usage in production
 ```
-
-## Monitoring
-
-Coding teams emit metrics:
-
-- `code.files_changed` - Files modified
-- `code.test_count` - Tests written/updated
-- `code.build_success` - Build status
-
-**Health checks:**
-
-- Test coverage > 50% of changed files
-- Build passes
-- No linting errors
-- Status updated within 10 minutes
 
 ## Common Use Cases
 
@@ -251,46 +274,54 @@ Coding teams emit metrics:
 
 **Mission:** "Implement password reset flow"
 
-**States:** `initializing → scanning → distilling → complete`
+**States:** `preparing → implementing → testing → pr-open → pr-review → pr-approved → merged → complete`
+
+**Duration:** 1-2 hours
 
 **Output:**
-- New files: `src/auth/PasswordReset.tsx`, `src/auth/PasswordReset.test.tsx`
-- Modified: `src/api/auth.ts`
-- Tests: 5 new tests
-- Deliverable: Summary + next steps
+- New endpoints and methods
+- Unit and integration tests
+- Pull request merged to main
+
+---
 
 ### Bug Fix
 
 **Mission:** "Fix logout redirect issue"
 
-**States:** `initializing → scanning → distilling → complete`
+**States:** `preparing → implementing → testing → pr-open → pr-approved → merged → complete`
+
+**Duration:** 30-60 minutes
 
 **Output:**
-- Modified: `src/auth/AuthContext.tsx`
-- Tests: Updated existing test
-- Deliverable: Root cause + fix description
+- Fixed redirect logic
+- Updated existing test
+- Hotfix PR merged
+
+---
 
 ### Refactoring
 
 **Mission:** "Extract auth logic into custom hook"
 
-**States:** `initializing → scanning → distilling → complete`
+**States:** `preparing → implementing → testing → pr-open → pr-review → pr-approved → merged → complete`
+
+**Duration:** 1-2 hours
 
 **Output:**
-- New file: `src/hooks/useAuth.ts`
-- Modified: `src/auth/AuthContext.tsx`, `src/components/LoginForm.tsx`
-- Tests: Refactored tests to use hook
-- Deliverable: Migration guide
+- New `useAuth.ts` hook
+- Refactored components to use hook
+- Tests updated for new structure
 
-## Tips
+## Best Practices
 
 ### Clear Missions
 
-✅ **Good:** "Implement login form with email/password validation"
+✅ **Good:** "Implement login form with email/password validation and error handling"
 
 ❌ **Bad:** "Do auth stuff"
 
-### Scope Control
+### Scoped Work
 
 Keep missions focused:
 - One feature per team
@@ -301,17 +332,43 @@ Keep missions focused:
 
 Encourage testing in mission:
 
-"Implement password reset flow **with full test coverage**"
+"Implement password reset flow **with full test coverage and integration tests**"
 
 ### Learning Capture
 
-Teams automatically log discoveries:
-- Patterns found
-- Conventions used
-- Gotchas encountered
+Teams automatically log discoveries to `.squad/signals/learnings.jsonl`:
+
+```json
+{
+  "id": "learning-abc123",
+  "timestamp": "2025-01-30T12:00:00Z",
+  "domain": "backend-api",
+  "category": "pattern",
+  "content": "Rate limiting should apply per-IP, not per-user (unauthenticated endpoints)",
+  "tags": ["rate-limiting", "security", "auth"],
+  "confidence": "high",
+  "context": "Implemented reset-request endpoint"
+}
+```
+
+These learnings can be graduated to skills for future teams.
+
+## Monitoring
+
+Coding teams emit telemetry (when enabled):
+
+- `code.files_changed` — Files modified count
+- `code.test_count` — Tests written/updated
+- `code.build_success` — Build status (boolean)
+- `code.pr_number` — Pull request number
+
+**Health checks:**
+- Status updated within 10 minutes
+- Tests passing in latest commit
+- No unhandled errors in logs
 
 ## Next Steps
 
-- [View deliverable archetype](/archetypes/deliverable)
-- [View consultant archetype](/archetypes/consultant)
-- [Create custom archetypes](/archetypes/creating-archetypes)
+- [View deliverable archetype](/vladi-plugins-marketplace/archetypes/deliverable)
+- [View consultant archetype](/vladi-plugins-marketplace/archetypes/consultant)
+- [Create custom archetypes](/vladi-plugins-marketplace/archetypes/creating-archetypes)

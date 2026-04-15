@@ -6,7 +6,7 @@ hero:
   tagline: Multi-team orchestration for AI agents. Decompose complex projects into specialized teams with their own lifecycles, skills, and communication.
   actions:
     - text: Get Started
-      link: /getting-started/introduction/
+      link: /vladi-plugins-marketplace/getting-started/introduction/
       icon: right-arrow
       variant: primary
     - text: View on GitHub
@@ -42,25 +42,9 @@ Squad Federation provides a **3-layer architecture**:
 - **Lib Modules** - Onboarding, communication, monitoring implementations
 - **Scripts** - CLI entry points for federation management
 
-## Quick Example
+## Get Started
 
-```bash
-# Create federation
-npx tsx scripts/init-federation.ts --communication file-signal
-
-# Onboard a coding team
-npx tsx scripts/onboard.ts \
-  --archetype coding \
-  --domain backend-api \
-  --placement worktree \
-  --mission "Build REST API with PostgreSQL"
-
-# Launch team
-npx tsx scripts/launch.ts --team backend-api
-
-# Monitor progress
-npx tsx scripts/monitor.ts --watch
-```
+Talk to Copilot using the federation skills. Create teams conversationally, launch them, and monitor their progress—no manual commands needed.
 
 ## Use Cases
 
@@ -72,12 +56,7 @@ npx tsx scripts/monitor.ts --watch
 
 **Large Migrations** - Coordinate multiple teams refactoring different modules in parallel
 
-## What's New in v0.5.0
 
-- **Placement/Communication Separation** - Teams can now mix worktree and directory placements within one federation
-- **Teams Channel Transport** - Real-time coordination via Microsoft Teams with hashtag protocol
-- **Learning Log Format** - Standardized JSONL for capturing and sweeping team learnings
-- **File Locking** - Thread-safe team registry updates prevent concurrent modification
 
 ## Ready to Start?
 
@@ -85,21 +64,21 @@ npx tsx scripts/monitor.ts --watch
   <Card title="Installation" icon="rocket">
     Set up Squad Federation and create your first federation.
     
-    [Install →](/getting-started/installation/)
+    [Install →](/vladi-plugins-marketplace/getting-started/installation/)
   </Card>
   <Card title="First Federation" icon="laptop">
     Step-by-step walkthrough to onboard teams and start coordinating.
     
-    [Get Started →](/getting-started/first-federation/)
+    [Get Started →](/vladi-plugins-marketplace/getting-started/first-federation/)
   </Card>
   <Card title="Guides" icon="open-book">
     Learn federation setup, monitoring, and knowledge workflows.
     
-    [Read Guides →](/guides/federation-setup/)
+    [Read Guides →](/vladi-plugins-marketplace/guides/federation-setup/)
   </Card>
   <Card title="Archetypes" icon="puzzle">
     Understand coding, deliverable, and consultant team patterns.
     
-    [Explore Archetypes →](/archetypes/overview/)
+    [Explore Archetypes →](/vladi-plugins-marketplace/archetypes/overview/)
   </Card>
 </CardGrid>

@@ -5,55 +5,68 @@ description: What is Squad Federation and how does it work
 
 # Squad Federation
 
-Squad Federation is a **transport-agnostic federated team orchestration system** that enables AI agents to work autonomously across multiple teams while maintaining clean separation of concerns.
+Squad Federation coordinates multiple autonomous AI teams working on different aspects of a project. Talk to Copilot skills to set up teams, launch work, and monitor progress — the system handles the mechanics automatically.
 
-## What is Squad Federation?
+## What Is Squad Federation?
 
-Squad Federation solves the challenge of coordinating multiple autonomous AI teams working on different aspects of a project. Instead of having a single monolithic agent try to handle everything, you can create specialized teams that each focus on their domain — frontend, backend, infrastructure, testing, documentation — and let them work in parallel.
+Instead of a single monolithic agent handling everything, you create specialized teams that each focus on their domain — frontend, backend, infrastructure, testing, documentation — and let them work in parallel. Each team has its own workspace, skills, and lifecycle.
+
+## How You Use It
+
+You interact with Squad Federation through **conversational skills** in Copilot:
+
+**Setting up:** "Set up a federation for my project"
+→ The setup skill walks you through federation configuration with guided questions.
+
+**Adding teams:** "Onboard a team for auth"
+→ The onboarding skill asks what the team should do, discovers the right archetype, and creates the workspace.
+
+**Launching work:** "Launch the auth team"
+→ The team starts working in a headless session.
+
+**Monitoring:** "How's my federation doing?"
+→ The orchestration skill shows team status and progress.
+
+You don't run scripts manually or create config files by hand. The skills handle those details.
 
 ## Core Concepts
 
-### Three-Layer Architecture
+### Three Layers
 
-Squad Federation operates on three distinct layers:
+Squad Federation operates on three layers:
 
-1. **SDK Layer** - TypeScript interfaces, Zod schemas, and base classes that define the contracts
-2. **Lib Modules** - Concrete implementations of placement strategies, communication protocols, registry management, and knowledge sharing
-3. **Scripts** - Entry points for onboarding teams, launching sessions, monitoring progress, and managing knowledge
-
-### Placement vs Communication
-
-The v0.4.0 architecture introduced a critical separation:
-
-**Placement** (per-team): WHERE team files live
-- Git worktrees in `.worktrees/`
+**1. Placement** (per-team): WHERE each team's workspace lives
+- Git worktrees with dedicated branches
 - Standalone directories
-- Custom storage backends
+- Teams can use different placement types in the same federation
 
-**Communication** (federation-scoped): HOW teams exchange messages
-- File-based signals (`.squad/signals/inbox` and `outbox`)
-- Microsoft Teams channels with hashtag protocol
-- Custom communication adapters
+**2. Communication** (federation-scoped): HOW teams exchange messages
+- File-based signals (default, fast, local)
+- Microsoft Teams channels (human-visible, real-time)
+- All teams in a federation use the same communication protocol
 
-This separation allows you to mix placement strategies within a single federation — some teams in git worktrees, others in directories — while all teams use the same communication protocol.
+**3. Knowledge** (shared): WHAT teams learn and share
+- Each team logs discoveries, patterns, and insights
+- Cross-team patterns are detected and promoted into reusable skills
+- Skills sync to all teams automatically
 
 ### Team Archetypes
 
-Every team operates according to an **archetype** — a predefined lifecycle with states, skills, and behaviors:
+Each team operates according to an **archetype** — a work pattern that defines what the team does and how it progresses:
 
-- **Coding** - Build features, write tests, refactor code
-- **Deliverable** - Create structured outputs (reports, specs, schemas)
-- **Consultant** - Analyze problems, provide recommendations
+- **Coding** - Writes code and opens pull requests
+- **Deliverable** - Produces file artifacts (reports, specs, audit results, inventories)
+- **Consultant** - Domain expert teams that answer questions
 
-Archetypes define what a team can do and how it progresses through its work.
+You pick the archetype during onboarding based on what the team needs to do.
 
 ## Key Features
 
-- **Autonomous Operation** - Teams work independently in headless sessions
-- **Signal-Based Coordination** - Teams communicate via structured messages (directives, questions, reports, alerts)
-- **Knowledge Management** - Learnings are captured, tagged, and graduated into reusable skills
-- **Hybrid Monitoring** - Dashboard shows all team status; archetype monitors provide deep team-specific insights
-- **Flexible Deployment** - File-based for local/git workflows, Teams channels for human oversight
+- **Conversational setup** - Skills guide you through federation creation, team onboarding, and configuration
+- **Autonomous operation** - Teams work independently in headless sessions
+- **Signal-based coordination** - Teams send directives, questions, reports, and alerts via structured messages
+- **Knowledge lifecycle** - Learnings are captured, swept for patterns, and graduated into shared skills
+- **Real-time observability** - Optional OpenTelemetry dashboard shows traces, metrics, and logs from all teams
 
 ## Who Is This For?
 
@@ -66,6 +79,6 @@ Squad Federation is designed for:
 
 ## Next Steps
 
-- [Install the plugin](/getting-started/installation)
-- [Create your first federation](/getting-started/first-federation)
-- [Learn about team onboarding](/guides/team-onboarding)
+- [Install the plugin](/vladi-plugins-marketplace/getting-started/installation)
+- [Create your first federation](/vladi-plugins-marketplace/getting-started/first-federation)
+- [Learn about team onboarding](/vladi-plugins-marketplace/guides/team-onboarding)

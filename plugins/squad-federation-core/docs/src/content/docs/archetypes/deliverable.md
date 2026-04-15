@@ -1,72 +1,87 @@
 ---
 title: Deliverable Archetype
-description: Teams that create documents and reports
+description: Teams that create documentation, reports, and analysis artifacts
 ---
 
 # Deliverable Archetype
 
-The **deliverable** archetype is designed for teams that produce documentation, reports, or non-code artifacts.
+The **deliverable** archetype is for teams that produce documentation, reports, or non-code artifacts—without modifying the codebase.
 
-## Purpose
+## What It Does
 
 Deliverable teams:
 - Write documentation
 - Create analysis reports
 - Generate diagrams
 - Produce specifications
-- Compile findings
+- Compile research findings
 
-**Output:** Markdown documents, reports, artifacts
+**Output:** Markdown documents, reports, diagrams
 
-## States
+## Lifecycle States
 
 ```
-initializing
-    ↓
-gathering ←→ paused
-    ↓
-composing ←→ paused
-    ↓
-complete (✓)
+preparing
+  ↓
+scanning
+  ↓
+distilling
+  ↓
+aggregating
+  ↓
+complete
 
-(any state) → failed (✗)
+(any state) → failed
+(any non-terminal state) → paused
 ```
 
-| State | Description | Duration |
-|-------|-------------|----------|
-| `initializing` | Setting up workspace | <1min |
-| `gathering` | Collecting information, reading files | 5-15min |
-| `composing` | Writing deliverable document | 10-20min |
+| State | Description | Typical Duration |
+|-------|-------------|------------------|
+| `preparing` | Reading mission, planning document structure | 2-3 minutes |
+| `scanning` | Gathering information from codebase | 10-20 minutes |
+| `distilling` | Processing findings, identifying key insights | 5-10 minutes |
+| `aggregating` | Writing deliverable document, formatting | 10-15 minutes |
 | `complete` | Document finished | (terminal) |
 | `failed` | Error occurred | (terminal) |
 | `paused` | Manually paused | (indefinite) |
 
-## Agents
+### State Transitions
 
-### Lead Agent
+**preparing → scanning**
+- Read mission from inbox signal
+- Plan document structure
+- Identify information sources (files, directories)
 
-**Role:** Primary writer and researcher
+**scanning → distilling**
+- Read relevant files (code, configs, docs)
+- Extract key information
+- Log findings to learning log
 
-**Responsibilities:**
-- Gather information from codebase
-- Analyze findings
-- Write deliverable document
-- Format and structure content
-- Ensure completeness
+**distilling → aggregating**
+- Identify patterns and insights
+- Organize information logically
+- Select examples and code snippets
 
-**Tools:** `view`, `grep`, `glob`, `bash` (read-only)
+**aggregating → complete**
+- Write deliverable markdown
+- Add diagrams (Mermaid)
+- Format according to standards
+- Save as `deliverable.md`
 
-**Temperature:** 0.3 (balanced)
+**(any state) → failed**
+- Cannot find required information
+- Source files are corrupted or inaccessible
+- Document structure cannot be determined
 
 ## Skills
 
-Deliverable teams have access to:
+Deliverable teams have access to documentation skills in `.squad/skills/`:
 
-1. **documentation-standards.md** - Markdown conventions, structure guidelines
-2. **report-templates.md** - Report formats (architecture, analysis, audit)
-3. **diagram-tools.md** - Mermaid, PlantUML syntax
+1. **documentation-standards.md** — Markdown conventions, structure guidelines
+2. **report-templates.md** — Report formats (architecture, analysis, audit)
+3. **diagram-tools.md** — Mermaid and PlantUML syntax
 
-### Example: Documentation Standards
+### Example Skill: Documentation Standards
 
 ```markdown
 ---
@@ -80,12 +95,12 @@ category: convention
 
 Every document should have:
 
-1. **Title** - Clear, descriptive
-2. **Summary** - 2-3 sentence overview
-3. **Table of Contents** - For long docs (>500 words)
-4. **Sections** - Logical grouping
-5. **Code Examples** - Syntax-highlighted
-6. **Next Steps** - Action items
+1. **Title** — Clear, descriptive
+2. **Summary** — 2-3 sentence overview
+3. **Table of Contents** — For long docs (>500 words)
+4. **Sections** — Logical grouping
+5. **Code Examples** — Syntax-highlighted
+6. **Next Steps** — Action items
 
 ## Markdown
 
@@ -108,51 +123,83 @@ graph TD
 \`\`\`
 ```
 
+## Agent Configuration
+
+### Lead Agent
+
+**Role:** Writer and researcher
+
+**Model:** `claude-sonnet-4`
+
+**Temperature:** `0.3` (balanced—slightly creative)
+
+**Tools:** `view`, `grep`, `glob`, `bash` (read-only)
+
+**Responsibilities:**
+- Gather information from codebase
+- Analyze findings
+- Write deliverable document
+- Format and structure content
+
 ## Typical Workflow
 
-### Phase 1: Initialization (30s)
+### Phase 1: Preparing
 
-1. Team workspace created
-2. Archetype files copied
-3. `.squad/` directory initialized
-4. Status set to `initializing`
+1. Team receives signal: "Document the frontend architecture"
+2. Agent plans document structure:
+   - Overview
+   - Directory structure
+   - State management
+   - Routing
+   - Authentication
+   - Testing
+3. Transitions to `scanning`
 
-### Phase 2: Gathering (5-15min)
+### Phase 2: Scanning
 
-1. Lead agent reads mission
-2. Searches codebase for relevant files
-3. Reads documentation, code, configs
-4. Extracts key information
-5. Logs findings to learning log
-6. Updates status: `state: "gathering", progress_pct: 40`
+1. Agent searches for relevant files:
+   - `package.json` — Dependencies
+   - `src/` directory — Code structure
+   - `vite.config.ts` — Build config
+   - `README.md` — Setup instructions
+2. Reads key files:
+   - `src/contexts/AuthContext.tsx` — Auth implementation
+   - `src/App.tsx` — Routing setup
+   - `src/hooks/useAuth.ts` — Custom hooks
+3. Logs findings:
+   ```json
+   {
+     "timestamp": "2025-01-30T12:00:00Z",
+     "domain": "docs-team",
+     "category": "discovery",
+     "content": "Frontend uses Context API for state management",
+     "tags": ["architecture", "state", "react"],
+     "confidence": "high"
+   }
+   ```
+4. Transitions to `distilling`
 
-**Example findings:**
+### Phase 3: Distilling
 
-```json
-{
-  "timestamp": "2025-01-30T12:00:00Z",
-  "domain": "docs-team",
-  "category": "discovery",
-  "content": "Project uses monorepo structure with 3 packages",
-  "tags": ["architecture", "documentation"],
-  "context": "Found in package.json workspaces field"
-}
-```
+1. Agent analyzes findings:
+   - Identifies architectural patterns (Context API, React Router)
+   - Extracts key technologies (React 18, Vite 4, TypeScript 5)
+   - Notes conventions (httpOnly cookies for auth)
+2. Organizes information into sections
+3. Selects representative code examples
+4. Transitions to `aggregating`
 
-### Phase 3: Composing (10-20min)
+### Phase 4: Aggregating
 
-1. Lead agent structures deliverable
-2. Writes sections based on findings
-3. Adds code examples, diagrams
-4. Formats according to standards
-5. Saves as `deliverable.md`
-6. Updates status: `state: "composing", progress_pct: 80`
-
-### Phase 4: Complete (terminal)
-
-1. Status set to `complete`
-2. Deliverable available at `deliverable.md`
-3. Team session can be stopped
+1. Agent writes `deliverable.md`:
+   - Summary paragraph
+   - Table of contents
+   - Section-by-section content
+   - Code examples
+   - Mermaid diagrams
+   - Next steps
+2. Formats according to `documentation-standards.md`
+3. Transitions to `complete`
 
 ## Deliverable Format
 
@@ -174,8 +221,8 @@ The frontend is a React SPA using TypeScript, Vite, and React Router. State mana
 - [State Management](#state-management)
 - [Routing](#routing)
 - [Authentication](#authentication)
-- [API Integration](#api-integration)
 - [Testing](#testing)
+- [Next Steps](#next-steps)
 
 ## Architecture Overview
 
@@ -223,9 +270,9 @@ export const AuthContext = createContext<AuthState>({
 \`\`\`
 
 **Contexts:**
-- `AuthContext` - User authentication
-- `ThemeContext` - UI theme (light/dark)
-- `NotificationContext` - Toast notifications
+- `AuthContext` — User authentication
+- `ThemeContext` — UI theme (light/dark)
+- `NotificationContext` — Toast notifications
 
 ## Authentication
 
@@ -268,64 +315,55 @@ npm run test:coverage # Generate coverage report
 3. Add error boundary component
 ```
 
-## Monitoring
-
-Deliverable teams emit metrics:
-
-- `deliverable.size_bytes` - Document size
-- `deliverable.sections` - Section count
-- `deliverable.code_examples` - Code blocks included
-
-**Health checks:**
-
-- Deliverable file exists
-- Size > 1000 bytes (substantive content)
-- Status updated within 10 minutes
-
 ## Common Use Cases
 
 ### Architecture Documentation
 
 **Mission:** "Document the frontend architecture"
 
-**States:** `initializing → gathering → composing → complete`
+**States:** `preparing → scanning → distilling → aggregating → complete`
+
+**Duration:** 30-45 minutes
 
 **Output:**
-- `deliverable.md` with sections:
-  - Overview
-  - Directory structure
-  - State management
-  - Routing
-  - Authentication
-  - Testing
+- Comprehensive architecture doc
+- Directory structure diagram
+- Code examples
+- Technology stack overview
+
+---
 
 ### Analysis Report
 
 **Mission:** "Analyze database schema and create ER diagram"
 
-**States:** `initializing → gathering → composing → complete`
+**States:** `preparing → scanning → distilling → aggregating → complete`
+
+**Duration:** 20-30 minutes
 
 **Output:**
-- `deliverable.md` with:
-  - Summary of tables
-  - ER diagram (Mermaid)
-  - Relationships
-  - Observations
+- Table summaries
+- ER diagram (Mermaid)
+- Relationship analysis
+- Observations and recommendations
 
-### Security Audit
+---
+
+### Security Audit Report
 
 **Mission:** "Review authentication flow for security issues"
 
-**States:** `initializing → gathering → composing → complete`
+**States:** `preparing → scanning → distilling → aggregating → complete`
+
+**Duration:** 30-40 minutes
 
 **Output:**
-- `deliverable.md` with:
-  - Current implementation
-  - Security findings
-  - Recommendations
-  - Priority ranking
+- Current implementation analysis
+- Security findings (ranked by severity)
+- Recommendations
+- Code examples
 
-## Tips
+## Best Practices
 
 ### Clear Structure
 
@@ -367,8 +405,7 @@ sequenceDiagram
 
 Show, don't tell:
 
-```markdown
-❌ "The API client uses fetch"
+❌ "The API client uses fetch with credentials"
 
 ✅ "The API client uses fetch with credentials:
 
@@ -378,14 +415,13 @@ fetch('/api/endpoint', {
 })
 \`\`\`
 "
-```
 
-### Actionable Findings
+### Actionable Next Steps
 
-Provide next steps:
+Provide concrete follow-up items:
 
 ```markdown
-## Recommendations
+## Next Steps
 
 1. **High Priority:** Enable HTTPS in production
 2. **Medium Priority:** Add rate limiting to login endpoint
@@ -397,7 +433,7 @@ Provide next steps:
 | Aspect | Deliverable | Coding |
 |--------|-------------|--------|
 | **Output** | Documents | Code |
-| **States** | gathering/composing | scanning/distilling |
+| **States** | scanning/distilling/aggregating | implementing/testing/pr-open |
 | **Changes** | None to codebase | Modifies files |
 | **Tools** | Read-only | Read + write |
 
@@ -411,8 +447,21 @@ Provide next steps:
 - Fixing bugs
 - Refactoring
 
+## Monitoring
+
+Deliverable teams emit telemetry (when enabled):
+
+- `deliverable.size_bytes` — Document size
+- `deliverable.sections` — Section count
+- `deliverable.code_examples` — Code blocks included
+
+**Health checks:**
+- Deliverable file exists and is non-empty
+- Status updated within 10 minutes
+- No errors in logs
+
 ## Next Steps
 
-- [View coding archetype](/archetypes/coding)
-- [View consultant archetype](/archetypes/consultant)
-- [Create custom archetypes](/archetypes/creating-archetypes)
+- [View coding archetype](/vladi-plugins-marketplace/archetypes/coding)
+- [View consultant archetype](/vladi-plugins-marketplace/archetypes/consultant)
+- [Create custom archetypes](/vladi-plugins-marketplace/archetypes/creating-archetypes)

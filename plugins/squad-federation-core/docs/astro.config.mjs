@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import starlightThemeObsidian from 'starlight-theme-obsidian';
 
 export default defineConfig({
   site: 'https://lygav.github.io',
@@ -8,6 +9,7 @@ export default defineConfig({
     starlight({
       title: 'Squad Federation',
       description: 'Transport-agnostic federated team orchestration',
+      plugins: [starlightThemeObsidian()],
       social: [
         {
           icon: 'github',
