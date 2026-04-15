@@ -19,6 +19,72 @@ This page documents the scripts for reference and troubleshooting, but you shoul
 
 ## Core Scripts
 
+### `setup.ts`
+
+**What it does:** Initializes a new federation — validates prerequisites, writes `federate.config.json`, creates `.squad/` directory, and initializes team registry. Implements the **script-drives-skill** model (ADR-001) — the script owns all setup logic; the `federation-setup` skill is a thin conversational wrapper.
+
+**Called by:** `federation-setup` skill (via `--non-interactive --output-format json`)
+
+**Parameters:**
+- `--description <text>` — Federation description *(required)*
+- `--telemetry` / `--no-telemetry` — Enable/disable telemetry *(default: enabled)*
+- `--telemetry-endpoint <url>` — OTel endpoint URL
+- `--teams-notification` — Enable Teams notifications
+- `--teams-team-id <id>` — Teams workspace ID *(required with `--teams-notification`)*
+- `--teams-channel-id <id>` — Teams channel ID *(required with `--teams-notification`)*
+- `--heartbeat` / `--no-heartbeat` — Enable/disable heartbeat
+- `--heartbeat-interval <seconds>` — Heartbeat interval *(default: 300, minimum: 10)*
+- `--non-interactive` — No stdin prompts; all params via flags *(for CI/skill use)*
+- `--output-format <text|json>` — Output format; `json` produces structured `SetupResult`
+- `--dry-run` — Validate prerequisites without creating anything
+
+**What it creates:**
+```
+federate.config.json             # Federation configuration
+.squad/
+  teams.json                     # Team registry (empty)
+  team.md                        # Squad roster (from squad init)
+```
+
+**Example (non-interactive with JSON output):**
+```bash
+npx tsx scripts/setup.ts \
+  --description "Coordinate security audits" \
+  --telemetry --telemetry-endpoint http://localhost:4318 \
+  --heartbeat \
+  --non-interactive \
+  --output-format json
+```
+
+**Example (dry run):**
+```bash
+npx tsx scripts/setup.ts \
+  --description "test" \
+  --dry-run --non-interactive --output-format json
+```
+
+**JSON output structure (`SetupResult`):**
+```json
+{
+  "success": true,
+  "configPath": "/path/to/federate.config.json",
+  "config": {
+    "description": "Coordinate security audits",
+    "telemetry": { "enabled": true, "endpoint": "http://localhost:4318" },
+    "heartbeat": { "enabled": true }
+  },
+  "squadDir": "/path/to/.squad",
+  "registryPath": "/path/to/.squad/teams.json",
+  "prerequisites": [
+    { "name": "git", "status": "ok", "version": "2.43.0" },
+    { "name": "node", "status": "ok", "version": "v20.11.0" }
+  ],
+  "dryRun": false
+}
+```
+
+---
+
 ### `onboard.ts`
 
 **What it does:** Creates a new team workspace, seeds archetype files, registers team in `.squad/team-registry.json`. Implements the **script-drives-skill** model (ADR-001) — the script owns all onboarding logic; skills are thin wrappers.
@@ -95,25 +161,77 @@ npx tsx scripts/onboard.ts \
 
 ### `launch.ts`
 
-**What it does:** Starts a headless Copilot session for a team.
+**What it does:** Starts a headless Copilot session for a team. Implements the **script-drives-skill** model (ADR-001) — the script owns all launch logic; skills are thin wrappers.
 
-**Called by:** `federation-orchestration` skill
+**Called by:** `federation-orchestration` skill (via `--non-interactive --output-format json`)
 
 **Parameters:**
-- `--team <domainId>` — Team to launch
-- `--model <name>` — (Optional) Override model (default from archetype)
-- `--max-turns <n>` — (Optional) Max conversation turns before auto-pause
+- `--team <name>` / `--domain <name>` — Team to launch *(single team)*
+- `--teams <a,b,c>` / `--domains <a,b,c>` — Comma-separated teams to launch
+- `--all` — Launch all active teams
+- `--reset` — Clear state before launching (removes status.json, clears ack files)
+- `--step <step>` — Run a single step instead of full playbook
+- `--prompt "text"` — Override prompt with inline text
+- `--prompt-file <path>` — Override prompt with file contents
+- `--non-interactive` — No stdin prompts; all params via flags *(for CI/skill use)*
+- `--output-format <text|json>` — Output format; `json` produces structured `LaunchResult`
+
+**Launch guards:**
+- Teams with `status: "paused"` or `status: "retired"` are skipped automatically
+- In `--all` mode, a summary shows how many teams were skipped
+- In targeted mode, each skipped team logs a message
+
+**Headless process details:**
+- Spawns Copilot with `stdio: ['pipe', logFile, logFile]` to avoid TTY issues
+- stdin is closed immediately after spawn (headless sessions must not wait for input)
+- Logs the full command line into `run-output.log` header for debugging
+- Registers a spawn error handler that writes errors to the log file
 
 **What it does:**
-1. Reads team's `archetype.json` state machine
-2. Starts Copilot agent with team's system prompt
-3. Runs autonomously, checking inbox for signals
-4. Updates status as work progresses
-5. Writes deliverable when complete
+1. Reads team registry and validates workspace
+2. Detects run type (first-run / refresh / reset)
+3. Resolves prompt via 4-tier priority chain (see [Launch Mechanics](/vladi-plugins-marketplace/reference/launch-mechanics))
+4. Writes OTel MCP config if telemetry enabled
+5. Spawns detached Copilot process with command logging
+6. Returns structured result with PID and log path
 
-**Example (manual invocation):**
+**Example (interactive):**
 ```bash
 npx tsx scripts/launch.ts --team backend-api
+npx tsx scripts/launch.ts --team backend-api --reset
+npx tsx scripts/launch.ts --team backend-api --step distillation
+npx tsx scripts/launch.ts --all
+```
+
+**Example (non-interactive with JSON output):**
+```bash
+npx tsx scripts/launch.ts \
+  --team backend-api \
+  --non-interactive \
+  --output-format json
+```
+
+**JSON output structure (`LaunchResult`):**
+```json
+{
+  "success": true,
+  "team": "backend-api",
+  "domainId": "abc-123",
+  "pid": 12345,
+  "logFile": "/path/to/.worktrees/backend-api/run-output.log",
+  "runType": "first-run"
+}
+```
+
+**Skipped team result (paused/retired):**
+```json
+{
+  "success": false,
+  "team": "legacy-api",
+  "domainId": "leg-1",
+  "skipped": true,
+  "skipReason": "status is \"paused\""
+}
 ```
 
 ---
