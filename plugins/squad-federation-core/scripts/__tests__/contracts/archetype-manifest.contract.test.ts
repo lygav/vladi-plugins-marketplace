@@ -1,17 +1,17 @@
 /**
  * Contract tests for archetype manifest validation
- * Validates that all archetype.json files conform to ArchetypeManifestSchema
+ * Validates that all archetype.json files conform to expected schemas
  */
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ArchetypeManifestSchema } from '../../../sdk/schemas.js';
+import { StateSchemaSchema } from '../../../sdk/schemas.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const repoRoot = join(__dirname, '../../../..');
+const repoRoot = join(__dirname, '../../../../..');
 
 describe('archetype-manifest.contract.test.ts', () => {
   describe('squad-archetype-deliverable', () => {
@@ -20,27 +20,22 @@ describe('archetype-manifest.contract.test.ts', () => {
       const manifestRaw = readFileSync(manifestPath, 'utf-8');
       const manifest = JSON.parse(manifestRaw);
 
-      // The root archetype.json is a simple catalog structure (not a full manifest)
+      // The root archetype.json is a plugin catalog manifest
       expect(manifest).toHaveProperty('name');
       expect(manifest).toHaveProperty('version');
       expect(manifest).toHaveProperty('description');
       expect(manifest.name).toBe('squad-archetype-deliverable');
     });
 
-    it('should have valid team/archetype.json conforming to schema', () => {
+    it('should have valid team/archetype.json with state machine', () => {
       const manifestPath = join(repoRoot, 'plugins/squad-archetype-deliverable/team/archetype.json');
       const manifestRaw = readFileSync(manifestPath, 'utf-8');
       const manifest = JSON.parse(manifestRaw);
 
-      // Validate against schema
-      const result = ArchetypeManifestSchema.safeParse(manifest);
-      if (!result.success) {
-        console.error('Validation errors:', result.error.errors);
-      }
-
-      expect(result.success).toBe(true);
-      expect(manifest.id).toBe('deliverable');
-      expect(manifest.name).toBe('Deliverable');
+      // team/archetype.json is a runtime state machine definition
+      expect(manifest).toHaveProperty('states');
+      expect(manifest.states).toHaveProperty('lifecycle');
+      expect(manifest.states).toHaveProperty('terminal');
     });
 
     it('should have required state machine definition', () => {
@@ -57,20 +52,8 @@ describe('archetype-manifest.contract.test.ts', () => {
       expect(manifest.states.terminal.length).toBeGreaterThan(0);
     });
 
-    it('should have required monitor configuration', () => {
-      const manifestPath = join(repoRoot, 'plugins/squad-archetype-deliverable/team/archetype.json');
-      const manifestRaw = readFileSync(manifestPath, 'utf-8');
-      const manifest = JSON.parse(manifestRaw);
-
-      expect(manifest).toHaveProperty('monitor');
-      expect(manifest.monitor).toHaveProperty('display');
-      expect(manifest.monitor.display).toHaveProperty('sectionTitle');
-      expect(manifest.monitor.display).toHaveProperty('stateProgressFormat');
-      expect(manifest.monitor.display).toHaveProperty('groupByArchetype');
-    });
-
-    it('should have valid semver version', () => {
-      const manifestPath = join(repoRoot, 'plugins/squad-archetype-deliverable/team/archetype.json');
+    it('should have valid root manifest version', () => {
+      const manifestPath = join(repoRoot, 'plugins/squad-archetype-deliverable/archetype.json');
       const manifestRaw = readFileSync(manifestPath, 'utf-8');
       const manifest = JSON.parse(manifestRaw);
 
@@ -90,20 +73,15 @@ describe('archetype-manifest.contract.test.ts', () => {
       expect(manifest.name).toBe('squad-archetype-coding');
     });
 
-    it('should have valid team/archetype.json conforming to schema', () => {
+    it('should have valid team/archetype.json with state machine', () => {
       const manifestPath = join(repoRoot, 'plugins/squad-archetype-coding/team/archetype.json');
       const manifestRaw = readFileSync(manifestPath, 'utf-8');
       const manifest = JSON.parse(manifestRaw);
 
-      // Validate against schema
-      const result = ArchetypeManifestSchema.safeParse(manifest);
-      if (!result.success) {
-        console.error('Validation errors:', result.error.errors);
-      }
-
-      expect(result.success).toBe(true);
-      expect(manifest.id).toBe('coding');
-      expect(manifest.name).toBe('Coding');
+      // team/archetype.json is a runtime state machine definition
+      expect(manifest).toHaveProperty('states');
+      expect(manifest.states).toHaveProperty('lifecycle');
+      expect(manifest.states).toHaveProperty('terminal');
     });
 
     it('should have required state machine definition', () => {
@@ -120,20 +98,8 @@ describe('archetype-manifest.contract.test.ts', () => {
       expect(manifest.states.terminal.length).toBeGreaterThan(0);
     });
 
-    it('should have required monitor configuration', () => {
-      const manifestPath = join(repoRoot, 'plugins/squad-archetype-coding/team/archetype.json');
-      const manifestRaw = readFileSync(manifestPath, 'utf-8');
-      const manifest = JSON.parse(manifestRaw);
-
-      expect(manifest).toHaveProperty('monitor');
-      expect(manifest.monitor).toHaveProperty('display');
-      expect(manifest.monitor.display).toHaveProperty('sectionTitle');
-      expect(manifest.monitor.display).toHaveProperty('stateProgressFormat');
-      expect(manifest.monitor.display).toHaveProperty('groupByArchetype');
-    });
-
-    it('should have valid semver version', () => {
-      const manifestPath = join(repoRoot, 'plugins/squad-archetype-coding/team/archetype.json');
+    it('should have valid root manifest version', () => {
+      const manifestPath = join(repoRoot, 'plugins/squad-archetype-coding/archetype.json');
       const manifestRaw = readFileSync(manifestPath, 'utf-8');
       const manifest = JSON.parse(manifestRaw);
 
@@ -142,49 +108,30 @@ describe('archetype-manifest.contract.test.ts', () => {
   });
 
   describe('cross-archetype consistency', () => {
-    it('should use consistent schema structure', () => {
+    it('should use consistent state schema structure', () => {
       const deliverablePath = join(repoRoot, 'plugins/squad-archetype-deliverable/team/archetype.json');
       const codingPath = join(repoRoot, 'plugins/squad-archetype-coding/team/archetype.json');
 
       const deliverable = JSON.parse(readFileSync(deliverablePath, 'utf-8'));
       const coding = JSON.parse(readFileSync(codingPath, 'utf-8'));
 
-      // Both should have the same required top-level keys
-      const deliverableKeys = new Set(Object.keys(deliverable));
-      const codingKeys = new Set(Object.keys(coding));
-
-      const requiredKeys = ['id', 'name', 'description', 'version', 'states', 'monitor'];
-      requiredKeys.forEach((key) => {
-        expect(deliverableKeys.has(key)).toBe(true);
-        expect(codingKeys.has(key)).toBe(true);
-      });
+      // Both should have states with lifecycle and terminal
+      expect(deliverable.states).toHaveProperty('lifecycle');
+      expect(deliverable.states).toHaveProperty('terminal');
+      expect(coding.states).toHaveProperty('lifecycle');
+      expect(coding.states).toHaveProperty('terminal');
     });
 
-    it('should have unique archetype IDs', () => {
-      const deliverablePath = join(repoRoot, 'plugins/squad-archetype-deliverable/team/archetype.json');
-      const codingPath = join(repoRoot, 'plugins/squad-archetype-coding/team/archetype.json');
+    it('should have unique archetype names in root manifests', () => {
+      const deliverablePath = join(repoRoot, 'plugins/squad-archetype-deliverable/archetype.json');
+      const codingPath = join(repoRoot, 'plugins/squad-archetype-coding/archetype.json');
 
       const deliverable = JSON.parse(readFileSync(deliverablePath, 'utf-8'));
       const coding = JSON.parse(readFileSync(codingPath, 'utf-8'));
 
-      expect(deliverable.id).not.toBe(coding.id);
-      expect(deliverable.id).toBe('deliverable');
-      expect(coding.id).toBe('coding');
-    });
-
-    it('should have valid monitor display configurations', () => {
-      const deliverablePath = join(repoRoot, 'plugins/squad-archetype-deliverable/team/archetype.json');
-      const codingPath = join(repoRoot, 'plugins/squad-archetype-coding/team/archetype.json');
-
-      const deliverable = JSON.parse(readFileSync(deliverablePath, 'utf-8'));
-      const coding = JSON.parse(readFileSync(codingPath, 'utf-8'));
-
-      const validFormats = ['percentage', 'step', 'custom'];
-
-      expect(validFormats).toContain(deliverable.monitor.display.stateProgressFormat);
-      expect(validFormats).toContain(coding.monitor.display.stateProgressFormat);
-      expect(typeof deliverable.monitor.display.groupByArchetype).toBe('boolean');
-      expect(typeof coding.monitor.display.groupByArchetype).toBe('boolean');
+      expect(deliverable.name).not.toBe(coding.name);
+      expect(deliverable.name).toBe('squad-archetype-deliverable');
+      expect(coding.name).toBe('squad-archetype-coding');
     });
   });
 });

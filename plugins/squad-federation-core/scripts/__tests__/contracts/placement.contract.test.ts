@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { DirectoryPlacement } from '../../lib/directory-placement.js';
+import { DirectoryPlacement } from '../../lib/placement/directory-placement.js';
 import type { TeamPlacement } from '../../../sdk/types.js';
 
 describe('placement.contract.test.ts', () => {
@@ -173,7 +173,7 @@ describe('placement.contract.test.ts', () => {
           const statusExists = await placement.exists(testTeamId, '.squad/signals/status.json');
           expect(statusExists).toBe(true);
 
-          const learningLogExists = await placement.exists(testTeamId, '.squad/learning-log.jsonl');
+          const learningLogExists = await placement.exists(testTeamId, '.squad/learnings/log.jsonl');
           expect(learningLogExists).toBe(true);
         });
       });

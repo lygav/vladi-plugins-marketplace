@@ -47,6 +47,7 @@ export function createTestLearning(overrides?: Partial<LearningEntry>): Learning
   const defaults: LearningEntry = {
     id: `learning-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     timestamp: new Date().toISOString(),
+    version: '1.0',
     type: 'pattern',
     content: 'Test learning content',
     confidence: 'medium',

@@ -47,14 +47,19 @@ export class MockCommunication implements TeamCommunication {
     return [...this.getOrCreateTeam(teamId).outboxSignals];
   }
 
+  async writeOutboxSignal(teamId: string, signal: SignalMessage): Promise<void> {
+    this.getOrCreateTeam(teamId).outboxSignals.push(signal);
+  }
+
   async listSignals(
     teamId: string,
     box: 'inbox' | 'outbox',
     filters: {
       type?: string;
       from?: string;
+      to?: string;
       since?: string;
-    }
+    } = {}
   ): Promise<SignalMessage[]> {
     const signals = box === 'inbox'
       ? this.getOrCreateTeam(teamId).inboxSignals
@@ -68,6 +73,10 @@ export class MockCommunication implements TeamCommunication {
 
     if (filters.from) {
       filtered = filtered.filter(s => s.from === filters.from);
+    }
+
+    if (filters.to) {
+      filtered = filtered.filter(s => s.to === filters.to);
     }
 
     if (filters.since) {
@@ -86,6 +95,29 @@ export class MockCommunication implements TeamCommunication {
   }
 
   // Test helpers
+
+  /**
+   * Read a file-like representation for testing raw format.
+   * Maps inbox signals to .squad/inbox.jsonl format.
+   */
+  async readFile(teamId: string, filePath: string): Promise<string | null> {
+    const team = this.teams.get(teamId);
+    if (!team) return null;
+
+    if (filePath === '.squad/inbox.jsonl') {
+      if (team.inboxSignals.length === 0) return null;
+      return team.inboxSignals.map(s => JSON.stringify(s)).join('\n');
+    }
+    if (filePath === '.squad/outbox.jsonl') {
+      if (team.outboxSignals.length === 0) return null;
+      return team.outboxSignals.map(s => JSON.stringify(s)).join('\n');
+    }
+    if (filePath === '.squad/learning.jsonl') {
+      if (team.learningLog.length === 0) return null;
+      return team.learningLog.map(e => JSON.stringify(e)).join('\n');
+    }
+    return null;
+  }
 
   /**
    * Seed status for a team
