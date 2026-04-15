@@ -285,6 +285,72 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/offboard.ts --team payments --mode retire 
 
 The `--force` flag skips confirmation prompts and warning checks.
 
+## Teams Notifications (MCP Integration)
+
+When `teamsConfig` is present in `federate.config.json`, the meta-squad MUST also post to Teams after producing any status summary, directive relay, or heartbeat report. Teams is a **notification channel** for the human operator — it does NOT replace file signals between teams.
+
+### When to Post to Teams
+
+Post to Teams whenever you:
+- Produce a federation status summary (dashboard view)
+- Relay a directive to a domain team
+- Complete a heartbeat cycle
+- Detect a team failure, alert, or stall
+
+### How to Post a Summary
+
+Use the **PostChannelMessage** MCP tool:
+
+```
+Tool: PostChannelMessage
+Parameters:
+  teamId: <value from federate.config.json → teamsConfig.teamId>
+  channelId: <value from federate.config.json → teamsConfig.channelId>
+  content: <your formatted summary>
+```
+
+Format the content as a concise status block:
+
+```
+🏢 Federation Status Update
+
+Team         State       Step              Progress
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ infra     complete    —                 100%
+🔍 frontend  scanning    auth module       45%
+❌ backend   failed      analyzing routes  65%
+
+⚠️ Alerts: backend failed — timeout on route analysis
+```
+
+### How to Poll for User Directives
+
+Use the **ListChannelMessages** MCP tool to check for messages tagged with `#directive`:
+
+```
+Tool: ListChannelMessages
+Parameters:
+  teamId: <value from federate.config.json → teamsConfig.teamId>
+  channelId: <value from federate.config.json → teamsConfig.channelId>
+  top: 10
+```
+
+After retrieving messages, filter for those containing `#directive` in their body content. Parse the directive text (everything after `#directive`) and act on it as if the user typed it directly. Examples:
+
+- `#directive tell frontend to skip legacy utils` → send a directive signal to the frontend team
+- `#directive pause backend` → pause the backend team
+- `#directive restart infra` → relaunch the infra team
+
+### Conditional Logic
+
+```
+1. Read federate.config.json
+2. If teamsConfig is present AND has both teamId and channelId:
+   a. After every summary → call PostChannelMessage
+   b. During heartbeat/monitoring → call ListChannelMessages, filter for #directive
+3. If teamsConfig is absent → skip Teams integration silently
+```
+
 ## Heartbeat Management
 
 The heartbeat is a background process that periodically spawns fresh copilot sessions to check team status, read signals, and post summaries. It's useful for long-running operations where the user steps away.

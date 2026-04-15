@@ -22,18 +22,66 @@ Squad Federation teams communicate via **signals** — structured messages for d
 - No external dependencies
 - Clean audit trail via git history
 
-## Teams Notifications (Optional)
+## Teams Notifications (Meta-Squad Channel)
 
-If you want meta-squad updates in Microsoft Teams, configure `teamsConfig` in `federate.config.json`. This is a **notification channel** — the meta-squad skill layer posts summaries and polls for `#directive` messages from you. It does not replace file signals as the team communication transport.
+Teams integration is a **meta-squad notification channel** — not a transport between domain teams. The meta-squad skill layer posts curated summaries to a Teams channel and polls for user `#directive` messages. File signals remain the sole communication transport between teams.
+
+### How It Works
+
+1. **Meta-squad posts summaries** — after status checks, heartbeat cycles, or directive relays, the skill calls the `PostChannelMessage` MCP tool
+2. **User posts `#directive` messages** — the meta-squad heartbeat polls with `ListChannelMessages` and filters for `#directive`-tagged messages
+3. **Directives flow through file signals** — when a `#directive` is found in Teams, the meta-squad writes it to the target team's inbox as a standard file signal
+
+### Configuration
+
+Add `teamsConfig` to `federate.config.json`:
 
 ```json
 {
   "teamsConfig": {
     "teamId": "abc-123-def-456",
-    "channelId": "xyz-789-uvw-012"
+    "channelId": "19:xyz-789@thread.tacv2"
   }
 }
 ```
+
+Both fields are required. The meta-squad silently skips Teams integration if `teamsConfig` is absent.
+
+### MCP Tool Usage
+
+The meta-squad session uses two Teams MCP tools (available natively in Copilot):
+
+**Post a summary:**
+```
+PostChannelMessage(teamId, channelId, content)
+```
+
+**Poll for directives:**
+```
+ListChannelMessages(teamId, channelId, top: 10)
+→ filter for messages containing "#directive"
+```
+
+### Architecture
+
+```
+┌─────────────────┐         ┌─────────────────┐
+│  Teams Channel   │◄────────│   Meta-Squad     │
+│  (notification)  │────────►│  (skill layer)   │
+└─────────────────┘         └────────┬─────────┘
+  #directive msgs              PostChannelMessage
+  from user                    ListChannelMessages
+                                      │
+                               file signals
+                                      │
+                        ┌─────────────┼─────────────┐
+                        ▼             ▼             ▼
+                   ┌─────────┐ ┌─────────┐ ┌─────────┐
+                   │ Team A  │ │ Team B  │ │ Team C  │
+                   └─────────┘ └─────────┘ └─────────┘
+```
+
+Teams is one-way notification + directive input. All inter-team communication remains file-signal based.
 
 ## How File Signals Work
 

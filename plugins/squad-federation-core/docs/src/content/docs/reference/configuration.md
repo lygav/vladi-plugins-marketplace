@@ -103,10 +103,27 @@ interface FederateConfig {
 
 #### `teamsConfig`
 
-**Optional.** Microsoft Teams channel for meta-squad notifications. When configured, the meta-squad skill layer posts summaries and polls for `#directive` messages from the user.
+**Optional.** Microsoft Teams channel for meta-squad notifications. When configured, the meta-squad skill layer posts summaries and polls for `#directive` messages from the user via the Teams MCP tools (`PostChannelMessage`, `ListChannelMessages`).
 
-- `teamId` — Teams team GUID
-- `channelId` — Channel GUID within that team
+- `teamId` — Teams team GUID (find it in Teams admin or by using the `ListTeams` MCP tool)
+- `channelId` — Channel ID within that team (format: `19:...@thread.tacv2`, find via `ListChannels` MCP tool)
+
+**How it's used:**
+- The federation-orchestration skill reads `teamsConfig` and, when present, posts status summaries to the channel after every monitoring cycle or heartbeat
+- The heartbeat session polls the channel for messages containing `#directive` and acts on them as user commands
+- This is entirely handled at the skill layer — no Teams SDK or API keys needed, the MCP tools handle authentication natively
+
+**Example:**
+```json
+{
+  "teamsConfig": {
+    "teamId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "channelId": "19:meeting_ABC123@thread.tacv2"
+  }
+}
+```
+
+See [Teams Notifications](/vladi-plugins-marketplace/guides/monitoring#teams-notifications) and [Teams as meta notification channel](/vladi-plugins-marketplace/guides/communication-transports#teams-notifications-meta-squad-channel) for usage details.
 
 #### `playbookSkill`
 

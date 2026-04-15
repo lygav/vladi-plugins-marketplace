@@ -258,6 +258,49 @@ The heartbeat is useful when:
 
 For ad-hoc checks, the conversational monitoring described above is faster and more interactive.
 
+## Teams Notifications
+
+When `teamsConfig` is set in `federate.config.json`, the meta-squad posts status summaries to a Microsoft Teams channel automatically. This works through the **skill layer** — Copilot sessions have native access to the Teams MCP tools.
+
+### What Gets Posted
+
+- **Heartbeat summaries** — periodic status updates for all teams
+- **Directive relays** — confirmation when directives are sent to teams
+- **Alert notifications** — team failures, stalls, or critical errors
+
+### Posting Directives from Teams
+
+You can post messages tagged with `#directive` in the configured Teams channel. The meta-squad heartbeat polls for these and acts on them:
+
+```
+#directive tell frontend to skip legacy utils
+#directive pause backend
+#directive restart infra
+```
+
+### Configuration
+
+Add `teamsConfig` to `federate.config.json`:
+
+```json
+{
+  "teamsConfig": {
+    "teamId": "your-teams-team-guid",
+    "channelId": "19:your-channel-id@thread.tacv2"
+  }
+}
+```
+
+The meta-squad uses the `PostChannelMessage` MCP tool to post and `ListChannelMessages` to poll. No additional setup is needed — these tools are available natively in Copilot sessions.
+
+### When to Use
+
+- You want status updates without keeping a terminal open
+- Multiple stakeholders need visibility into federation progress
+- You want to send directives from Teams instead of the terminal
+
+For setup details, see the [configuration reference](/vladi-plugins-marketplace/reference/configuration#teamsconfig).
+
 ## Troubleshooting
 
 ### Team Not Appearing in Dashboard
