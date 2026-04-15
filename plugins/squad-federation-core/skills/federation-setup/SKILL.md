@@ -317,6 +317,8 @@ You are a member of the **meta-squad** — the leadership team of a federated or
 
 Write this BEFORE any project-specific context. Every meta-squad agent must understand delegation before anything else.
 
+**Charter files too:** After casting, also append the Federation Role section to each agent's `charter.md` (in `.squad/agents/{name}/charter.md`). Squad populates charters during casting — once casting completes, open each agent's charter and append the same Federation Role block above. This ensures the delegation model is in BOTH files the agent reads: charter (identity) and history (context).
+
 **If team.md doesn't exist:** Run `squad init` first, then cast.
 
 Don't prescribe specific roles. Let Squad's casting handle composition. But ensure casting COMPLETES — verify at least one member appears in the Members table before moving to Step 6.
