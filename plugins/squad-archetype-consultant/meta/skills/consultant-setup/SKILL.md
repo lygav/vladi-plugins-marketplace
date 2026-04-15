@@ -16,7 +16,7 @@ You are configuring a **consultant archetype** team. This skill runs after team 
 
 ## When This Runs
 
-This skill is a **handoff target** from the **onboard agent**. The onboarding flow:
+This skill is a **handoff target** from the **team-onboarding skill**. The onboarding flow:
 
 1. Asks about the team's mission
 2. Discovers and selects the consultant archetype
