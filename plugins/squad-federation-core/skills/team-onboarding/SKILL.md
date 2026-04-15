@@ -43,6 +43,13 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs
 
 This is the CONVERSATIONAL phase — ask questions, collect parameters, then execute the mechanical script.
 
+**🔭 Observability:** This skill emits OpenTelemetry spans and events to track onboarding progress. Call the OTel tools at each step.
+
+**Start onboarding span:**
+```tool-call
+otel_span action=start name="team.onboard"
+```
+
 ### Step 1: Understand the Mission
 
 **Ask:** "What should this team work on? Describe their mission."
@@ -55,6 +62,11 @@ This is the CONVERSATIONAL phase — ask questions, collect parameters, then exe
 - "Document the data pipeline architecture"
 
 **Store as:** mission description (will become team description and context)
+
+**Emit event:**
+```tool-call
+otel_event name="team.mission.defined" attributes={"mission": "<mission-text>"}
+```
 
 ### Step 2: Derive Team Name
 
@@ -126,6 +138,11 @@ copilot plugin list | grep squad-archetype-deliverable
 
 **Store as:** archetype name (e.g., `squad-archetype-deliverable`)
 
+**Emit event:**
+```tool-call
+otel_event name="team.archetype.selected" attributes={"archetype": "<archetype-name>"}
+```
+
 ### Step 4: Team Placement
 
 **Note:** This step determines WHERE the team's workspace lives. Communication type is inherited from `federate.config.json` and is not asked during onboarding.
@@ -157,6 +174,11 @@ copilot plugin list | grep squad-archetype-deliverable
 - Worktree directory (if worktree): `.worktrees` (default inside repo) or custom base path for sibling
 - Path (if directory): custom path or default to `.teams/NAME`
 
+**Emit event:**
+```tool-call
+otel_event name="team.placement.selected" attributes={"placement": "<worktree|directory>", "location": "<path>"}
+```
+
 ### Step 5: Confirm Summary
 
 Present a summary of all collected parameters:
@@ -186,6 +208,11 @@ Now that we have all parameters, call the mechanical script with fully resolved 
 
 The onboard script is located at `scripts/onboard.ts` relative to the plugin root.
 
+**Start mechanical span:**
+```tool-call
+otel_span action=start name="team.onboard.mechanical"
+```
+
 **For worktree placement:**
 - If worktree should be placed **inside repo** (default): Do NOT pass `--worktree-dir` flag (script defaults to `.worktrees`)
 - If worktree should be in a **sibling directory**: Pass `--worktree-dir` with the base path (e.g., `--worktree-dir ../` or custom path)
@@ -194,6 +221,11 @@ The onboard script is located at `scripts/onboard.ts` relative to the plugin roo
 - Add `--placement directory --path` with the full directory path
 
 **Monitor the script output for errors.** The script runs autonomously and requires NO user interaction — all parameters are passed via CLI flags.
+
+**End mechanical span:**
+```tool-call
+otel_span action=end name="team.onboard.mechanical" status=ok
+```
 
 ### Step 7: Run Archetype Setup Skill (if applicable)
 
@@ -230,6 +262,11 @@ Tell the user the team is ready and how to launch it (use the actual team name, 
    1. Launch the team: npx tsx scripts/launch.ts --team payments
    2. Monitor progress: npx tsx scripts/monitor.ts
    3. Send directives: npx tsx scripts/directive.ts --team payments --message "..."
+```
+
+**End onboarding span:**
+```tool-call
+otel_span action=end name="team.onboard" status=ok
 ```
 
 ## Error Handling

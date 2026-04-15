@@ -33,6 +33,7 @@ import { loadAndValidateConfig, type FederateConfig } from './lib/config/config.
 import { createTeamContext } from './lib/orchestration/context-factory.js';
 import { TeamRegistry } from './lib/registry/team-registry.js';
 import type { TeamEntry } from '../sdk/types.js';
+import { OTelEmitter } from '../sdk/otel-emitter.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -470,81 +471,107 @@ This squad uses the inter-squad signal protocol:
 // ==================== Main ====================
 
 async function main(): Promise<void> {
-  const REPO_ROOT = process.cwd();
-  const config = loadAndValidateConfig(path.join(REPO_ROOT, 'federate.config.json'));
-  const args = parseArgs(process.argv.slice(2));
-  const domainTitle = toTitleCase(args.name);
+  const emitter = new OTelEmitter();
 
-  console.log(`\n🏗️  Onboarding domain: ${domainTitle}`);
-  console.log(`   Domain ID: ${args.domainId}`);
-  console.log(`   Placement: ${args.placement}`);
-  console.log(`   Communication: ${config.communicationType}`);
-  if (args.description) console.log(`   Description: ${args.description}`);
-  console.log('');
+  await emitter.span('onboard.script', async () => {
+    const REPO_ROOT = process.cwd();
+    const config = loadAndValidateConfig(path.join(REPO_ROOT, 'federate.config.json'));
+    emitter.event('config.loaded');
 
-  // Step 1: Create team workspace (worktree or directory)
-  const { location, branch, worktreeDir } = await createTeamWorkspace(args, REPO_ROOT, config, domainTitle);
-  console.log(`✓ Team workspace created: ${location}`);
+    const args = parseArgs(process.argv.slice(2));
+    const domainTitle = toTitleCase(args.name);
 
-  const metadata: Record<string, unknown> = {};
-  if (args.placement === 'worktree') {
-    metadata.branch = branch;
-    metadata.worktreeDir = worktreeDir;
-    metadata.baseBranch = args.baseBranch;
-  } else if (args.path) {
-    metadata.basePath = args.path;
-  }
+    console.log(`\n🏗️  Onboarding domain: ${domainTitle}`);
+    console.log(`   Domain ID: ${args.domainId}`);
+    console.log(`   Placement: ${args.placement}`);
+    console.log(`   Communication: ${config.communicationType}`);
+    if (args.description) console.log(`   Description: ${args.description}`);
+    console.log('');
 
-  const teamEntry: TeamEntry = {
-    domain: args.name,
-    domainId: args.domainId,
-    archetypeId: args.archetype,
-    transport: args.placement,
-    placementType: args.placement,
-    location,
-    createdAt: new Date().toISOString(),
-    metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
-  };
+    // Step 1: Create team workspace (worktree or directory)
+    let location: string;
+    let branch: string | undefined;
+    let worktreeDir: string | undefined;
 
-  const teamContext = createTeamContext(teamEntry, config, REPO_ROOT);
-  const teamLocation = teamContext.location;
+    await emitter.span('workspace.create', async () => {
+      const result = await createTeamWorkspace(args, REPO_ROOT, config, domainTitle);
+      location = result.location;
+      branch = result.branch;
+      worktreeDir = result.worktreeDir;
+    });
 
-  // Step 5: Let Squad handle team casting
-  console.log('Initializing squad (team casting handled by Squad)...');
-  try {
-    exec('squad init', { cwd: teamLocation });
-    console.log('✓ Squad initialized — team will be cast on first session');
-  } catch {
-    console.log('  ⚠️  squad init not available — team will be cast on first session');
-  }
+    console.log(`✓ Team workspace created: ${location}`);
+    emitter.event('workspace.created', { placement: args.placement, location });
 
-  // Step 6: Register team in TeamRegistry
-  console.log('Registering team in registry...');
-  const registry = new TeamRegistry(REPO_ROOT);
-  await registry.register(teamEntry);
-  console.log('✓ Team registered');
+    const metadata: Record<string, unknown> = {};
+    if (args.placement === 'worktree') {
+      metadata.branch = branch;
+      metadata.worktreeDir = worktreeDir;
+      metadata.baseBranch = args.baseBranch;
+    } else if (args.path) {
+      metadata.basePath = args.path;
+    }
 
-  // Step 7: Commit for worktree placement
-  if (args.placement === 'worktree') {
-    console.log('Creating initial commit...');
-    exec('git add -A', { cwd: teamLocation });
-    exec(`git commit -m "feat: onboard ${args.name} domain
+    const teamEntry: TeamEntry = {
+      domain: args.name,
+      domainId: args.domainId,
+      archetypeId: args.archetype,
+      transport: args.placement,
+      placementType: args.placement,
+      location,
+      createdAt: new Date().toISOString(),
+      metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+    };
+
+    const teamContext = createTeamContext(teamEntry, config, REPO_ROOT);
+    const teamLocation = teamContext.location;
+
+    // Step 5: Let Squad handle team casting
+    console.log('Initializing squad (team casting handled by Squad)...');
+    await emitter.span('squad.init', async () => {
+      try {
+        exec('squad init', { cwd: teamLocation });
+        console.log('✓ Squad initialized — team will be cast on first session');
+      } catch {
+        console.log('  ⚠️  squad init not available — team will be cast on first session');
+      }
+    });
+
+    // Step 6: Register team in TeamRegistry
+    console.log('Registering team in registry...');
+    await emitter.span('team.register', async () => {
+      const registry = new TeamRegistry(REPO_ROOT);
+      await registry.register(teamEntry);
+    });
+    console.log('✓ Team registered');
+    emitter.event('team.registered', { name: args.name, archetype: args.archetype });
+
+    // Step 7: Commit for worktree placement
+    if (args.placement === 'worktree') {
+      console.log('Creating initial commit...');
+      await emitter.span('git.commit', async () => {
+        exec('git add -A', { cwd: teamLocation });
+        exec(`git commit -m "feat: onboard ${args.name} domain
 
 Domain: ${domainTitle}
 Archetype: ${args.archetype}
 Description: ${args.description || 'N/A'}
 
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"`, { cwd: teamLocation });
-    console.log('✓ Initial commit created');
-  }
+      });
+      console.log('✓ Initial commit created');
+    }
 
-  console.log(`\n✅ Domain onboarded successfully!`);
-  console.log(`   Location: ${teamLocation}`);
-  if (branch) console.log(`   Branch: ${branch}`);
-  console.log(`\n📚 Next steps:`);
-  console.log(`   1. Launch the team: npx tsx scripts/launch.ts --team ${args.name}`);
-  console.log(`   2. Monitor progress: npx tsx scripts/monitor.ts`);
-  console.log(`   3. Send directives: npx tsx scripts/directive.ts --team ${args.name} --message "..."`);
+    emitter.event('onboard.complete', { domain: args.name });
+
+    console.log(`\n✅ Domain onboarded successfully!`);
+    console.log(`   Location: ${teamLocation}`);
+    if (branch) console.log(`   Branch: ${branch}`);
+    console.log(`\n📚 Next steps:`);
+    console.log(`   1. Launch the team: npx tsx scripts/launch.ts --team ${args.name}`);
+    console.log(`   2. Monitor progress: npx tsx scripts/monitor.ts`);
+    console.log(`   3. Send directives: npx tsx scripts/directive.ts --team ${args.name} --message "..."`);
+  });
 }
 
 main().catch((err) => {
