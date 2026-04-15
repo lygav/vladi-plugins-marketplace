@@ -234,6 +234,45 @@ npx tsx scripts/launch.ts \
 }
 ```
 
+**Example (interactive):**
+```bash
+npx tsx scripts/launch.ts --team backend-api
+npx tsx scripts/launch.ts --team backend-api --reset
+npx tsx scripts/launch.ts --team backend-api --step distillation
+npx tsx scripts/launch.ts --all
+```
+
+**Example (non-interactive with JSON output):**
+```bash
+npx tsx scripts/launch.ts \
+  --team backend-api \
+  --non-interactive \
+  --output-format json
+```
+
+**JSON output structure (`LaunchResult`):**
+```json
+{
+  "success": true,
+  "team": "backend-api",
+  "domainId": "abc-123",
+  "pid": 12345,
+  "logFile": "/path/to/.worktrees/backend-api/run-output.log",
+  "runType": "first-run"
+}
+```
+
+**Skipped team result (paused/retired):**
+```json
+{
+  "success": false,
+  "team": "legacy-api",
+  "domainId": "leg-1",
+  "skipped": true,
+  "skipReason": "status is \"paused\""
+}
+```
+
 ---
 
 ### `monitor.ts`
