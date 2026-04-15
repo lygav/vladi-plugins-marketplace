@@ -12,6 +12,7 @@ import type { FederateConfig } from '../config/config.js';
 import { WorktreePlacement } from '../placement/worktree-placement.js';
 import { DirectoryPlacement } from '../placement/directory-placement.js';
 import { FileSignalCommunication } from '../communication/file-signal-communication.js';
+import { TeamsChannelCommunication } from '../communication/teams-channel-communication.js';
 import { OTelEmitter } from '../../../sdk/otel-emitter.js';
 
 /**
@@ -54,22 +55,9 @@ communicationAdapters.set('file-signal', (config, emitter) => {
 
 /**
  * Register the teams-channel adapter (v0.5.0).
- * Lazy-loads the TeamsChannelCommunication class to avoid import errors
- * if the implementation isn't available yet.
  */
 communicationAdapters.set('teams-channel', (config, emitter) => {
-  // TODO: Lazy import once TeamsChannelCommunication is merged (#117)
-  // For now, this registration exists but will fail at runtime if called
-  try {
-    const { TeamsChannelCommunication } = require('../communication/teams-channel-communication.js');
-    return new TeamsChannelCommunication(config, emitter);
-  } catch (err) {
-    throw new Error(
-      'TeamsChannelCommunication is not available yet. ' +
-      'This adapter will be functional after #117 merges. ' +
-      `Original error: ${(err as Error).message}`
-    );
-  }
+  return new TeamsChannelCommunication(config, emitter);
 });
 
 /**
