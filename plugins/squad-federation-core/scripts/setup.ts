@@ -326,7 +326,8 @@ export function validateDryRun(args: ParsedSetupArgs, repoRoot: string): SetupRe
 // ==================== Main ====================
 
 async function main(): Promise<void> {
-  const emitter = new OTelEmitter();
+  // Pass endpoint directly — config file doesn't exist yet during setup
+  const emitter = new OTelEmitter(args.telemetry ? args.telemetryEndpoint : undefined);
 
   await emitter.span('setup.script', async () => {
     const REPO_ROOT = process.cwd();
