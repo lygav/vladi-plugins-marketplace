@@ -18,7 +18,7 @@ You are configuring a **coding archetype** team. This skill runs after team onbo
 
 ## When This Runs
 
-This skill is a **handoff target** from the **onboard agent**. The onboarding flow:
+This skill is a **handoff target** from the **team-onboarding skill**. The onboarding flow:
 
 1. Asks about the team's mission
 2. Discovers and selects the coding archetype
@@ -244,7 +244,7 @@ After writing, confirm:
 - **PR review coordination** — that's the `pr-review-coordination` skill
 - **Running the playbook** — that's the `coding-playbook` skill
 - **Task assignment** — that's the `task-assignment` skill
-- **Onboarding teams** — that's the onboard agent
+- **Onboarding teams** — that's the team-onboarding skill
 
 If the user asks about these during setup, redirect:
 

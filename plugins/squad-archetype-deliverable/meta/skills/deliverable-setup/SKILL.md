@@ -18,7 +18,7 @@ You are configuring a **deliverable archetype** team. This skill runs after team
 
 ## When This Runs
 
-This skill is a **handoff target** from the **onboard agent**. The onboarding flow:
+This skill is a **handoff target** from the **team-onboarding skill**. The onboarding flow:
 
 1. Asks about the team's mission
 2. Discovers and selects the deliverable archetype
@@ -227,7 +227,7 @@ After writing, confirm:
 - **Team casting or composition** — Squad handles that
 - **Aggregation logic** — that's the `deliverable-aggregation` skill
 - **Running the playbook** — that's the `deliverable-playbook` skill
-- **Onboarding teams** — that's the onboard agent
+- **Onboarding teams** — that's the team-onboarding skill
 
 If the user asks about these during setup, redirect:
 
