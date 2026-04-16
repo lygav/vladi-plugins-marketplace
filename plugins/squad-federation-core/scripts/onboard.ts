@@ -746,7 +746,7 @@ async function main(): Promise<void> {
         ``,
         `| Agent | Role | Charter |`,
         `| ----- | ---- | ------- |`,
-        membersTable,
+        ...(membersTable ? [membersTable] : []),
         `| Scribe | scribe | (built-in) |`,
         ``,
         `## Universe: ${selectedUniverse}`,
