@@ -27,7 +27,7 @@ The signals directory is initialized by `onboard.ts` and refreshed by `launch.ts
 
 ## ScanStatus Interface
 
-The `status.json` file is the heartbeat of each domain squad. The domain writes to it; the meta-squad reads it.
+The `status.json` file is the pulse of each domain squad. The domain writes to it; the meta-squad reads it.
 
 ```typescript
 interface ScanStatus {

@@ -9,7 +9,7 @@ version: "0.2.0"
 Thin conversational wrapper around federation management scripts (ADR-001 script-drives-skill model). This skill identifies what the user wants, collects any missing parameters conversationally, then delegates ALL mechanical work to scripts via `--non-interactive --output-format json`.
 
 **Skill owns:** conversational flow, parameter collection, presenting results.
-**Scripts own:** all logic — team launching, monitoring, offboarding, heartbeat management.
+**Scripts own:** all logic — team launching, monitoring, offboarding, teams-presence management.
 
 ## Prerequisites
 
@@ -100,18 +100,6 @@ When the user says "resume alpha", "reactivate alpha", "unpause alpha":
 node ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs && npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/offboard.ts --team <name> --mode resume --non-interactive --output-format json
 ```
 
-### Heartbeat Management
-
-The heartbeat is a background daemon. These are operational commands, run directly:
-
-| User says | Command |
-|-----------|---------|
-| "start heartbeat" | `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/meta-heartbeat.ts` |
-| "start heartbeat every 60s" | `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/meta-heartbeat.ts --interval 60` |
-| "stop heartbeat" | `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/meta-heartbeat.ts --stop` |
-| "heartbeat status" | `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/meta-heartbeat.ts --status` |
-| "run one heartbeat check" | `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/meta-heartbeat.ts --once` |
-
 ## Architecture Reference
 
 Two layers: **Meta-squad** (coordinator on `main`) and **Domain squads** (each on `squad/{domain}` branch in a worktree).
@@ -152,14 +140,14 @@ After running `monitor.ts` and parsing the JSON output, if `teamsConfig` is pres
 
 ## Teams Notifications (MCP Integration)
 
-When `teamsConfig` is present in `federate.config.json`, the meta-squad MUST also post to Teams after producing any status summary, directive relay, or heartbeat report. Teams is a **notification channel** for the human operator — it does NOT replace file signals between teams.
+When `teamsConfig` is present in `federate.config.json`, the meta-squad MUST also post to Teams after producing any status summary or directive relay. Teams is a **notification channel** for the human operator — it does NOT replace file signals between teams.
 
 ### When to Post to Teams
 
 Post to Teams whenever you:
 - Produce a federation status summary (dashboard view)
 - Relay a directive to a domain team
-- Complete a heartbeat cycle
+- Complete a teams-presence poll cycle
 - Detect a team failure, alert, or stall
 
 ### How to Post a Summary
@@ -212,10 +200,10 @@ After retrieving messages, filter for those containing `@<federationName>` in th
 1. Read federate.config.json
 2. If teamsConfig is present AND has both teamId and channelId:
    a. After every summary → call PostChannelMessage
-   b. During heartbeat/monitoring → call ListChannelMessages, filter for @<federationName>
+   b. During monitoring → call ListChannelMessages, filter for @<federationName>
 3. If teamsConfig is absent → skip Teams integration silently
 ```
 
-## Heartbeat Management
+## Directive Polling
 
 **Directive polling:** Periodically check the Teams channel for messages addressing `@<federationName>` to allow team members to steer domain squads from Teams without accessing the CLI.

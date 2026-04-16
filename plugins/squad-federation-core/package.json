@@ -13,7 +13,6 @@
     "sweep": "tsx scripts/sweep-learnings.ts",
     "graduate": "tsx scripts/graduate-learning.ts",
     "dashboard": "tsx scripts/dashboard.ts",
-    "heartbeat": "tsx scripts/meta-heartbeat.ts",
     "setup": "tsx scripts/setup.ts",
     "offboard": "tsx scripts/offboard.ts",
     "test": "vitest run --config scripts/vitest.config.ts",

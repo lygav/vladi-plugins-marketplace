@@ -25,8 +25,8 @@ describe('Script exports', () => {
     expect(existsSync(resolve(PLUGIN_ROOT, 'scripts', 'meta-relay.ts'))).toBe(true);
   });
 
-  it('meta-heartbeat.ts — file exists', () => {
-    expect(existsSync(resolve(PLUGIN_ROOT, 'scripts', 'meta-heartbeat.ts'))).toBe(true);
+  it('teams-presence.ts — file exists', () => {
+    expect(existsSync(resolve(PLUGIN_ROOT, 'scripts', 'teams-presence.ts'))).toBe(true);
   });
 
   it('bootstrap.mjs — file exists and is valid JS', async () => {

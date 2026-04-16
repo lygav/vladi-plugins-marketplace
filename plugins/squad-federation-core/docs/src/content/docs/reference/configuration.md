@@ -18,6 +18,17 @@ interface FederateConfig {
   // Optional: Federation description
   description?: string;
   
+  // Optional: Human-readable federation persona name
+  // Used as the @handle in Teams — teams-presence listens for
+  // messages containing @<federationName> in the configured channel.
+  federationName?: string;
+  
+  // Optional: Copilot binary/command for headless sessions
+  // Used by launch.ts and teams-presence ACP session.
+  // Default: 'copilot'. Set to e.g. 'github-copilot' or a full path
+  // if the binary has a different name in your environment.
+  copilotCommand?: string;
+  
   // Optional: Telemetry settings
   telemetry?: {
     enabled?: boolean;        // Default: true
@@ -27,6 +38,8 @@ interface FederateConfig {
   };
   
   // Optional: Teams channel for meta-squad notifications
+  // When configured, enables teams-presence (persistent Graph API +
+  // ACP bridge) in addition to skill-layer posting.
   teamsConfig?: {
     teamId: string;           // MS Teams team ID
     channelId: string;        // MS Teams channel ID
@@ -44,11 +57,6 @@ interface FederateConfig {
   // Optional: Import hook for custom initialization
   importHook?: string;
   
-  // Optional: Periodic heartbeat for unattended monitoring
-  heartbeat?: {
-    enabled?: boolean;          // Default: false
-    intervalSeconds?: number;   // Default: 300
-  };
 }
 ```
 
@@ -61,11 +69,7 @@ interface FederateConfig {
     "enabled": true
   },
   "playbookSkill": "domain-playbook",
-  "deliverable": "deliverable.md",
-  "heartbeat": {
-    "enabled": true,
-    "intervalSeconds": 300
-  }
+  "deliverable": "deliverable.md"
 }
 ```
 
@@ -93,6 +97,34 @@ interface FederateConfig {
 
 **Optional.** Human-readable description of this federation's purpose.
 
+#### `federationName`
+
+**Optional.** The federation's persona name, used as the `@` handle in Teams. When `teamsConfig` is present, the **[teams-presence](/vladi-plugins-marketplace/guides/teams-presence)** bridge listens for messages containing `@<federationName>` in the configured channel.
+
+**Required by:** `teams-presence.ts` (throws if missing when `teamsConfig` is set)
+
+**Example:**
+```json
+{
+  "federationName": "my-squad"
+}
+```
+
+Users then address the federation with `@my-squad tell frontend to skip legacy utils` in the Teams channel.
+
+#### `copilotCommand`
+
+**Optional.** The command used to launch headless Copilot sessions. Used by `launch.ts` (team launches) and `teams-presence` (ACP session).
+
+**Default:** `'copilot'`
+
+Set this if your Copilot binary has a different name or path:
+```json
+{
+  "copilotCommand": "github-copilot"
+}
+```
+
 #### `telemetry`
 
 **Optional.** OpenTelemetry configuration for monitoring team activity.
@@ -103,14 +135,14 @@ interface FederateConfig {
 
 #### `teamsConfig`
 
-**Optional.** Microsoft Teams channel for meta-squad notifications. When configured, the meta-squad skill layer posts summaries and polls for `@<federationName>` messages from the user via the Teams MCP tools (`PostChannelMessage`, `ListChannelMessages`).
+**Optional.** Microsoft Teams channel for meta-squad notifications. When configured, the meta-squad skill layer posts summaries and the **[teams-presence](/vladi-plugins-marketplace/guides/teams-presence)** bridge runs as a persistent process polling for `@<federationName>` messages via the Graph API.
 
 - `teamId` — Teams team GUID (find it in Teams admin or by using the `ListTeams` MCP tool)
 - `channelId` — Channel ID within that team (format: `19:...@thread.tacv2`, find via `ListChannels` MCP tool)
 
 **How it's used:**
-- The federation-orchestration skill reads `teamsConfig` and, when present, posts status summaries to the channel after every monitoring cycle or heartbeat
-- The heartbeat session polls the channel for messages containing `@<federationName>` and acts on them as user commands
+- The federation-orchestration skill reads `teamsConfig` and, when present, posts status summaries to the channel after every monitoring cycle
+- The teams-presence feature polls the channel for messages containing `@<federationName>` and acts on them as user commands
 - This is entirely handled at the skill layer — no Teams SDK or API keys needed, the MCP tools handle authentication natively
 
 **Example:**
@@ -123,7 +155,7 @@ interface FederateConfig {
 }
 ```
 
-See [Teams Notifications](/vladi-plugins-marketplace/guides/monitoring#teams-notifications) and [Teams as meta notification channel](/vladi-plugins-marketplace/guides/communication-transports#teams-notifications-meta-squad-channel) for usage details.
+See [Teams Notifications](/vladi-plugins-marketplace/guides/monitoring#teams-notifications), [Teams as meta notification channel](/vladi-plugins-marketplace/guides/communication-transports#teams-notifications-meta-squad-channel), and the **[Teams Presence guide](/vladi-plugins-marketplace/guides/teams-presence)** for usage details.
 
 #### `playbookSkill`
 
@@ -151,23 +183,6 @@ Teams look for `.squad/skills/{playbookSkill}.md` in their workspace.
 ```json
 {
   "importHook": "./hooks/federation-setup.ts"
-}
-```
-
-#### `heartbeat`
-
-**Optional.** Configures periodic unattended health checks. When enabled, the meta-squad spawns fresh Copilot sessions on a timer to check team status, relay signals, and post summaries.
-
-- `enabled` — Whether heartbeat auto-starts with federation orchestration. **Default:** `false`
-- `intervalSeconds` — Seconds between heartbeat checks. **Default:** `300`
-
-**Example:**
-```json
-{
-  "heartbeat": {
-    "enabled": true,
-    "intervalSeconds": 300
-  }
 }
 ```
 

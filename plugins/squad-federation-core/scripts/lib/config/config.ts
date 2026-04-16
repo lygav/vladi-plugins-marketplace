@@ -12,6 +12,8 @@ export interface FederateConfig {
   description?: string;
   /** Meta-squad persona name — used for Teams @mentions and identification */
   federationName?: string;
+  /** Command to launch Copilot CLI (default: 'copilot') */
+  copilotCommand?: string;
   /** Communication transport type — adapter registry key (default: 'file-signal') */
   communicationType: string;
   /** OTel observability */
@@ -33,11 +35,6 @@ export interface FederateConfig {
   deliverableSchema?: string;
   /** Import hook path (optional) */
   importHook?: string;
-  /** Heartbeat — periodic unattended status checks */
-  heartbeat?: {
-    enabled: boolean;
-    intervalSeconds?: number; // default: 300
-  };
 }
 
 const DEFAULT_CONFIG: Partial<FederateConfig> & { communicationType: string; telemetry: { enabled: boolean } } = {
@@ -100,6 +97,7 @@ export function validateConfig(raw: unknown): FederateConfig {
   const knownFields = new Set([
     'description',
     'federationName',
+    'copilotCommand',
     'communicationType',
     'telemetry',
     'teamsConfig',
@@ -107,7 +105,6 @@ export function validateConfig(raw: unknown): FederateConfig {
     'deliverable',
     'deliverableSchema',
     'importHook',
-    'heartbeat',
   ]);
 
   // Warn on unknown fields
@@ -138,6 +135,14 @@ export function validateConfig(raw: unknown): FederateConfig {
     result.federationName = validateString(config.federationName, 'federationName');
     if (result.federationName.trim() === '') {
       throw new ConfigValidationError('federationName cannot be empty string');
+    }
+  }
+
+  // Validate optional copilotCommand
+  if ('copilotCommand' in config) {
+    result.copilotCommand = validateString(config.copilotCommand, 'copilotCommand');
+    if (result.copilotCommand.trim() === '') {
+      throw new ConfigValidationError('copilotCommand cannot be empty string');
     }
   }
 
@@ -211,34 +216,6 @@ export function validateConfig(raw: unknown): FederateConfig {
   // Validate optional importHook
   if ('importHook' in config) {
     result.importHook = validateString(config.importHook, 'importHook');
-  }
-
-  // Validate optional heartbeat
-  if ('heartbeat' in config) {
-    const heartbeat = validateObject(config.heartbeat, 'heartbeat');
-
-    if (!('enabled' in heartbeat)) {
-      throw new ConfigValidationError('heartbeat.enabled is required');
-    }
-
-    result.heartbeat = {
-      enabled: validateBoolean(heartbeat.enabled, 'heartbeat.enabled'),
-    };
-
-    if ('intervalSeconds' in heartbeat) {
-      const interval = heartbeat.intervalSeconds;
-      if (typeof interval !== 'number' || !Number.isInteger(interval) || interval < 10) {
-        throw new ConfigValidationError('heartbeat.intervalSeconds must be an integer >= 10');
-      }
-      result.heartbeat.intervalSeconds = interval;
-    }
-
-    const knownHeartbeatFields = new Set(['enabled', 'intervalSeconds']);
-    for (const key of Object.keys(heartbeat)) {
-      if (!knownHeartbeatFields.has(key)) {
-        console.warn(`⚠️  Unknown heartbeat field: "${key}"`);
-      }
-    }
   }
 
   return result;

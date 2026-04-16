@@ -20,9 +20,11 @@
  *   # Full setup:
  *   npx tsx scripts/setup.ts \
  *     --description "Coordinate security audits" \
+ *     --federation-name "sentinel" \
  *     --telemetry --telemetry-endpoint http://localhost:4318 \
  *     --teams-notification --teams-team-id xxx --teams-channel-id 19:xxx@thread.tacv2 \
- *     --heartbeat --heartbeat-interval 300 \
+ *     --copilot-command "my-copilot-wrapper" \
+ *     --presence-interval 30 \
  *     --non-interactive --output-format json
  *
  *   # Dry run:
@@ -39,17 +41,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Cross-platform stop script dropped into the user's project root
-const STOP_HEARTBEAT_SCRIPT = `#!/usr/bin/env node
-// stop-heartbeat.js — Cross-platform heartbeat killer
-// Usage: node stop-heartbeat.js
+const STOP_PRESENCE_SCRIPT = `#!/usr/bin/env node
+// stop-presence.js — Cross-platform Teams presence killer
+// Usage: node stop-presence.js
 const fs = require('fs');
 const path = require('path');
-const pidFile = path.join(__dirname, '.squad', 'heartbeat.pid');
-if (!fs.existsSync(pidFile)) { console.log('No heartbeat running (no PID file).'); process.exit(0); }
+const pidFile = path.join(__dirname, '.squad', 'presence.pid');
+if (!fs.existsSync(pidFile)) { console.log('Teams presence not running.'); process.exit(0); }
 const pid = parseInt(fs.readFileSync(pidFile, 'utf-8').trim(), 10);
-if (isNaN(pid)) { console.log('Invalid PID file.'); fs.unlinkSync(pidFile); process.exit(1); }
-try { process.kill(pid, 0); } catch { console.log('Heartbeat not running (stale PID file). Cleaning up.'); fs.unlinkSync(pidFile); process.exit(0); }
-try { process.kill(pid); fs.unlinkSync(pidFile); console.log('Heartbeat stopped (pid ' + pid + ').'); } catch (e) { console.error('Failed to stop heartbeat:', e.message); process.exit(1); }
+if (isNaN(pid)) { console.log('Invalid PID file. Cleaned up.'); fs.unlinkSync(pidFile); process.exit(0); }
+try { process.kill(pid, 0); } catch { console.log('Not running (stale PID). Cleaned up.'); fs.unlinkSync(pidFile); process.exit(0); }
+try { process.kill(pid); fs.unlinkSync(pidFile); console.log('Teams presence stopped (pid ' + pid + ').'); } catch (e) { console.error('Failed:', e.message); process.exit(1); }
 `;
 
 // ==================== Types ====================
@@ -57,13 +59,13 @@ try { process.kill(pid); fs.unlinkSync(pidFile); console.log('Heartbeat stopped 
 export interface ParsedSetupArgs {
   description: string;
   federationName?: string;
+  copilotCommand?: string;
   telemetry: boolean;
   telemetryEndpoint?: string;
   teamsNotification: boolean;
   teamsTeamId?: string;
   teamsChannelId?: string;
-  heartbeat: boolean;
-  heartbeatInterval?: number;
+  presenceInterval?: number;
   nonInteractive: boolean;
   outputFormat: 'text' | 'json';
   dryRun: boolean;
@@ -86,7 +88,7 @@ export interface SetupResult {
   dryRun: boolean;
   errors?: string[];
   warnings?: string[];
-  heartbeatPid?: number;
+  presencePid?: number;
 }
 
 // ==================== Argument Parsing ====================
@@ -98,11 +100,9 @@ export function parseSetupArgs(args: string[]): ParsedSetupArgs {
     dryRun: boolean;
     telemetry: boolean;
     teamsNotification: boolean;
-    heartbeat: boolean;
   } = {
     telemetry: true,       // default: enabled
     teamsNotification: false,
-    heartbeat: false,
     nonInteractive: false,
     outputFormat: 'text',
     dryRun: false,
@@ -114,23 +114,23 @@ export function parseSetupArgs(args: string[]): ParsedSetupArgs {
     switch (arg) {
       case '--description': parsed.description = value; i++; break;
       case '--federation-name': parsed.federationName = value; i++; break;
+      case '--copilot-command': parsed.copilotCommand = value; i++; break;
       case '--telemetry': parsed.telemetry = true; break;
       case '--no-telemetry': parsed.telemetry = false; break;
       case '--telemetry-endpoint': parsed.telemetryEndpoint = value; i++; break;
       case '--teams-notification': parsed.teamsNotification = true; break;
       case '--teams-team-id': parsed.teamsTeamId = value; i++; break;
       case '--teams-channel-id': parsed.teamsChannelId = value; i++; break;
-      case '--heartbeat': parsed.heartbeat = true; break;
-      case '--no-heartbeat': parsed.heartbeat = false; break;
-      case '--heartbeat-interval':
+      case '--presence-interval': {
         const interval = parseInt(value, 10);
-        if (isNaN(interval) || interval < 10) {
-          console.error('Error: --heartbeat-interval must be an integer >= 10');
+        if (isNaN(interval) || interval < 5) {
+          console.error('Error: --presence-interval must be an integer >= 5');
           process.exit(1);
         }
-        parsed.heartbeatInterval = interval;
+        parsed.presenceInterval = interval;
         i++;
         break;
+      }
       case '--non-interactive': parsed.nonInteractive = true; break;
       case '--output-format':
         if (value !== 'text' && value !== 'json') {
@@ -151,12 +151,12 @@ export function parseSetupArgs(args: string[]): ParsedSetupArgs {
     console.error('\nOptions:');
     console.error('  --telemetry / --no-telemetry      Enable/disable telemetry (default: enabled)');
     console.error('  --federation-name <name>           Meta-squad persona name (e.g., "artemis")');
+    console.error('  --copilot-command <cmd>            Copilot launch command (default: "copilot")');
     console.error('  --telemetry-endpoint <url>         OTel endpoint URL');
-    console.error('  --teams-notification               Enable Teams notifications');
+    console.error('  --teams-notification               Enable Teams presence');
     console.error('  --teams-team-id <id>               Teams workspace ID');
     console.error('  --teams-channel-id <id>            Teams channel ID');
-    console.error('  --heartbeat / --no-heartbeat       Enable/disable heartbeat');
-    console.error('  --heartbeat-interval <seconds>     Heartbeat interval (default: 300)');
+    console.error('  --presence-interval <seconds>      Teams poll interval (default: 30, min: 5)');
     console.error('  --non-interactive                  No stdin prompts');
     console.error('  --output-format <text|json>        Output format');
     console.error('  --dry-run                          Validate only, don\'t write files');
@@ -277,6 +277,7 @@ export function buildConfig(args: ParsedSetupArgs): Record<string, unknown> {
   const config: Record<string, unknown> = {
     description: args.description,
     ...(args.federationName ? { federationName: args.federationName } : {}),
+    ...(args.copilotCommand ? { copilotCommand: args.copilotCommand } : {}),
     telemetry: {
       enabled: args.telemetry,
       ...(args.telemetryEndpoint ? { endpoint: args.telemetryEndpoint } : {}),
@@ -287,13 +288,6 @@ export function buildConfig(args: ParsedSetupArgs): Record<string, unknown> {
     config.teamsConfig = {
       teamId: args.teamsTeamId,
       channelId: args.teamsChannelId,
-    };
-  }
-
-  if (args.heartbeat) {
-    config.heartbeat = {
-      enabled: true,
-      ...(args.heartbeatInterval ? { intervalSeconds: args.heartbeatInterval } : {}),
     };
   }
 
@@ -454,37 +448,38 @@ async function main(): Promise<void> {
       warnings.push(`${p.name}: ${p.message}`);
     }
 
-    // Step 6: Start heartbeat if enabled
-    let heartbeatPid: number | undefined;
-    if (args.heartbeat) {
-      const heartbeatScript = path.join(__dirname, 'meta-heartbeat.ts');
-      if (fs.existsSync(heartbeatScript)) {
+    // Step 6: Start Teams presence if Teams is configured
+    let presencePid: number | undefined;
+    if (args.teamsNotification && args.teamsTeamId && args.teamsChannelId) {
+      const script = path.join(__dirname, 'teams-presence.ts');
+
+      if (fs.existsSync(script)) {
         try {
-          const intervalArgs = args.heartbeatInterval
-            ? ['--interval', String(args.heartbeatInterval)]
+          const intervalArgs = args.presenceInterval
+            ? ['--interval', String(args.presenceInterval)]
             : [];
-          const child = spawn('npx', ['tsx', heartbeatScript, ...intervalArgs], {
+          const child = spawn('npx', ['tsx', script, ...intervalArgs], {
             cwd: REPO_ROOT,
             detached: true,
             stdio: 'ignore',
           });
           child.unref();
-          heartbeatPid = child.pid;
-          log(args, `\n💓 Heartbeat started (pid ${heartbeatPid}, interval ${args.heartbeatInterval ?? 300}s)`);
-          await emitter.event('heartbeat.started', { pid: heartbeatPid ?? 0 });
+          presencePid = child.pid;
+          log(args, `\n🌐 Teams presence started (pid ${presencePid}, interval ${args.presenceInterval ?? 30}s)`);
+          await emitter.event('presence.started', { pid: presencePid ?? 0 });
         } catch (err: any) {
-          warnings.push(`Heartbeat failed to start: ${err.message}`);
-          log(args, `\n⚠️  Heartbeat failed to start: ${err.message}`);
+          warnings.push(`Teams presence failed to start: ${err.message}`);
+          log(args, `\n⚠️  Teams presence failed to start: ${err.message}`);
         }
       } else {
-        warnings.push('Heartbeat script not found — start manually with: npx tsx scripts/meta-heartbeat.ts');
+        warnings.push('teams-presence.ts not found');
       }
 
       // Write cross-platform stop script to project root
-      const stopScriptPath = path.join(REPO_ROOT, 'stop-heartbeat.js');
+      const stopScriptPath = path.join(REPO_ROOT, 'stop-presence.js');
       if (!fs.existsSync(stopScriptPath)) {
-        fs.writeFileSync(stopScriptPath, STOP_HEARTBEAT_SCRIPT, 'utf-8');
-        log(args, `   Stop with: node stop-heartbeat.js`);
+        fs.writeFileSync(stopScriptPath, STOP_PRESENCE_SCRIPT, 'utf-8');
+        log(args, `   Stop with: node stop-presence.js`);
       }
     }
 
@@ -501,7 +496,7 @@ async function main(): Promise<void> {
       prerequisites,
       dryRun: false,
       warnings: warnings.length > 0 ? warnings : undefined,
-      heartbeatPid,
+      presencePid,
     };
 
     if (args.outputFormat === 'json') {
