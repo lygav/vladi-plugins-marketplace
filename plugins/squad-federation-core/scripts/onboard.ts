@@ -244,11 +244,13 @@ function outputJson(result: OnboardResult): void {
 }
 
 export function buildProjectContext(args: ParsedArgs, archetype: { name: string; description?: string }): string {
+  const archetypeName = archetype.name || args.archetype || 'unknown';
+  const archetypeDesc = archetype.description || `${archetypeName} work pattern`;
   return [
     `## Federation Context`,
-    `This is a federated domain team (${archetype.name} archetype) under a meta-squad.`,
+    `This is a federated domain team (${archetypeName} archetype) under a meta-squad.`,
     `**Mission:** ${args.description || args.name}`,
-    `**Work pattern:** ${archetype.description || archetype.name}`,
+    `**Work pattern:** ${archetypeDesc}`,
     `**Placement:** ${args.placement}`,
     ``,
     `## Delegation Model`,
@@ -698,30 +700,40 @@ async function main(): Promise<void> {
 
       const rolesToCast = args.roles || defaultRoles.map((r: { role: string }) => r.role);
 
-      // Cast team with CastingEngine
-      const engine = new CastingEngine();
-      castMembers = engine.castTeam({
-        universe: selectedUniverse as any,
-        requiredRoles: rolesToCast as any[],
-        teamSize: rolesToCast.length,
-      });
-
-      // Build project context for charters
-      const projectContext = buildProjectContext(args, archetypeManifest);
-
-      // Onboard each cast agent
-      for (const member of castMembers) {
-        await onboardAgent({
-          teamRoot: teamLocation,
-          agentName: member.name.toLowerCase(),
-          role: member.role,
-          displayName: member.displayName,
-          projectContext,
-          userName: process.env.USER || 'developer',
+      try {
+        // Cast team with CastingEngine
+        const engine = new CastingEngine();
+        castMembers = engine.castTeam({
+          universe: selectedUniverse as any,
+          requiredRoles: rolesToCast as any[],
+          teamSize: rolesToCast.length,
         });
+
+        // Build project context for charters
+        const projectContext = buildProjectContext(args, archetypeManifest);
+
+        // Onboard each cast agent
+        for (const member of castMembers) {
+          const agentDir = path.join(teamLocation, '.squad', 'agents', member.name.toLowerCase());
+          if (fs.existsSync(agentDir)) {
+            log(args, `⚠️ Agent directory already exists, skipping: ${member.name.toLowerCase()}`);
+            continue;
+          }
+          await onboardAgent({
+            teamRoot: teamLocation,
+            agentName: member.name.toLowerCase(),
+            role: member.role,
+            displayName: member.displayName,
+            projectContext,
+            userName: process.env.USER || 'developer',
+          });
+        }
+      } catch (castError: any) {
+        log(args, `⚠️ Casting failed: ${castError.message || castError}. Team workspace created but agents not cast — they will be cast on first session.`);
+        castMembers = [];
       }
 
-      // Scaffold essential .squad/ files
+      // Scaffold essential .squad/ files (always created, even if casting failed)
 
       // team.md with Members table
       const membersTable = castMembers
@@ -768,8 +780,10 @@ async function main(): Promise<void> {
       // decisions/inbox/ directory
       fs.mkdirSync(path.join(teamLocation, '.squad', 'decisions', 'inbox'), { recursive: true });
 
-      log(args, `✓ Team cast: ${castMembers.map(m => m.displayName).join(', ')}`);
-      log(args, '✓ Scribe included (built-in)');
+      if (castMembers.length > 0) {
+        log(args, `✓ Team cast: ${castMembers.map(m => m.displayName).join(', ')}`);
+        log(args, '✓ Scribe included (built-in)');
+      }
     });
 
     // Step 6: Register team in TeamRegistry
