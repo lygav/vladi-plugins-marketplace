@@ -194,10 +194,12 @@ class AcpSession {
   private pendingRequests = new Map<number, {
     resolve: (value: any) => void;
     reject: (reason: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
   }>();
   private nextId = 1;
   private sessionId: string | null = null;
   private notifications: Array<{ method: string; params: any }> = [];
+  private dead = false;
 
   constructor() {
     this.child = spawn('copilot', ['--acp', '--yolo', '--no-custom-instructions'], {
@@ -215,6 +217,7 @@ class AcpSession {
           const msg = JSON.parse(line);
           if (msg.id !== undefined && this.pendingRequests.has(msg.id)) {
             const req = this.pendingRequests.get(msg.id)!;
+            clearTimeout(req.timer);
             this.pendingRequests.delete(msg.id);
             if (msg.error) req.reject(new Error(msg.error.message));
             else req.resolve(msg.result);
@@ -225,29 +228,46 @@ class AcpSession {
       }
     });
 
-    this.child.stderr!.on('data', (data: Buffer) => {
+    this.child.stderr!.on('data', () => {
       // Suppress stderr noise from copilot
     });
 
     this.child.on('exit', (code) => {
+      this.dead = true;
       log(`⚠️  ACP process exited with code ${code}`);
+      // Reject all pending requests
+      for (const [id, req] of this.pendingRequests) {
+        clearTimeout(req.timer);
+        req.reject(new Error(`ACP process exited (code ${code})`));
+      }
+      this.pendingRequests.clear();
     });
   }
 
+  get isAlive(): boolean { return !this.dead; }
+
   private send(method: string, params: any): Promise<any> {
+    if (this.dead) {
+      return Promise.reject(new Error('ACP process is dead'));
+    }
     return new Promise((resolve, reject) => {
       const id = this.nextId++;
-      this.pendingRequests.set(id, { resolve, reject });
-      const msg = JSON.stringify({ jsonrpc: '2.0', id, method, params });
-      this.child.stdin!.write(msg + '\n');
-
-      // Timeout after 30s for RPC calls
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         if (this.pendingRequests.has(id)) {
           this.pendingRequests.delete(id);
           reject(new Error(`ACP request ${method} timed out`));
         }
       }, 30_000);
+      this.pendingRequests.set(id, { resolve, reject, timer });
+      const msg = JSON.stringify({ jsonrpc: '2.0', id, method, params });
+      try {
+        this.child.stdin!.write(msg + '\n');
+      } catch (err) {
+        clearTimeout(timer);
+        this.pendingRequests.delete(id);
+        this.dead = true;
+        reject(new Error(`ACP stdin write failed: ${(err as Error).message}`));
+      }
     });
   }
 
@@ -263,52 +283,53 @@ class AcpSession {
   }
 
   async loadSession(): Promise<string> {
-    // List existing sessions for this cwd, or load a new one
     const result = await this.send('session/list', {});
     const sessions = result?.sessions || [];
 
-    // Find a session in our cwd, or use the first available
+    // Find a session in our cwd
     const existing = sessions.find((s: any) => s.cwd === REPO_ROOT);
     if (existing) {
       this.sessionId = existing.sessionId;
       log(`📎 Reusing existing session: ${this.sessionId}`);
-    }
-
-    if (this.sessionId) {
       await this.send('session/load', {
         sessionId: this.sessionId,
         cwd: REPO_ROOT,
         mcpServers: [],
       });
+      return this.sessionId!;
     }
 
-    return this.sessionId || 'none';
+    throw new Error(
+      'No existing Copilot session found for this project. ' +
+      'Start a Copilot session first (e.g., copilot -i "hello") then retry.'
+    );
   }
 
   async prompt(text: string): Promise<string> {
     if (!this.sessionId) {
       throw new Error('No ACP session loaded');
     }
+    if (this.dead) {
+      throw new Error('ACP process is dead — restart required');
+    }
 
     // Clear notification buffer
     this.notifications = [];
 
-    // Send prompt — this returns quickly, results stream as notifications
-    try {
-      await this.send('session/prompt', {
-        sessionId: this.sessionId,
-        prompt: [{ type: 'text', text }],
-      });
-    } catch {
-      // session/prompt may error if session isn't loaded yet — 
-      // the load itself triggers processing, so notifications still come
-    }
+    // Send prompt — let errors propagate
+    await this.send('session/prompt', {
+      sessionId: this.sessionId,
+      prompt: [{ type: 'text', text }],
+    });
 
     // Collect agent response from notifications (wait for completion)
     const responseChunks: string[] = [];
     const startTime = Date.now();
 
     while (Date.now() - startTime < COPILOT_TIMEOUT_MS) {
+      if (this.dead) {
+        throw new Error('ACP process died during execution');
+      }
       await new Promise(r => setTimeout(r, 500));
 
       // Drain notifications
@@ -330,6 +351,7 @@ class AcpSession {
   }
 
   kill(): void {
+    this.dead = true;
     try { this.child.kill(); } catch { /* ignore */ }
   }
 }
@@ -424,11 +446,18 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').trim();
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 async function pollCycle(
   config: FederationConfig,
   acp: AcpSession
 ): Promise<number> {
-  const token = getGraphToken();
+  if (!acp.isAlive) {
+    throw new Error('ACP process is dead — cannot process messages');
+  }
+
   const watermark = loadWatermark();
   const afterTimestamp = watermark?.lastSeenTimestamp || new Date().toISOString();
 
@@ -439,10 +468,11 @@ async function pollCycle(
     return 0;
   }
 
+  const token = getGraphToken();
   const messages = await fetchMessages(token, config.teamsConfig, afterTimestamp);
   if (messages.length === 0) return 0;
 
-  // Filter for messages addressing the federation persona
+  // Filter for messages addressing the federation persona (case-insensitive string match)
   const handle = `@${config.federationName}`.toLowerCase();
   const relevant = messages.filter(m => {
     const text = stripHtml(m.body?.content || '').toLowerCase();
@@ -460,19 +490,21 @@ async function pollCycle(
   }
 
   log(`📬 Found ${relevant.length} message(s) addressing @${config.federationName}`);
+  const escapedName = escapeRegExp(config.federationName);
 
   // Process oldest first
   for (const msg of relevant.reverse()) {
     const rawText = stripHtml(msg.body.content);
-    const instruction = rawText.replace(new RegExp(`@${config.federationName}`, 'gi'), '').trim();
+    const instruction = rawText.replace(new RegExp(`@${escapedName}`, 'gi'), '').trim();
     const sender = msg.from?.user?.displayName || 'someone';
 
     log(`💬 ${sender}: ${instruction.slice(0, 100)}`);
 
-    // Acknowledge
+    // Acknowledge (fresh token in case previous execution was slow)
+    let replyToken = getGraphToken();
     try {
       await replyToMessage(
-        token, config.teamsConfig, msg.id,
+        replyToken, config.teamsConfig, msg.id,
         `👋 Got it, ${sender}. Working on: "${instruction.slice(0, 100)}"...`
       );
     } catch (err) {
@@ -480,29 +512,35 @@ async function pollCycle(
     }
 
     // Execute via ACP
+    let success = false;
     try {
       const response = await acp.prompt(
         `The user "${sender}" sent this instruction via Teams: "${instruction}"\n\n` +
         `Execute it. Be concise in your response — it will be posted back to Teams.`
       );
 
-      // Post result back
+      // Fresh token for reply (ACP execution may have taken minutes)
+      replyToken = getGraphToken();
       const reply = response.slice(0, 4000) || '✅ Done (no output)';
-      await replyToMessage(token, config.teamsConfig, msg.id, reply);
+      await replyToMessage(replyToken, config.teamsConfig, msg.id, reply);
       log(`✅ Replied to ${sender}`);
+      success = true;
     } catch (err) {
       const errMsg = `❌ Failed: ${(err as Error).message}`;
       log(errMsg);
       try {
-        await replyToMessage(token, config.teamsConfig, msg.id, errMsg);
+        replyToken = getGraphToken();
+        await replyToMessage(replyToken, config.teamsConfig, msg.id, errMsg);
       } catch { /* best-effort */ }
     }
 
-    // Advance watermark after each processed message
-    saveWatermark({
-      lastSeenTimestamp: msg.createdDateTime,
-      lastSeenMessageId: msg.id,
-    });
+    // Only advance watermark on successful processing
+    if (success) {
+      saveWatermark({
+        lastSeenTimestamp: msg.createdDateTime,
+        lastSeenMessageId: msg.id,
+      });
+    }
   }
 
   return relevant.length;
@@ -564,6 +602,10 @@ async function runPresence(interval: number, once: boolean): Promise<void> {
 
   log('🔄 Entering poll loop...');
   while (running) {
+    if (!acp.isAlive) {
+      log('💀 ACP process died — shutting down');
+      break;
+    }
     try {
       const count = await pollCycle(config, acp);
       if (count > 0) log(`✅ Cycle complete — ${count} message(s) processed`);
@@ -573,6 +615,9 @@ async function runPresence(interval: number, once: boolean): Promise<void> {
     // Wait for next cycle
     await new Promise(r => setTimeout(r, interval * 1000));
   }
+
+  acp.kill();
+  removePid();
 }
 
 // ==================== Entry Point ====================
