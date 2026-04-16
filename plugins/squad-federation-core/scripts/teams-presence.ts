@@ -124,8 +124,8 @@ async function run(interval: number, once: boolean): Promise<void> {
   log(`🌐 Teams presence starting for @${config.federationName}`);
   log(`   Interval: ${interval}s`);
 
-  getGraphToken(); // verify auth
-  log('✅ Graph API token OK');
+  getGraphToken(); // startup check only — poll.ts re-acquires per call
+  log('✅ Graph API auth OK');
 
   log('🚀 Starting persistent Copilot ACP session...');
   const acp = new AcpSession(REPO_ROOT, log);
