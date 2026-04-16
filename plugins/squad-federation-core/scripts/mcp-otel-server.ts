@@ -16,6 +16,7 @@ import { randomBytes } from 'crypto';
 const OTEL_ENDPOINT = process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318';
 const SERVICE_NAME = process.env.OTEL_SERVICE_NAME || 'squad-federation-core';
 const DOMAIN = process.env.SQUAD_DOMAIN || 'unknown';
+const FEDERATION_NAME = process.env.SQUAD_FEDERATION_NAME || 'unknown';
 
 const activeSpans = new Map<string, { startTime: bigint; attributes: Record<string, any> }>();
 
@@ -63,7 +64,9 @@ interface OtelLogParams {
 
 function generateTraceId(): string { return randomBytes(16).toString('hex'); }
 function generateSpanId(): string { return randomBytes(8).toString('hex'); }
-function nanoTime(): bigint { return process.hrtime.bigint(); }
+
+/** Current time as nanoseconds since Unix epoch (OTLP-compatible). */
+function epochNanos(): bigint { return BigInt(Date.now()) * 1_000_000n; }
 
 function toOtlpValue(value: unknown): any {
   if (typeof value === 'string') return { stringValue: value };
@@ -79,6 +82,7 @@ function resourceAttributes(): any[] {
   return [
     { key: 'service.name', value: { stringValue: SERVICE_NAME } },
     { key: 'squad.domain', value: { stringValue: DOMAIN } },
+    { key: 'squad.federation', value: { stringValue: FEDERATION_NAME } },
   ];
 }
 
@@ -173,7 +177,7 @@ async function flushAllActiveSpans(): Promise<void> {
   for (const [name, spanData] of activeSpans.entries()) {
     const promise = exportOtlp('/v1/traces', formatOTLPTrace({
       name, traceId: generateTraceId(), spanId: generateSpanId(),
-      startTime: spanData.startTime, endTime: nanoTime(),
+      startTime: spanData.startTime, endTime: epochNanos(),
       status: 'ok', attributes: spanData.attributes,
     }));
     flushPromises.push(promise);
@@ -226,7 +230,7 @@ async function handleOtelSpan(params: OtelSpanParams): Promise<string> {
   const { action, name, status = 'ok', attributes = {} } = params;
 
   if (action === 'start') {
-    activeSpans.set(name, { startTime: nanoTime(), attributes });
+    activeSpans.set(name, { startTime: epochNanos(), attributes });
     return `Span started: ${name}`;
   }
 
@@ -236,7 +240,7 @@ async function handleOtelSpan(params: OtelSpanParams): Promise<string> {
 
     await exportOtlp('/v1/traces', formatOTLPTrace({
       name, traceId: generateTraceId(), spanId: generateSpanId(),
-      startTime: span.startTime, endTime: nanoTime(),
+      startTime: span.startTime, endTime: epochNanos(),
       status, attributes: { ...span.attributes, ...attributes },
     }));
     activeSpans.delete(name);
@@ -249,14 +253,14 @@ async function handleOtelSpan(params: OtelSpanParams): Promise<string> {
 async function handleOtelMetric(params: OtelMetricParams): Promise<string> {
   await exportOtlp('/v1/metrics', formatOTLPMetric({
     name: params.name, value: params.value,
-    timestamp: nanoTime(), attributes: params.attributes || {},
+    timestamp: epochNanos(), attributes: params.attributes || {},
   }));
   return `Metric recorded: ${params.name} = ${params.value}`;
 }
 
 async function handleOtelEvent(params: OtelEventParams): Promise<string> {
   await exportOtlp('/v1/logs', formatOTLPLog(
-    params.name, nanoTime(), params.attributes || {},
+    params.name, epochNanos(), params.attributes || {},
   ));
   return `Event recorded: ${params.name}`;
 }
@@ -264,7 +268,7 @@ async function handleOtelEvent(params: OtelEventParams): Promise<string> {
 async function handleOtelLog(params: OtelLogParams): Promise<string> {
   const severity = SEVERITY_MAP[params.level] || SEVERITY_MAP.info;
   await exportOtlp('/v1/logs', formatOTLPLog(
-    params.message, nanoTime(),
+    params.message, epochNanos(),
     { ...params.attributes || {}, 'squad.domain': DOMAIN },
     severity,
   ));
@@ -397,5 +401,5 @@ process.stdin.on('data', (chunk: string) => {
 process.stdin.on('end', () => { console.error('[OTel MCP] Stdin closed'); process.exit(0); });
 
 console.error('[OTel MCP] Server started');
-console.error(`[OTel MCP] Service: ${SERVICE_NAME}, Domain: ${DOMAIN}`);
+console.error(`[OTel MCP] Service: ${SERVICE_NAME}, Domain: ${DOMAIN}, Federation: ${FEDERATION_NAME}`);
 console.error(`[OTel MCP] Endpoint: ${OTEL_ENDPOINT}`);

@@ -348,6 +348,7 @@ async function launchTeam(
               OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318',
               OTEL_SERVICE_NAME: `squad-${team.domain}`,
               SQUAD_DOMAIN: team.domain,
+              SQUAD_FEDERATION_NAME: path.basename(REPO_ROOT),
             },
           },
         },

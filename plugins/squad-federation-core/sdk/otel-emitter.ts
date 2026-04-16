@@ -52,6 +52,11 @@ const SEVERITY_MAP: Record<string, { text: string; number: number }> = {
   error: { text: 'ERROR', number: 17 },
 };
 
+/** Current time as nanoseconds since Unix epoch (OTLP-compatible). */
+function epochNanos(): bigint {
+  return BigInt(Date.now()) * 1_000_000n;
+}
+
 // ==================== OTelEmitter ====================
 
 /**
@@ -81,6 +86,7 @@ const SEVERITY_MAP: Record<string, { text: string; number: number }> = {
 export class OTelEmitter {
   private endpoint: string | null;
   private serviceName: string;
+  private federationName: string;
 
   /**
    * Create a new OTelEmitter.
@@ -95,17 +101,24 @@ export class OTelEmitter {
    * - SQUAD_SERVICE_NAME environment variable
    * - Default: squad-federation-core
    * 
+   * Federation name from:
+   * - federationName parameter
+   * - SQUAD_FEDERATION_NAME environment variable
+   * - Default: unknown
+   * 
    * If no endpoint is configured, emitter is a no-op.
    * 
    * @param endpoint - Optional OTLP endpoint override
    * @param serviceName - Optional service name override
+   * @param federationName - Optional federation/meta-squad name override
    */
-  constructor(endpoint?: string, serviceName?: string) {
+  constructor(endpoint?: string, serviceName?: string, federationName?: string) {
     this.endpoint = endpoint 
       || process.env.OTEL_EXPORTER_OTLP_ENDPOINT 
       || OTelEmitter.readEndpointFromConfig()
       || null;
     this.serviceName = serviceName || process.env.SQUAD_SERVICE_NAME || 'squad-federation-core';
+    this.federationName = federationName || process.env.SQUAD_FEDERATION_NAME || 'unknown';
   }
 
   /**
@@ -156,7 +169,7 @@ export class OTelEmitter {
       return await fn();
     }
 
-    const start = process.hrtime.bigint();
+    const startEpoch = epochNanos();
     let status: 'ok' | 'error' = 'ok';
     let errorAttrs: Record<string, string | number> = {};
     let result: T;
@@ -171,13 +184,13 @@ export class OTelEmitter {
       };
       throw err; // Re-throw to preserve caller's error handling
     } finally {
-      const end = process.hrtime.bigint();
+      const endEpoch = epochNanos();
       await this.exportSpan({
         name,
         traceId: this.generateTraceId(),
         spanId: this.generateSpanId(),
-        startTime: start,
-        endTime: end,
+        startTime: startEpoch,
+        endTime: endEpoch,
         status,
         attributes: { ...attributes, ...errorAttrs },
       });
@@ -208,7 +221,7 @@ export class OTelEmitter {
     await this.exportMetric({
       name,
       value,
-      timestamp: process.hrtime.bigint(),
+      timestamp: epochNanos(),
       attributes: attributes || {},
     });
   }
@@ -234,7 +247,7 @@ export class OTelEmitter {
 
     await this.exportLog({
       body: name,
-      timestamp: process.hrtime.bigint(),
+      timestamp: epochNanos(),
       severity: { text: 'INFO', number: 9 }, // Events are INFO-level logs
       attributes: { 'event.name': name, ...attributes },
     });
@@ -262,7 +275,7 @@ export class OTelEmitter {
     const severity = SEVERITY_MAP[level] || SEVERITY_MAP.info;
     await this.exportLog({
       body: message,
-      timestamp: process.hrtime.bigint(),
+      timestamp: epochNanos(),
       severity,
       attributes: attributes || {},
     });
@@ -425,7 +438,7 @@ export class OTelEmitter {
   }
 
   /**
-   * Resource attributes (service.name, etc.).
+   * Resource attributes identifying the emitting service and federation.
    */
   private resourceAttributes(): Array<{
     key: string;
@@ -433,6 +446,7 @@ export class OTelEmitter {
   }> {
     return [
       { key: 'service.name', value: { stringValue: this.serviceName } },
+      { key: 'squad.federation', value: { stringValue: this.federationName } },
     ];
   }
 
