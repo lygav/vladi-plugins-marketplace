@@ -422,7 +422,7 @@ async function main(): Promise<void> {
     // Step 5: Create team registry
     const registryPath = path.join(squadDir, 'teams.json');
     if (!fs.existsSync(registryPath)) {
-      fs.writeFileSync(registryPath, JSON.stringify({ teams: [] }, null, 2) + '\n');
+      fs.writeFileSync(registryPath, JSON.stringify({ version: '1.0', teams: [] }, null, 2) + '\n');
       log(args, '  ✓ Team registry created');
     } else {
       log(args, '  ✓ Team registry already exists');

@@ -381,7 +381,7 @@ export class TeamRegistry {
           `     echo '{"version":"1.0","teams":[]}' > .squad/teams.json\n` +
           `  5. Re-onboard teams if reset:\n` +
           `     npx tsx scripts/onboard.ts --name <name> --domain-id <id> --archetype <arch>\n` +
-          `  6. Validation errors: ${error instanceof z.ZodError ? error.errors.map(e => e.message).join(', ') : 'Invalid JSON'}`
+          `  6. Validation errors: ${error instanceof z.ZodError ? error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ') : 'Invalid JSON'}`
         );
       }
       
