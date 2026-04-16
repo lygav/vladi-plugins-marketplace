@@ -249,10 +249,11 @@ describe('CastingEngine integration', () => {
     const defaultTeam = [
       { role: 'lead', title: 'Technical Lead' },
       { role: 'developer', title: 'Software Developer' },
-      { role: 'tester', title: 'Quality Engineer' },
+      { role: 'developer', title: 'Software Developer' },
+      { role: 'tester', title: 'Test Engineer' },
     ];
     const rolesToCast = defaultTeam.map(r => r.role);
-    expect(rolesToCast).toEqual(['lead', 'developer', 'tester']);
+    expect(rolesToCast).toEqual(['lead', 'developer', 'developer', 'tester']);
   });
 
   it('--roles override takes precedence over archetype defaults', () => {

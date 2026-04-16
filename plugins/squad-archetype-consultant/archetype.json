@@ -14,8 +14,9 @@
   },
   "defaultTeam": [
     { "role": "lead", "title": "Research Lead" },
-    { "role": "developer", "title": "Analyst" },
-    { "role": "reviewer", "title": "Domain Reviewer" }
+    { "role": "developer", "title": "Domain Analyst" },
+    { "role": "developer", "title": "Data Researcher" },
+    { "role": "reviewer", "title": "Peer Reviewer" }
   ],
   "states": {
     "lifecycle": [

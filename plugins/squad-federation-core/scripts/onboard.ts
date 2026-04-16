@@ -677,7 +677,24 @@ async function main(): Promise<void> {
     const teamContext = createTeamContext(teamEntry, config, REPO_ROOT);
     const teamLocation = teamContext.location;
 
-    // Step 5: Cast team via SDK + scaffold .squad/ files
+    // Step 5a: Run `squad init` to scaffold .squad/ files (team.md, routing.md, decisions, etc.)
+    log(args, 'Running squad init for scaffold...');
+    let squadInitSuccess = false;
+    await emitter.span('squad.init', async () => {
+      try {
+        execSync('squad init --no-workflows', {
+          cwd: teamLocation,
+          stdio: 'pipe',
+          timeout: 30_000,
+        });
+        squadInitSuccess = true;
+        log(args, '✓ squad init scaffold created');
+      } catch (initError: any) {
+        log(args, `⚠️ squad init failed: ${initError.message || initError}. Continuing without scaffold.`);
+      }
+    });
+
+    // Step 5b: Cast team via SDK (adds agents on top of Squad's scaffold)
     log(args, 'Casting team via SDK...');
     let castMembers: CastMember[] = [];
     const selectedUniverse = args.universe || 'usual-suspects';
@@ -733,54 +750,37 @@ async function main(): Promise<void> {
         castMembers = [];
       }
 
-      // Scaffold essential .squad/ files (always created, even if casting failed)
-
-      // team.md with Members table
-      const membersTable = castMembers
-        .map(m => `| ${m.displayName} | ${m.role} | .squad/agents/${m.name.toLowerCase()}/charter.md |`)
-        .join('\n');
-      const teamMd = [
-        `# ${toTitleCase(args.name)} Team`,
-        ``,
-        `## Members`,
-        ``,
-        `| Agent | Role | Charter |`,
-        `| ----- | ---- | ------- |`,
-        ...(membersTable ? [membersTable] : []),
-        `| Scribe | scribe | (built-in) |`,
-        ``,
-        `## Universe: ${selectedUniverse}`,
-        ``,
-        `## Signal Protocol`,
-        `- Read .squad/signals/inbox/ before each major step`,
-        `- Write progress to .squad/signals/status.json`,
-        `- Report blockers/findings to .squad/signals/outbox/`,
-      ].join('\n');
-      fs.writeFileSync(path.join(teamLocation, '.squad', 'team.md'), teamMd);
-
-      // routing.md
-      const routingMd = [
-        `# Routing Rules`,
-        ``,
-        `## Default Routing`,
-        `- Lead handles coordination and planning`,
-        `- Unrouted tasks go to the lead for delegation`,
-        `- Each agent works within their role expertise`,
-        ``,
-        `## Signal Routing`,
-        `- Incoming directives from meta-squad → Lead reviews first`,
-        `- Outbox signals → Scribe formats and writes`,
-      ].join('\n');
-      fs.writeFileSync(path.join(teamLocation, '.squad', 'routing.md'), routingMd);
-
-      // decisions.md
-      fs.writeFileSync(path.join(teamLocation, '.squad', 'decisions.md'),
-        '# Decisions\n\nDecision records for this team.\n');
-
-      // decisions/inbox/ directory
-      fs.mkdirSync(path.join(teamLocation, '.squad', 'decisions', 'inbox'), { recursive: true });
-
+      // Step 5c: Update team.md Members table with cast members
       if (castMembers.length > 0) {
+        const teamMdPath = path.join(teamLocation, '.squad', 'team.md');
+        if (fs.existsSync(teamMdPath)) {
+          // Append cast rows to the existing Members table created by squad init
+          const content = fs.readFileSync(teamMdPath, 'utf-8');
+          const tableHeaderRe = /(\|.*Agent.*\|.*Role.*\|.*Charter.*\|\n\|[-\s|]+\|)/i;
+          const match = content.match(tableHeaderRe);
+          if (match) {
+            const insertPos = (match.index ?? 0) + match[0].length;
+            const newRows = castMembers
+              .map(m => `\n| ${m.displayName} | ${m.role} | .squad/agents/${m.name.toLowerCase()}/charter.md |`)
+              .join('');
+            const updated = content.slice(0, insertPos) + newRows + content.slice(insertPos);
+            fs.writeFileSync(teamMdPath, updated);
+          } else {
+            // No Members table found — append one
+            const rows = castMembers
+              .map(m => `| ${m.displayName} | ${m.role} | .squad/agents/${m.name.toLowerCase()}/charter.md |`)
+              .join('\n');
+            const table = [
+              '',
+              '## Members',
+              '',
+              '| Agent | Role | Charter |',
+              '| ----- | ---- | ------- |',
+              rows,
+            ].join('\n');
+            fs.appendFileSync(teamMdPath, table + '\n');
+          }
+        }
         log(args, `✓ Team cast: ${castMembers.map(m => m.displayName).join(', ')}`);
         log(args, '✓ Scribe included (built-in)');
       }

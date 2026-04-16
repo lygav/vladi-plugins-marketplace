@@ -14,6 +14,7 @@
   "defaultTeam": [
     { "role": "lead", "title": "Technical Lead" },
     { "role": "developer", "title": "Software Developer" },
-    { "role": "tester", "title": "Quality Engineer" }
+    { "role": "developer", "title": "Software Developer" },
+    { "role": "tester", "title": "Test Engineer" }
   ]
 }

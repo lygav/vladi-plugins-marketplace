@@ -15,7 +15,8 @@
   },
   "defaultTeam": [
     { "role": "lead", "title": "Project Lead" },
-    { "role": "developer", "title": "Content Developer" },
-    { "role": "reviewer", "title": "Quality Reviewer" }
+    { "role": "developer", "title": "Content Author" },
+    { "role": "reviewer", "title": "Editor" },
+    { "role": "designer", "title": "Layout Specialist" }
   ]
 }
