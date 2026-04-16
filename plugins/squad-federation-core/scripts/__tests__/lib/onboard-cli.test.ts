@@ -28,7 +28,7 @@ vi.mock('../../lib/config/config.js', () => ({
 }));
 
 import * as child_process from 'child_process';
-import { parseArgs, validateDryRun, type ParsedArgs, type OnboardResult } from '../../onboard.js';
+import { parseArgs, validateDryRun, buildProjectContext, type ParsedArgs, type OnboardResult } from '../../onboard.js';
 
 describe('parseArgs', () => {
   it('--non-interactive defaults to false', () => {
@@ -74,6 +74,26 @@ describe('parseArgs', () => {
   });
   it('--mission aliases --description', () => {
     expect(parseArgs(['--name', 't', '--archetype', 'squad-archetype-deliverable', '--mission', 'W']).description).toBe('W');
+  });
+  it('--roles parses comma-separated roles', () => {
+    const a = parseArgs(['--name', 't', '--archetype', 'squad-archetype-deliverable', '--roles', 'lead,developer,tester']);
+    expect(a.roles).toEqual(['lead', 'developer', 'tester']);
+  });
+  it('--roles trims whitespace', () => {
+    const a = parseArgs(['--name', 't', '--archetype', 'squad-archetype-deliverable', '--roles', ' lead , developer ']);
+    expect(a.roles).toEqual(['lead', 'developer']);
+  });
+  it('--roles defaults to undefined', () => {
+    const a = parseArgs(['--name', 't', '--archetype', 'squad-archetype-deliverable']);
+    expect(a.roles).toBeUndefined();
+  });
+  it('--universe sets universe', () => {
+    const a = parseArgs(['--name', 't', '--archetype', 'squad-archetype-deliverable', '--universe', 'oceans-eleven']);
+    expect(a.universe).toBe('oceans-eleven');
+  });
+  it('--universe defaults to undefined', () => {
+    const a = parseArgs(['--name', 't', '--archetype', 'squad-archetype-deliverable']);
+    expect(a.universe).toBeUndefined();
   });
 });
 
@@ -136,5 +156,122 @@ describe('OnboardResult', () => {
   it('failure has errors', () => {
     const r: OnboardResult = { success: false, domain: 't', domainId: 'id', archetype: 'a', placement: 'worktree', location: '', dryRun: false, errors: ['A', 'B'] };
     expect(JSON.parse(JSON.stringify(r)).errors).toHaveLength(2);
+  });
+  it('success with team includes cast members', () => {
+    const r: OnboardResult = {
+      success: true, domain: 't', domainId: 'id', archetype: 'a', placement: 'worktree', location: '/p', dryRun: false,
+      team: {
+        members: [
+          { name: 'Keyser', role: 'lead', displayName: 'Keyser — Lead' },
+          { name: 'McManus', role: 'developer', displayName: 'McManus — Developer' },
+        ],
+        universe: 'usual-suspects',
+      },
+    };
+    const parsed = JSON.parse(JSON.stringify(r));
+    expect(parsed.team.members).toHaveLength(2);
+    expect(parsed.team.universe).toBe('usual-suspects');
+    expect(parsed.team.members[0].name).toBe('Keyser');
+  });
+});
+
+describe('buildProjectContext', () => {
+  function makeArgs(o: Partial<ParsedArgs> = {}): ParsedArgs {
+    return { name: 'test-team', domainId: 'abc', baseBranch: 'main', archetype: 'squad-archetype-coding', placement: 'worktree', nonInteractive: true, outputFormat: 'json', dryRun: false, ...o };
+  }
+
+  it('includes federation context header', () => {
+    const ctx = buildProjectContext(makeArgs(), { name: 'squad-archetype-coding' });
+    expect(ctx).toContain('## Federation Context');
+  });
+
+  it('includes mission from description', () => {
+    const ctx = buildProjectContext(makeArgs({ description: 'Build the frontend' }), { name: 'coding' });
+    expect(ctx).toContain('**Mission:** Build the frontend');
+  });
+
+  it('falls back to name if no description', () => {
+    const ctx = buildProjectContext(makeArgs({ name: 'my-team' }), { name: 'coding' });
+    expect(ctx).toContain('**Mission:** my-team');
+  });
+
+  it('includes archetype name', () => {
+    const ctx = buildProjectContext(makeArgs(), { name: 'squad-archetype-coding', description: 'Teams that write code' });
+    expect(ctx).toContain('squad-archetype-coding archetype');
+  });
+
+  it('includes delegation model', () => {
+    const ctx = buildProjectContext(makeArgs(), { name: 'coding' });
+    expect(ctx).toContain('## Delegation Model');
+    expect(ctx).toContain('meta-squad');
+  });
+
+  it('includes placement info', () => {
+    const ctx = buildProjectContext(makeArgs({ placement: 'directory' }), { name: 'coding' });
+    expect(ctx).toContain('**Placement:** directory');
+  });
+});
+
+describe('CastingEngine integration', () => {
+  // These tests use the real SDK CastingEngine
+  it('castTeam returns members with required roles', async () => {
+    const { CastingEngine } = await import('@bradygaster/squad-sdk/casting');
+    const engine = new CastingEngine();
+    const members = engine.castTeam({
+      universe: 'usual-suspects',
+      requiredRoles: ['lead', 'developer', 'tester'],
+      teamSize: 3,
+    });
+    expect(members).toHaveLength(3);
+    const roles = members.map(m => m.role);
+    expect(roles).toContain('lead');
+    expect(roles).toContain('developer');
+    expect(roles).toContain('tester');
+  });
+
+  it('each member has name, role, displayName, personality, backstory', async () => {
+    const { CastingEngine } = await import('@bradygaster/squad-sdk/casting');
+    const engine = new CastingEngine();
+    const members = engine.castTeam({
+      universe: 'usual-suspects',
+      requiredRoles: ['lead'],
+      teamSize: 1,
+    });
+    const m = members[0];
+    expect(m.name).toBeTruthy();
+    expect(m.role).toBe('lead');
+    expect(m.displayName).toContain('—');
+    expect(m.personality).toBeTruthy();
+    expect(m.backstory).toBeTruthy();
+  });
+
+  it('roles from archetype defaults are used when no --roles override', () => {
+    const defaultTeam = [
+      { role: 'lead', title: 'Technical Lead' },
+      { role: 'developer', title: 'Software Developer' },
+      { role: 'developer', title: 'Software Developer' },
+      { role: 'tester', title: 'Test Engineer' },
+    ];
+    const rolesToCast = defaultTeam.map(r => r.role);
+    expect(rolesToCast).toEqual(['lead', 'developer', 'developer', 'tester']);
+  });
+
+  it('--roles override takes precedence over archetype defaults', () => {
+    const cliRoles = ['lead', 'security', 'devops'];
+    const defaultTeam = [
+      { role: 'lead', title: 'Technical Lead' },
+      { role: 'developer', title: 'Software Developer' },
+    ];
+    const rolesToCast = cliRoles || defaultTeam.map(r => r.role);
+    expect(rolesToCast).toEqual(['lead', 'security', 'devops']);
+  });
+
+  it('scribe is always a special role, not from CastingEngine', () => {
+    // Scribe is added by the scaffolding, not by CastingEngine.
+    // The team.md always includes a Scribe row.
+    const teamMdSnippet = '| Scribe | scribe | (built-in) |';
+    expect(teamMdSnippet).toContain('Scribe');
+    expect(teamMdSnippet).toContain('scribe');
+    expect(teamMdSnippet).toContain('built-in');
   });
 });

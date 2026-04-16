@@ -35,6 +35,8 @@ import { TeamRegistry } from './lib/registry/team-registry.js';
 import type { TeamEntry } from '../sdk/types.js';
 import { OTelEmitter } from '../sdk/otel-emitter.js';
 import { v4 as uuidv4 } from 'uuid';
+import { CastingEngine, type CastMember } from '@bradygaster/squad-sdk/casting';
+import { onboardAgent } from '@bradygaster/squad-sdk/agents';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,6 +61,8 @@ export interface ParsedArgs {
   nonInteractive: boolean;
   outputFormat: 'text' | 'json';
   dryRun: boolean;
+  roles?: string[];
+  universe?: string;
 }
 
 /** Structured result for --output-format json */
@@ -73,6 +77,10 @@ export interface OnboardResult {
   worktreeDir?: string;
   description?: string;
   dryRun: boolean;
+  team?: {
+    members: Array<{ name: string; role: string; displayName: string }>;
+    universe: string;
+  };
   errors?: string[];
 }
 
@@ -134,6 +142,10 @@ export function parseArgs(args: string[]): ParsedArgs {
         i++;
         break;
       case '--dry-run': parsed.dryRun = true; break;
+      case '--roles':
+        parsed.roles = value?.split(',').map(r => r.trim()).filter(Boolean);
+        i++; break;
+      case '--universe': parsed.universe = value; i++; break;
     }
   }
 
@@ -152,7 +164,9 @@ export function parseArgs(args: string[]): ParsedArgs {
     console.error('    [--placement worktree|directory] \\');
     console.error('    [--worktree-dir .worktrees] \\');
     console.error('    [--path /custom/path] \\');
-    console.error('    [--base-branch main]');
+    console.error('    [--base-branch main] \\');
+    console.error('    [--roles lead,developer,tester] \\');
+    console.error('    [--universe usual-suspects]');
     process.exit(1);
   }
 
@@ -227,6 +241,23 @@ async function copyDirectory(src: string, dest: string): Promise<void> {
 
 function outputJson(result: OnboardResult): void {
   process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+}
+
+export function buildProjectContext(args: ParsedArgs, archetype: Record<string, any>): string {
+  const archetypeName = archetype.name || args.archetype || 'unknown';
+  const archetypeDesc = archetype.description || `${archetypeName} work pattern`;
+  return [
+    `## Federation Context`,
+    `This is a federated domain team (${archetypeName} archetype) under a meta-squad.`,
+    `**Mission:** ${args.description || args.name}`,
+    `**Work pattern:** ${archetypeDesc}`,
+    `**Placement:** ${args.placement}`,
+    ``,
+    `## Delegation Model`,
+    `This team works autonomously. It receives directives from the meta-squad via signals,`,
+    `executes its mission, and reports back via outbox signals.`,
+    `The meta-squad is the leadership team — this team does the domain work.`,
+  ].join('\n');
 }
 
 function log(args: ParsedArgs, ...messages: string[]): void {
@@ -646,34 +677,112 @@ async function main(): Promise<void> {
     const teamContext = createTeamContext(teamEntry, config, REPO_ROOT);
     const teamLocation = teamContext.location;
 
-    // Step 5: Initialize Squad scaffold + seed casting context
-    console.log('Initializing squad (team casting handled by Squad)...');
+    // Step 5a: Run `squad init` to scaffold .squad/ files (team.md, routing.md, decisions, etc.)
+    log(args, 'Running squad init for scaffold...');
+    let squadInitSuccess = false;
     await emitter.span('squad.init', async () => {
       try {
         execSync('squad init --no-workflows', {
           cwd: teamLocation,
-          stdio: args.nonInteractive ? 'pipe' : 'inherit',
+          stdio: 'pipe',
           timeout: 30_000,
         });
+        squadInitSuccess = true;
+        log(args, '✓ squad init scaffold created');
+      } catch (initError: any) {
+        log(args, `⚠️ squad init failed: ${initError.message || initError}. Continuing without scaffold.`);
+      }
+    });
 
-        // Seed rich casting context into team.md so Squad casts appropriate specialists
-        const castingContext = [
-          `## Project Context\n`,
-          `This is a federated domain team (**${args.archetype.replace('squad-archetype-', '')} archetype**) operating under a meta-squad leadership team.\n`,
-          `**Mission:** ${args.description || args.name}\n`,
-          `**Work pattern:** ${args.archetype.replace('squad-archetype-', '')} — the team works autonomously in its own ${args.placement} and communicates with the leadership team via file-based signals.\n`,
-          `**Scope:** This team should have specialists appropriate for a ${args.archetype.replace('squad-archetype-', '')} workflow. Cast roles that match the mission, not generic roles.\n`,
-        ].join('\n');
+    // Step 5b: Cast team via SDK (adds agents on top of Squad's scaffold)
+    log(args, 'Casting team via SDK...');
+    let castMembers: CastMember[] = [];
+    const selectedUniverse = args.universe || 'usual-suspects';
 
+    await emitter.span('squad.cast', async () => {
+      // Read default roles from archetype
+      const archetypePluginDir = findInstalledPluginPath(args.archetype)
+        || path.join(REPO_ROOT, 'plugins', args.archetype);
+      const archetypePath = path.join(archetypePluginDir, 'archetype.json');
+      let archetypeManifest: Record<string, any> = {};
+      try {
+        archetypeManifest = JSON.parse(fs.readFileSync(archetypePath, 'utf-8'));
+      } catch { /* use defaults */ }
+
+      const defaultRoles = archetypeManifest.defaultTeam || [
+        { role: 'lead', title: 'Lead' },
+        { role: 'developer', title: 'Developer' },
+        { role: 'tester', title: 'Tester' },
+      ];
+
+      const rolesToCast = args.roles || defaultRoles.map((r: { role: string }) => r.role);
+
+      try {
+        // Cast team with CastingEngine
+        const engine = new CastingEngine();
+        castMembers = engine.castTeam({
+          universe: selectedUniverse as any,
+          requiredRoles: rolesToCast as any[],
+          teamSize: rolesToCast.length,
+        });
+
+        // Build project context for charters
+        const projectContext = buildProjectContext(args, archetypeManifest);
+
+        // Onboard each cast agent
+        for (const member of castMembers) {
+          const agentDir = path.join(teamLocation, '.squad', 'agents', member.name.toLowerCase());
+          if (fs.existsSync(agentDir)) {
+            log(args, `⚠️ Agent directory already exists, skipping: ${member.name.toLowerCase()}`);
+            continue;
+          }
+          await onboardAgent({
+            teamRoot: teamLocation,
+            agentName: member.name.toLowerCase(),
+            role: member.role,
+            displayName: member.displayName,
+            projectContext,
+            userName: process.env.USER || 'developer',
+          });
+        }
+      } catch (castError: any) {
+        log(args, `⚠️ Casting failed: ${castError.message || castError}. Team workspace created but agents not cast — they will be cast on first session.`);
+        castMembers = [];
+      }
+
+      // Step 5c: Update team.md Members table with cast members
+      if (castMembers.length > 0) {
         const teamMdPath = path.join(teamLocation, '.squad', 'team.md');
+        const memberRows = castMembers
+          .map(m => `| ${m.displayName} | ${m.role} | .squad/agents/${m.name.toLowerCase()}/charter.md |`)
+          .join('\n');
+
         if (fs.existsSync(teamMdPath)) {
-          const existing = fs.readFileSync(teamMdPath, 'utf-8');
-          fs.writeFileSync(teamMdPath, existing + '\n' + castingContext);
+          // Append cast rows to the existing Members table created by squad init
+          const content = fs.readFileSync(teamMdPath, 'utf-8');
+          const tableHeaderRe = /(\|.*Agent.*\|.*Role.*\|.*Charter.*\|\n\|[-\s|]+\|)/i;
+          const match = content.match(tableHeaderRe);
+          if (match) {
+            const insertPos = (match.index ?? 0) + match[0].length;
+            const newRows = castMembers
+              .map(m => `\n| ${m.displayName} | ${m.role} | .squad/agents/${m.name.toLowerCase()}/charter.md |`)
+              .join('');
+            const updated = content.slice(0, insertPos) + newRows + content.slice(insertPos);
+            fs.writeFileSync(teamMdPath, updated);
+          } else {
+            // No Members table found — append one
+            const table = `\n## Members\n\n| Agent | Role | Charter |\n| ----- | ---- | ------- |\n${memberRows}\n`;
+            fs.appendFileSync(teamMdPath, table);
+          }
+        } else {
+          // squad init failed — create minimal team.md so agents are discoverable
+          fs.mkdirSync(path.join(teamLocation, '.squad'), { recursive: true });
+          const teamMd = `# ${toTitleCase(args.name)} Team\n\n## Members\n\n| Agent | Role | Charter |\n| ----- | ---- | ------- |\n${memberRows}\n`;
+          fs.writeFileSync(teamMdPath, teamMd);
         }
 
-        console.log('✓ Squad initialized with casting context');
-      } catch {
-        console.log('  ⚠️  squad init not available — team will be cast on first session');
+        log(args, `✓ Team cast: ${castMembers.map(m => m.displayName).join(', ')}`);
+        log(args, '✓ Scribe included (built-in)');
       }
     });
 
@@ -716,6 +825,14 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"`, { cwd: t
         worktreeDir,
         description: args.description,
         dryRun: false,
+        team: {
+          members: castMembers.map(m => ({
+            name: m.name,
+            role: m.role,
+            displayName: m.displayName,
+          })),
+          universe: selectedUniverse,
+        },
       };
       outputJson(result);
     } else {

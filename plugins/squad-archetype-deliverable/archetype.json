@@ -12,5 +12,11 @@
   "team": {
     "skills": "team/skills/",
     "templates": "team/templates/"
-  }
+  },
+  "defaultTeam": [
+    { "role": "lead", "title": "Project Lead" },
+    { "role": "developer", "title": "Content Author" },
+    { "role": "reviewer", "title": "Editor" },
+    { "role": "designer", "title": "Layout Specialist" }
+  ]
 }
