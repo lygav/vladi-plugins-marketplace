@@ -3,9 +3,46 @@
  *
  * Spawns `copilot --acp --yolo` and communicates via JSON-RPC over stdio.
  * Provides session management and prompt execution with streaming response collection.
+ *
+ * Command discovery order:
+ *   1. COPILOT_LOADER_PID → ps to read actual command (auto-detects agency wrapper)
+ *   2. COPILOT_COMMAND env var (manual override, useful on Windows)
+ *   3. Default: 'copilot'
  */
 
-import { spawn, type ChildProcess } from 'child_process';
+import { spawn, execSync, type ChildProcess } from 'child_process';
+
+function discoverCopilotCommand(log: (msg: string) => void): string[] {
+  // 1. Try COPILOT_LOADER_PID (auto-detect agency wrapper on Unix)
+  const loaderPid = process.env.COPILOT_LOADER_PID;
+  if (loaderPid) {
+    try {
+      const fullCommand = execSync(`ps -ww -o command= -p ${loaderPid}`, {
+        encoding: 'utf-8',
+      }).trim();
+      if (fullCommand) {
+        const parts = fullCommand.split(/\s+/).filter(p =>
+          p !== '--resume' && !p.startsWith('--resume=')
+        );
+        // Remove any session-id that followed --resume
+        log(`📋 Discovered copilot command: ${parts.join(' ')}`);
+        return parts;
+      }
+    } catch {
+      // ps failed (Windows, or process already exited) — try next method
+    }
+  }
+
+  // 2. COPILOT_COMMAND env var (manual override)
+  const envCommand = process.env.COPILOT_COMMAND;
+  if (envCommand) {
+    log(`📋 Using COPILOT_COMMAND: ${envCommand}`);
+    return envCommand.split(/\s+/);
+  }
+
+  // 3. Default
+  return ['copilot'];
+}
 
 export class AcpSession {
   private child: ChildProcess;
@@ -21,7 +58,11 @@ export class AcpSession {
   private dead = false;
 
   constructor(private cwd: string, private log: (msg: string) => void, private timeoutMs = 120_000) {
-    this.child = spawn('copilot', ['--acp', '--yolo', '--no-custom-instructions'], {
+    const baseCommand = discoverCopilotCommand(log);
+    const [cmd, ...baseArgs] = baseCommand;
+    const acpArgs = [...baseArgs, '--acp', '--yolo', '--no-custom-instructions'];
+
+    this.child = spawn(cmd, acpArgs, {
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd,
     });
