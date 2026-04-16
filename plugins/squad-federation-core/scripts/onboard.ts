@@ -753,6 +753,10 @@ async function main(): Promise<void> {
       // Step 5c: Update team.md Members table with cast members
       if (castMembers.length > 0) {
         const teamMdPath = path.join(teamLocation, '.squad', 'team.md');
+        const memberRows = castMembers
+          .map(m => `| ${m.displayName} | ${m.role} | .squad/agents/${m.name.toLowerCase()}/charter.md |`)
+          .join('\n');
+
         if (fs.existsSync(teamMdPath)) {
           // Append cast rows to the existing Members table created by squad init
           const content = fs.readFileSync(teamMdPath, 'utf-8');
@@ -767,20 +771,16 @@ async function main(): Promise<void> {
             fs.writeFileSync(teamMdPath, updated);
           } else {
             // No Members table found — append one
-            const rows = castMembers
-              .map(m => `| ${m.displayName} | ${m.role} | .squad/agents/${m.name.toLowerCase()}/charter.md |`)
-              .join('\n');
-            const table = [
-              '',
-              '## Members',
-              '',
-              '| Agent | Role | Charter |',
-              '| ----- | ---- | ------- |',
-              rows,
-            ].join('\n');
-            fs.appendFileSync(teamMdPath, table + '\n');
+            const table = `\n## Members\n\n| Agent | Role | Charter |\n| ----- | ---- | ------- |\n${memberRows}\n`;
+            fs.appendFileSync(teamMdPath, table);
           }
+        } else {
+          // squad init failed — create minimal team.md so agents are discoverable
+          fs.mkdirSync(path.join(teamLocation, '.squad'), { recursive: true });
+          const teamMd = `# ${toTitleCase(args.name)} Team\n\n## Members\n\n| Agent | Role | Charter |\n| ----- | ---- | ------- |\n${memberRows}\n`;
+          fs.writeFileSync(teamMdPath, teamMd);
         }
+
         log(args, `✓ Team cast: ${castMembers.map(m => m.displayName).join(', ')}`);
         log(args, '✓ Scribe included (built-in)');
       }
