@@ -32,8 +32,6 @@ This page documents the scripts for reference and troubleshooting, but you shoul
 - `--teams-notification` — Enable Teams notifications
 - `--teams-team-id <id>` — Teams workspace ID *(required with `--teams-notification`)*
 - `--teams-channel-id <id>` — Teams channel ID *(required with `--teams-notification`)*
-- `--heartbeat` / `--no-heartbeat` — Enable/disable heartbeat
-- `--heartbeat-interval <seconds>` — Heartbeat interval *(default: 300, minimum: 10)*
 - `--non-interactive` — No stdin prompts; all params via flags *(for CI/skill use)*
 - `--output-format <text|json>` — Output format; `json` produces structured `SetupResult`
 - `--dry-run` — Validate prerequisites without creating anything
@@ -51,7 +49,6 @@ federate.config.json             # Federation configuration
 npx tsx scripts/setup.ts \
   --description "Coordinate security audits" \
   --telemetry --telemetry-endpoint http://localhost:4318 \
-  --heartbeat \
   --non-interactive \
   --output-format json
 ```
@@ -70,8 +67,7 @@ npx tsx scripts/setup.ts \
   "configPath": "/path/to/federate.config.json",
   "config": {
     "description": "Coordinate security audits",
-    "telemetry": { "enabled": true, "endpoint": "http://localhost:4318" },
-    "heartbeat": { "enabled": true }
+    "telemetry": { "enabled": true, "endpoint": "http://localhost:4318" }
   },
   "squadDir": "/path/to/.squad",
   "registryPath": "/path/to/.squad/teams.json",
@@ -537,45 +533,6 @@ npx tsx scripts/validate-config.ts
 **Example (manual invocation):**
 ```bash
 npx tsx scripts/team-status.ts --team backend-api
-```
-
----
-
-### `meta-heartbeat.ts`
-
-**What it does:** Runs periodic unattended Copilot sessions that check federation health, relay signals, and post summaries.
-
-**Called by:** `federation-orchestration` skill (via "start heartbeat", "stop heartbeat", "heartbeat status")
-
-**How it works:**
-1. Discovers how Copilot was launched via `COPILOT_LOADER_PID`
-2. Spawns fresh meta-squad sessions at the configured interval
-3. Each session reads team status files and signal outboxes, summarizes activity, highlights errors, and posts to Teams (if configured)
-4. Sessions have a 120-second timeout
-5. Writes PID file to `.squad/heartbeat.pid` and logs to `.squad/heartbeat.log`
-
-**Parameters:**
-- `--interval <seconds>` — Seconds between checks (default: 300)
-- `--once` — Run a single heartbeat check then exit
-- `--stop` — Stop a running heartbeat process
-- `--status` — Check if heartbeat is currently running
-
-**Example (manual invocation):**
-```bash
-# Start with default 5-minute interval
-npx tsx scripts/meta-heartbeat.ts
-
-# Custom 60-second interval
-npx tsx scripts/meta-heartbeat.ts --interval 60
-
-# Single check
-npx tsx scripts/meta-heartbeat.ts --once
-
-# Check if running
-npx tsx scripts/meta-heartbeat.ts --status
-
-# Stop
-npx tsx scripts/meta-heartbeat.ts --stop
 ```
 
 ---

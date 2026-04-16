@@ -197,80 +197,19 @@ Archetype plugins include monitors that emit domain-specific metrics:
 
 These metrics flow to the telemetry dashboard if enabled.
 
-## Heartbeat (Unattended Monitoring)
-
-The **heartbeat** provides fully unattended monitoring by spawning periodic Copilot sessions that check team status, relay signals, and post summaries automatically.
-
-### Starting the Heartbeat
-
-Say to the orchestration skill:
-
-> "Start heartbeat"
-
-The heartbeat begins running in the background. It spawns a fresh meta-squad session at the configured interval (default: every 5 minutes). Each session:
-
-1. Reads all team status files and signal outboxes
-2. Summarizes what each team is doing
-3. Highlights errors, alerts, or stuck teams
-4. Posts the summary to your Teams channel (if configured)
-5. Relays pending questions from teams
-
-Sessions have a 120-second timeout to keep things lightweight.
-
-### Checking Heartbeat Status
-
-> "Is the heartbeat running?"
-
-or
-
-> "Heartbeat status"
-
-The skill reports whether the heartbeat process is active and when it last ran.
-
-### Stopping the Heartbeat
-
-> "Stop heartbeat"
-
-The heartbeat process shuts down cleanly.
-
-### Configuring the Interval
-
-The default interval is 300 seconds (5 minutes). To change it, update `federate.config.json`:
-
-```json
-{
-  "heartbeat": {
-    "enabled": true,
-    "intervalSeconds": 120
-  }
-}
-```
-
-Or enable heartbeat during [federation setup](/vladi-plugins-marketplace/guides/federation-setup) when the skill asks.
-
-### When to Use Heartbeat
-
-The heartbeat is useful when:
-
-- You want continuous monitoring without keeping a Copilot session open
-- Teams are running long autonomous tasks and you want periodic summaries
-- You have Teams notifications configured and want regular status posts
-
-For ad-hoc checks, the conversational monitoring described above is faster and more interactive.
-
 ## Teams Notifications
 
-When `teamsConfig` is set in `federate.config.json`, the meta-squad posts status summaries to a Microsoft Teams channel automatically. This works through the **skill layer** — Copilot sessions have native access to the Teams MCP tools.
+When `teamsConfig` is set in `federate.config.json`, the meta-squad posts status summaries to a Microsoft Teams channel automatically. This works through the **skill layer** — Copilot sessions have native access to the Teams MCP tools. Periodic presence checks are handled by the **teams-presence** feature.
 
 ### What Gets Posted
 
-- **Heartbeat summaries** — periodic status updates for all teams
+- **Status summaries** — periodic status updates for all teams via teams-presence
 - **Directive relays** — confirmation when directives are sent to teams
 - **Alert notifications** — team failures, stalls, or critical errors
 
 ### Posting Directives from Teams
 
-You can post messages tagged with `@<federationName>` in the configured Teams channel. The meta-squad heartbeat polls for these and acts on them:
+You can post messages tagged with `@<federationName>` in the configured Teams channel. The teams-presence feature polls for these and acts on them:
 
 ```
 @<federationName> tell frontend to skip legacy utils

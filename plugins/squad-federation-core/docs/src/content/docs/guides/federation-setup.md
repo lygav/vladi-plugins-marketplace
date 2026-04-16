@@ -92,22 +92,7 @@ Optionally enable **Teams notifications** so the meta-squad posts summaries to a
 }
 ```
 
-### 5. Heartbeat (Optional)
-
-**Skill asks:**
-> "Enable periodic heartbeat monitoring?"
-
-The heartbeat spawns unattended Copilot sessions at a regular interval (default: 5 minutes) to check team status and post summaries.
-
-```json
-{
-  "heartbeat": {
-    "enabled": true
-  }
-}
-```
-
-### 6. Configuration Generated
+### 5. Configuration Generated
 
 The skill calls `setup.ts` with all collected preferences:
 
@@ -115,17 +100,16 @@ The skill calls `setup.ts` with all collected preferences:
 npx tsx scripts/setup.ts \
   --description "Your description" \
   --telemetry --telemetry-endpoint http://localhost:4318 \
-  --heartbeat \
   --non-interactive --output-format json
 ```
 
 The script writes `federate.config.json`, initializes `.squad/`, and creates the team registry.
 
-### 7. Meta-Squad Casting
+### 6. Meta-Squad Casting
 
 The skill checks if the meta-squad has members and initiates casting if needed. This stays in the skill (not the script) because it involves Squad framework interaction.
 
-### 8. First Team (Optional)
+### 7. First Team (Optional)
 
 **Skill asks:**
 > "Ready to onboard your first team?"
@@ -160,7 +144,6 @@ npx tsx scripts/setup.ts \
   --description "Coordinate security audits" \
   --telemetry --telemetry-endpoint http://localhost:4318 \
   --teams-notification --teams-team-id xxx --teams-channel-id 19:xxx@thread.tacv2 \
-  --heartbeat --heartbeat-interval 300 \
   --non-interactive --output-format json
 
 # Dry run (validate without writing files)

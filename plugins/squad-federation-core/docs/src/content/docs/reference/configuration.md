@@ -44,11 +44,6 @@ interface FederateConfig {
   // Optional: Import hook for custom initialization
   importHook?: string;
   
-  // Optional: Periodic heartbeat for unattended monitoring
-  heartbeat?: {
-    enabled?: boolean;          // Default: false
-    intervalSeconds?: number;   // Default: 300
-  };
 }
 ```
 
@@ -61,11 +56,7 @@ interface FederateConfig {
     "enabled": true
   },
   "playbookSkill": "domain-playbook",
-  "deliverable": "deliverable.md",
-  "heartbeat": {
-    "enabled": true,
-    "intervalSeconds": 300
-  }
+  "deliverable": "deliverable.md"
 }
 ```
 
@@ -109,8 +100,8 @@ interface FederateConfig {
 - `channelId` — Channel ID within that team (format: `19:...@thread.tacv2`, find via `ListChannels` MCP tool)
 
 **How it's used:**
-- The federation-orchestration skill reads `teamsConfig` and, when present, posts status summaries to the channel after every monitoring cycle or heartbeat
-- The heartbeat session polls the channel for messages containing `@<federationName>` and acts on them as user commands
+- The federation-orchestration skill reads `teamsConfig` and, when present, posts status summaries to the channel after every monitoring cycle
+- The teams-presence feature polls the channel for messages containing `@<federationName>` and acts on them as user commands
 - This is entirely handled at the skill layer — no Teams SDK or API keys needed, the MCP tools handle authentication natively
 
 **Example:**
@@ -151,23 +142,6 @@ Teams look for `.squad/skills/{playbookSkill}.md` in their workspace.
 ```json
 {
   "importHook": "./hooks/federation-setup.ts"
-}
-```
-
-#### `heartbeat`
-
-**Optional.** Configures periodic unattended health checks. When enabled, the meta-squad spawns fresh Copilot sessions on a timer to check team status, relay signals, and post summaries.
-
-- `enabled` — Whether heartbeat auto-starts with federation orchestration. **Default:** `false`
-- `intervalSeconds` — Seconds between heartbeat checks. **Default:** `300`
-
-**Example:**
-```json
-{
-  "heartbeat": {
-    "enabled": true,
-    "intervalSeconds": 300
-  }
 }
 ```
 

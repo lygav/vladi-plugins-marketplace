@@ -80,19 +80,9 @@ describe('parseSetupArgs', () => {
     expect(a.teamsChannelId).toBe('19:abc@thread.tacv2');
   });
 
-  it('--heartbeat enables heartbeat', () => {
-    const a = parseSetupArgs(['--description', 'test', '--heartbeat']);
-    expect(a.heartbeat).toBe(true);
-  });
-
-  it('--no-heartbeat disables heartbeat', () => {
-    const a = parseSetupArgs(['--description', 'test', '--heartbeat', '--no-heartbeat']);
-    expect(a.heartbeat).toBe(false);
-  });
-
-  it('--heartbeat-interval sets interval', () => {
-    const a = parseSetupArgs(['--description', 'test', '--heartbeat', '--heartbeat-interval', '600']);
-    expect(a.heartbeatInterval).toBe(600);
+  it('--presence-interval sets interval', () => {
+    const a = parseSetupArgs(['--description', 'test', '--presence-interval', '30']);
+    expect(a.presenceInterval).toBe(30);
   });
 
   it('--non-interactive defaults to false', () => {
@@ -130,7 +120,7 @@ describe('parseSetupArgs', () => {
       '--description', 'Full config',
       '--telemetry', '--telemetry-endpoint', 'http://otel:4318',
       '--teams-notification', '--teams-team-id', 'tid', '--teams-channel-id', 'cid',
-      '--heartbeat', '--heartbeat-interval', '120',
+      '--presence-interval', '30',
       '--non-interactive', '--output-format', 'json', '--dry-run',
     ]);
     expect(a.description).toBe('Full config');
@@ -139,8 +129,7 @@ describe('parseSetupArgs', () => {
     expect(a.teamsNotification).toBe(true);
     expect(a.teamsTeamId).toBe('tid');
     expect(a.teamsChannelId).toBe('cid');
-    expect(a.heartbeat).toBe(true);
-    expect(a.heartbeatInterval).toBe(120);
+    expect(a.presenceInterval).toBe(30);
     expect(a.nonInteractive).toBe(true);
     expect(a.outputFormat).toBe('json');
     expect(a.dryRun).toBe(true);
@@ -153,7 +142,6 @@ describe('buildConfig', () => {
       description: 'Test federation',
       telemetry: true,
       teamsNotification: false,
-      heartbeat: false,
       nonInteractive: true,
       outputFormat: 'json',
       dryRun: false,
@@ -166,7 +154,6 @@ describe('buildConfig', () => {
     expect(config.description).toBe('Test federation');
     expect(config.telemetry).toEqual({ enabled: true });
     expect(config).not.toHaveProperty('teamsConfig');
-    expect(config).not.toHaveProperty('heartbeat');
   });
 
   it('includes telemetry endpoint when provided', () => {
@@ -196,25 +183,10 @@ describe('buildConfig', () => {
     expect(config).not.toHaveProperty('teamsConfig');
   });
 
-  it('includes heartbeat when enabled', () => {
-    const config = buildConfig(makeArgs({ heartbeat: true }));
-    expect(config.heartbeat).toEqual({ enabled: true });
-  });
-
-  it('includes heartbeat interval when provided', () => {
-    const config = buildConfig(makeArgs({ heartbeat: true, heartbeatInterval: 600 }));
-    expect(config.heartbeat).toEqual({ enabled: true, intervalSeconds: 600 });
-  });
-
-  it('omits heartbeat when disabled', () => {
-    const config = buildConfig(makeArgs({ heartbeat: false }));
-    expect(config).not.toHaveProperty('heartbeat');
-  });
-
   it('produces JSON-serializable output', () => {
     const config = buildConfig(makeArgs({
       teamsNotification: true, teamsTeamId: 't', teamsChannelId: 'c',
-      heartbeat: true, heartbeatInterval: 300,
+      presenceInterval: 30,
       telemetryEndpoint: 'http://otel:4318',
     }));
     const json = JSON.stringify(config);
@@ -341,7 +313,6 @@ describe('validateDryRun', () => {
       description: 'Test federation',
       telemetry: true,
       teamsNotification: false,
-      heartbeat: false,
       nonInteractive: true,
       outputFormat: 'json',
       dryRun: true,

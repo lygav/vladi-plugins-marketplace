@@ -4,8 +4,8 @@
  * Spawns `copilot --acp --yolo` and communicates via JSON-RPC over stdio.
  * Provides session management and prompt execution with streaming response collection.
  *
- * Set COPILOT_COMMAND env var to override the copilot binary
- * (e.g., COPILOT_COMMAND="agency copilot" for Microsoft employees).
+ * Set copilotCommand in federate.config.json to override the copilot binary
+ * (e.g., if your environment uses a wrapper or custom path).
  */
 
 import { spawn, type ChildProcess } from 'child_process';

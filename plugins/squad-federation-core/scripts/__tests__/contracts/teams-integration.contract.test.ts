@@ -1,7 +1,7 @@
 /**
  * Contract tests for Teams MCP integration.
  *
- * Verifies that the federation-orchestration skill and heartbeat prompt
+ * Verifies that the federation-orchestration skill and teams-presence
  * contain the correct Teams MCP tool call instructions.
  */
 
@@ -47,28 +47,22 @@ describe('Teams MCP integration contracts', () => {
     });
   });
 
-  describe('meta-heartbeat.ts prompt', () => {
-    const heartbeatContent = readFileSync(
-      resolve(PLUGIN_ROOT, 'scripts', 'meta-heartbeat.ts'),
+  describe('teams-presence.ts loads config', () => {
+    const presenceContent = readFileSync(
+      resolve(PLUGIN_ROOT, 'scripts', 'teams-presence.ts'),
       'utf-8',
     );
 
-    it('heartbeat prompt mentions PostChannelMessage', () => {
-      expect(heartbeatContent).toContain('PostChannelMessage');
+    it('teams-presence references teamsConfig', () => {
+      expect(presenceContent).toContain('teamsConfig');
     });
 
-    it('heartbeat prompt mentions ListChannelMessages', () => {
-      expect(heartbeatContent).toContain('ListChannelMessages');
+    it('teams-presence references federationName', () => {
+      expect(presenceContent).toContain('federationName');
     });
 
-    it('heartbeat prompt references teamsConfig in federate.config.json', () => {
-      expect(heartbeatContent).toContain('teamsConfig');
-      expect(heartbeatContent).toContain('federate.config.json');
-    });
-
-    it('heartbeat prompt includes @-mention polling via federationName', () => {
-      expect(heartbeatContent).toContain('federationName');
-      expect(heartbeatContent).toContain('addressing you');
+    it('teams-presence reads federate.config.json', () => {
+      expect(presenceContent).toContain('federate.config.json');
     });
   });
 

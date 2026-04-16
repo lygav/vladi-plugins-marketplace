@@ -81,26 +81,10 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/dashboard.ts start
 **If yes:** Ask for Teams team ID and channel ID. Help them find these if needed.
 
 **Then ask:** "What command do you use to start Copilot CLI? The Teams bridge needs to run a persistent session in the background."
-- Offer choices: "copilot (default)", "agency copilot (Microsoft internal)", "Custom command"
+- Offer choices: "copilot (default)", "Custom command"
 - If custom: accept the full command string
 
-**Store as:** `--teams-notification --teams-team-id <id> --teams-channel-id <id>` flags. If custom copilot command: `--copilot-command "<command>"`.
-
-### Step 3½: Heartbeat (Optional)
-
-**Ask:** "Want me to run a heartbeat that periodically checks on your teams? It'll monitor progress and report status even when you're away. (recommended)"
-
-**Default:** Yes.
-
-**If yes, ask:** "How often should the heartbeat check in? (default: every 5 minutes)"
-- Offer choices: "Every 1 minute", "Every 5 minutes (recommended)", "Every 15 minutes", "Custom interval"
-- If custom: ask for seconds (minimum 10)
-
-The heartbeat starts automatically when setup completes — the federation is immediately listening.
-
-**Store as:** `--heartbeat` flag. If custom interval: `--heartbeat-interval <seconds>`.
-
-**To stop later:** Run `node stop-heartbeat.js` from the project root.
+**Store as:** `--teams-notification --teams-team-id <id> --teams-channel-id <id>` flags. If custom copilot command: `--copilot-command "<command>"`. If custom poll interval: `--presence-interval <seconds>`.
 
 ### Step 4: Run setup.ts
 
@@ -112,15 +96,14 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/setup.ts \
   --federation-name "<persona name>" \
   --telemetry \
   --telemetry-endpoint "http://localhost:4318" \
-  --heartbeat \
   --non-interactive \
   --output-format json
 ```
 
 Add `--teams-notification --teams-team-id <id> --teams-channel-id <id>` if Teams was enabled.
+Add `--copilot-command "<command>"` if user specified a custom copilot command.
+Add `--presence-interval <seconds>` if user chose a custom Teams poll interval.
 Add `--no-telemetry` if telemetry was disabled.
-Add `--no-heartbeat` if heartbeat was disabled.
-Add `--heartbeat-interval <seconds>` if user chose a custom interval.
 
 **Parse the JSON output** and present results to the user:
 
@@ -207,7 +190,7 @@ After the config is written and confirmed, provide these reference notes:
 
 ### Changing configuration
 
-> Edit `federate.config.json` directly. The schema is minimal — `description`, `telemetry`, and optionally `teamsConfig` and `heartbeat`. Changes take effect on the next team onboard or launch.
+> Edit `federate.config.json` directly. The schema is minimal — `description`, `telemetry`, and optionally `teamsConfig`. Changes take effect on the next team onboard or launch.
 
 ### Adding archetypes
 

@@ -361,11 +361,10 @@ async function launchTeam(
     }
   }
 
-  // Launch via copilot (or agency copilot)
-  const launcher = process.env.SQUAD_LAUNCHER || 'copilot';
-  const launcherArgs = launcher === 'agency'
-    ? ['copilot', '--agent', 'squad', '-p', prompt, '--yolo', '--no-ask-user', '--autopilot']
-    : ['-p', prompt, '--yolo', '--no-ask-user', '--autopilot'];
+  // Launch via copilotCommand from config (default: 'copilot')
+  const copilotCommand = config.copilotCommand || 'copilot';
+  const [launcher, ...baseArgs] = copilotCommand.split(/\s+/);
+  const launcherArgs = [...baseArgs, '-p', prompt, '--yolo', '--no-ask-user', '--autopilot'];
 
   // Log the command for debugging (written into the log file itself)
   const cmdLine = `${launcher} ${launcherArgs.map(a => a.includes(' ') ? `"${a}"` : a).join(' ')}`;

@@ -28,8 +28,8 @@ Teams integration is a **meta-squad notification channel** — not a transport b
 
 ### How It Works
 
-1. **Meta-squad posts summaries** — after status checks, heartbeat cycles, or directive relays, the skill calls the `PostChannelMessage` MCP tool
-2. **User posts `@<federationName>` messages** — the meta-squad heartbeat polls with `ListChannelMessages` and filters for `@<federationName>`-tagged messages
+1. **Meta-squad posts summaries** — after status checks, teams-presence cycles, or directive relays, the skill calls the `PostChannelMessage` MCP tool
+2. **User posts `@<federationName>` messages** — teams-presence polls with `ListChannelMessages` and filters for `@<federationName>`-tagged messages
 3. **Directives flow through file signals** — when a `@<federationName>` is found in Teams, the meta-squad writes it to the target team's inbox as a standard file signal
 
 ### Configuration
