@@ -147,8 +147,8 @@ When `teamsConfig` is present in `federate.config.json`, the skill posts status 
 
 After running `monitor.ts` and parsing the JSON output, if `teamsConfig` is present:
 1. Use `PostChannelMessage` MCP tool to post the status summary to `teamsConfig.teamId` / `teamsConfig.channelId`
-2. Use `ListChannelMessages` MCP tool to check for `#directive` messages in the channel
-3. If a `#directive` message is found, parse it and send it to the target team via `monitor.ts --send`
+2. Use `ListChannelMessages` MCP tool to check for messages addressing `@<federationName>` in the channel
+3. If a message addressing the federation persona is found, parse the instruction and send it to the target team via `monitor.ts --send`
 
 ## Teams Notifications (MCP Integration)
 
@@ -190,7 +190,7 @@ Team         State       Step              Progress
 
 ### How to Poll for User Directives
 
-Use the **ListChannelMessages** MCP tool to check for messages tagged with `#directive`:
+Use the **ListChannelMessages** MCP tool to check for messages addressing the federation persona (`@<federationName>` from `federate.config.json`):
 
 ```
 Tool: ListChannelMessages
@@ -200,11 +200,11 @@ Parameters:
   top: 10
 ```
 
-After retrieving messages, filter for those containing `#directive` in their body content. Parse the directive text (everything after `#directive`) and act on it as if the user typed it directly. Examples:
+After retrieving messages, filter for those containing `@<federationName>` in their body content. Parse the instruction text (everything after `@<name>`) and act on it as if the user typed it directly. Examples (assuming federation name is "artemis"):
 
-- `#directive tell frontend to skip legacy utils` → send a directive signal to the frontend team
-- `#directive pause backend` → pause the backend team
-- `#directive restart infra` → relaunch the infra team
+- `@artemis tell frontend to skip legacy utils` → send a directive signal to the frontend team
+- `@artemis pause backend` → pause the backend team
+- `@artemis restart infra` → relaunch the infra team
 
 ### Conditional Logic
 
@@ -212,10 +212,10 @@ After retrieving messages, filter for those containing `#directive` in their bod
 1. Read federate.config.json
 2. If teamsConfig is present AND has both teamId and channelId:
    a. After every summary → call PostChannelMessage
-   b. During heartbeat/monitoring → call ListChannelMessages, filter for #directive
+   b. During heartbeat/monitoring → call ListChannelMessages, filter for @<federationName>
 3. If teamsConfig is absent → skip Teams integration silently
 ```
 
 ## Heartbeat Management
 
-**Directive polling:** Periodically check the Teams channel for messages containing `#directive` to allow team members to steer domain squads from Teams without accessing the CLI.
+**Directive polling:** Periodically check the Teams channel for messages addressing `@<federationName>` to allow team members to steer domain squads from Teams without accessing the CLI.

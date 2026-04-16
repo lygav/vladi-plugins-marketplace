@@ -56,6 +56,7 @@ try { process.kill(pid); fs.unlinkSync(pidFile); console.log('Heartbeat stopped 
 
 export interface ParsedSetupArgs {
   description: string;
+  federationName?: string;
   telemetry: boolean;
   telemetryEndpoint?: string;
   teamsNotification: boolean;
@@ -112,6 +113,7 @@ export function parseSetupArgs(args: string[]): ParsedSetupArgs {
     const value = args[i + 1];
     switch (arg) {
       case '--description': parsed.description = value; i++; break;
+      case '--federation-name': parsed.federationName = value; i++; break;
       case '--telemetry': parsed.telemetry = true; break;
       case '--no-telemetry': parsed.telemetry = false; break;
       case '--telemetry-endpoint': parsed.telemetryEndpoint = value; i++; break;
@@ -148,6 +150,7 @@ export function parseSetupArgs(args: string[]): ParsedSetupArgs {
     console.error('  npx tsx scripts/setup.ts --description "My federation" [options]');
     console.error('\nOptions:');
     console.error('  --telemetry / --no-telemetry      Enable/disable telemetry (default: enabled)');
+    console.error('  --federation-name <name>           Meta-squad persona name (e.g., "artemis")');
     console.error('  --telemetry-endpoint <url>         OTel endpoint URL');
     console.error('  --teams-notification               Enable Teams notifications');
     console.error('  --teams-team-id <id>               Teams workspace ID');
@@ -273,6 +276,7 @@ export function checkPrerequisites(repoRoot: string): PrerequisiteResult[] {
 export function buildConfig(args: ParsedSetupArgs): Record<string, unknown> {
   const config: Record<string, unknown> = {
     description: args.description,
+    ...(args.federationName ? { federationName: args.federationName } : {}),
     telemetry: {
       enabled: args.telemetry,
       ...(args.telemetryEndpoint ? { endpoint: args.telemetryEndpoint } : {}),

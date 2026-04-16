@@ -41,6 +41,19 @@ Walk through each step in order. One question at a time. Provide sensible defaul
 
 Accept whatever the user gives. Don't try to normalize it.
 
+### Step 1½: Federation Persona Name
+
+Based on the user's mission description, **generate a short, memorable persona name** for the meta-squad leadership. This is how the user will address the squad in Teams and conversation.
+
+**Guidelines for name generation:**
+- Single word, lowercase, easy to type
+- Evocative of the mission (e.g., "sentinel" for security, "atlas" for infrastructure, "scout" for discovery)
+- Not a common command or tool name (avoid "build", "test", "deploy")
+
+**Ask:** "Your leadership squad needs a name — I'm thinking **<generated name>** based on your mission. Sound good, or want something different?"
+
+**Store as:** `--federation-name <name>` flag for `setup.ts`.
+
 ### Step 2: Telemetry
 
 **Context:** Copilot CLI has no built-in telemetry — headless team sessions are black boxes by default. This plugin includes OTel integration feeding into a central dashboard.
@@ -92,6 +105,7 @@ Once all preferences are collected, call the script:
 ```bash
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/setup.ts \
   --description "<user's description>" \
+  --federation-name "<persona name>" \
   --telemetry \
   --telemetry-endpoint "http://localhost:4318" \
   --heartbeat \
@@ -102,6 +116,7 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/setup.ts \
 Add `--teams-notification --teams-team-id <id> --teams-channel-id <id>` if Teams was enabled.
 Add `--no-telemetry` if telemetry was disabled.
 Add `--no-heartbeat` if heartbeat was disabled.
+Add `--heartbeat-interval <seconds>` if user chose a custom interval.
 
 **Parse the JSON output** and present results to the user:
 
@@ -112,6 +127,20 @@ Add `--no-heartbeat` if heartbeat was disabled.
 If the script reports errors, show them and help the user fix the issues.
 
 If the user wants to change something, re-run `setup.ts` with adjusted flags. Loop until they confirm.
+
+### Step 4½: Teams Introduction (if Teams enabled)
+
+If Teams was enabled, **immediately post an introduction message** to the configured channel so the user knows the federation is listening:
+
+```
+Tool: PostChannelMessage
+Parameters:
+  teamId: <from federate.config.json → teamsConfig.teamId>
+  channelId: <from federate.config.json → teamsConfig.channelId>
+  content: "👋 Hi! I'm **<federationName>** — your leadership squad for: *<mission description>*.\n\nAddress me as **@<federationName>** in this channel to give instructions. Examples:\n- `@<name> launch the frontend team`\n- `@<name> pause backend`\n- `@<name> show me status`\n\nI'll post periodic status updates here automatically."
+```
+
+This makes the federation immediately discoverable in Teams.
 
 ### Step 5: Cast the meta-squad
 

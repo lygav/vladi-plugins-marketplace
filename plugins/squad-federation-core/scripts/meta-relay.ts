@@ -7,7 +7,7 @@
  * Reads from team signal outboxes, formats summaries, delivers to console.
  * Teams notification integration happens at the skill layer (federation-orchestration),
  * not in this script. teamsConfig in federate.config.json is used by the meta-squad
- * skill to post summaries and poll for #directive messages.
+ * skill to post summaries and poll for messages addressing the federation persona.
  * 
  * --once: run one cycle and exit (useful for testing)
  * --interval: poll interval in ms (default: 2000)

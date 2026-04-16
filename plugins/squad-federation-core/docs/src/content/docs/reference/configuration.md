@@ -103,14 +103,14 @@ interface FederateConfig {
 
 #### `teamsConfig`
 
-**Optional.** Microsoft Teams channel for meta-squad notifications. When configured, the meta-squad skill layer posts summaries and polls for `#directive` messages from the user via the Teams MCP tools (`PostChannelMessage`, `ListChannelMessages`).
+**Optional.** Microsoft Teams channel for meta-squad notifications. When configured, the meta-squad skill layer posts summaries and polls for `@<federationName>` messages from the user via the Teams MCP tools (`PostChannelMessage`, `ListChannelMessages`).
 
 - `teamId` — Teams team GUID (find it in Teams admin or by using the `ListTeams` MCP tool)
 - `channelId` — Channel ID within that team (format: `19:...@thread.tacv2`, find via `ListChannels` MCP tool)
 
 **How it's used:**
 - The federation-orchestration skill reads `teamsConfig` and, when present, posts status summaries to the channel after every monitoring cycle or heartbeat
-- The heartbeat session polls the channel for messages containing `#directive` and acts on them as user commands
+- The heartbeat session polls the channel for messages containing `@<federationName>` and acts on them as user commands
 - This is entirely handled at the skill layer — no Teams SDK or API keys needed, the MCP tools handle authentication natively
 
 **Example:**
