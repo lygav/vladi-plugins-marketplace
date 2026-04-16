@@ -177,6 +177,34 @@ otel_event name="team.archetype.selected" attributes={"archetype": "<archetype-n
 otel_event name="team.placement.selected" attributes={"placement": "<worktree|directory>", "location": "<path>"}
 ```
 
+### Step 4b: Team Composition
+
+Each archetype defines default roles. Present these to the user and let them customize.
+
+**Read the archetype's default roles** from its `archetype.json` `defaultTeam` field.
+
+**Present the defaults:**
+> "For a **coding** team, I'd suggest these roles:
+> - **Technical Lead** (lead)
+> - **Software Developer** (developer)
+> - **Quality Engineer** (tester)
+>
+> Want to adjust these roles, or go with the defaults?"
+
+**Available roles:** lead, developer, tester, prompt-engineer, security, devops, designer, scribe, reviewer
+
+**If user wants to customize:**
+> "Which roles should this team have? (pick from: lead, developer, tester, prompt-engineer, security, devops, designer, reviewer)"
+
+**Note:** Scribe is always included automatically — the user doesn't need to add it.
+
+**Store as:** roles list (e.g., `lead,developer,tester`)
+
+**Emit event:**
+```tool-call
+otel_event name="team.roles.selected" attributes={"roles": "<comma-separated-roles>"}
+```
+
 ### Step 5: Confirm Summary
 
 Present a summary of all collected parameters:
@@ -190,6 +218,8 @@ Present a summary of all collected parameters:
    Location: .worktrees/payments
    Communication: file-signal (from federate.config.json)
    Branch: squad/payments
+   Roles: Lead, Content Developer, Quality Reviewer
+   Universe: usual-suspects
 
 Ready to create this team? [Y/n]
 ```
@@ -213,6 +243,8 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/onboard.ts \
   --mission "<mission>" \
   --archetype "<archetype>" \
   --placement "<placement>" \
+  --roles "<comma-separated-roles>" \
+  --universe "usual-suspects" \
   --non-interactive \
   --output-format json
 ```
@@ -221,10 +253,21 @@ Add optional flags as needed:
 - `--domain-id "<uuid>"` — omit to auto-generate
 - `--worktree-dir "<path>"` — only if user chose non-default worktree location
 - `--path "<path>"` — only if directory placement
+- `--roles "<roles>"` — omit to use archetype defaults
+- `--universe "<id>"` — defaults to `usual-suspects`
 
 **Parse the JSON output.** The script returns an `OnboardResult`:
-- If `success: true` — show the team details from the JSON
+- If `success: true` — show the team details from the JSON, including the cast team members
 - If `success: false` — show the `errors` array and offer recovery
+
+**Present the cast team:**
+```
+🎭 Team Cast (usual-suspects universe):
+   • Keyser — Lead
+   • McManus — Developer
+   • Fenster — Tester
+   • Scribe (built-in)
+```
 
 ### Step 7: Run Archetype Setup Skill (if applicable)
 
@@ -277,10 +320,8 @@ All validation and error handling lives in the script. The skill reads the JSON 
 - **No decision logic** — The script validates archetypes, placements, and names
 - **No sub-agents** — We stay in the user's session
 - **No filesystem operations** — The script handles all I/O
-- **No team roster/role decisions** — Squad casting handles composition
 
 If the user asks about these during onboarding:
-- Team composition → "Squad's casting will handle that when you launch the team"
 - Multiple teams → "Let's onboard one team first, then repeat"
 
 ## Integration with Other Skills

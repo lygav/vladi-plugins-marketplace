@@ -161,15 +161,17 @@ You confirm, and the skill executes onboarding.
 
 ### 7. Autonomous Execution
 
-Behind the scenes, the skill calls the onboard script with `--non-interactive --output-format json`, passing all collected parameters as CLI flags. The script handles all logic — workspace creation, archetype seeding, federation scaffolding, and team registration.
+Behind the scenes, the skill calls the onboard script with `--non-interactive --output-format json`, passing all collected parameters as CLI flags. The script handles all logic — workspace creation, archetype seeding, federation scaffolding, team casting, and registration.
 
 **What happens:**
 1. Creates git branch `squad/frontend` and worktree
 2. Seeds archetype skills and configuration
 3. Bootstraps `.squad/` structure (signals, learnings)
-4. Registers team in `.squad/teams.json`
-5. Runs `squad init` to cast the team agent
-6. Returns structured JSON result to the skill
+4. Casts team agents via `@bradygaster/squad-sdk` CastingEngine
+5. Creates agent directories with charters and history
+6. Scaffolds `team.md`, `routing.md`, `decisions.md`
+7. Registers team in `.squad/teams.json`
+8. Returns structured JSON result to the skill (including cast team)
 
 **Note:** You can also run onboarding directly from the CLI without the skill:
 ```bash
@@ -177,6 +179,8 @@ npx tsx scripts/onboard.ts \
   --name frontend \
   --archetype squad-archetype-coding \
   --mission "Build and test React components" \
+  --roles lead,developer,tester \
+  --universe usual-suspects \
   --non-interactive \
   --output-format json
 ```
@@ -195,6 +199,7 @@ npx tsx scripts/onboard.ts \
 📍 Location: .worktrees/frontend
 🌿 Branch: squad/frontend
 🔧 Archetype: coding
+🎭 Team: Keyser — Lead, McManus — Developer, Fenster — Tester
 ```
 
 ### 8. Next Steps Prompt (Optional)
@@ -216,6 +221,20 @@ After onboarding, the team workspace contains:
 ├── DOMAIN_CONTEXT.md         # Team mission from your description
 ├── archetype.json            # Lifecycle states from archetype
 ├── .squad/
+│   ├── agents/               # Cast agents with charters
+│   │   ├── keyser/
+│   │   │   ├── charter.md    # Agent charter with project context
+│   │   │   └── history.md    # Agent history
+│   │   ├── mcmanus/
+│   │   │   ├── charter.md
+│   │   │   └── history.md
+│   │   └── fenster/
+│   │       ├── charter.md
+│   │       └── history.md
+│   ├── team.md               # Members table with cast agents
+│   ├── routing.md            # Task routing rules
+│   ├── decisions.md          # Decision records
+│   ├── decisions/inbox/      # Decision inbox
 │   ├── skills/               # Archetype skills seeded from plugin
 │   │   ├── pr-creation/
 │   │   ├── test-runner/

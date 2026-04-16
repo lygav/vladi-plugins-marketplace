@@ -10,5 +10,10 @@
   "team": {
     "skills": "team/skills/",
     "templates": "team/templates/"
-  }
+  },
+  "defaultTeam": [
+    { "role": "lead", "title": "Technical Lead" },
+    { "role": "developer", "title": "Software Developer" },
+    { "role": "tester", "title": "Quality Engineer" }
+  ]
 }

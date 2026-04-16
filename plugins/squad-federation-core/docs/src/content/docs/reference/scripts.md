@@ -100,6 +100,8 @@ npx tsx scripts/setup.ts \
 - `--worktree-dir <path>` — Base directory for worktree (default: `.worktrees`)
 - `--path <path>` — Directory path (required when `--placement directory`)
 - `--base-branch <name>` — Git branch to create worktree from (default: current branch)
+- `--roles <roles>` — Comma-separated agent roles to cast (default: from archetype `defaultTeam`)
+- `--universe <id>` — Casting universe theme: `usual-suspects` or `oceans-eleven` (default: `usual-suspects`)
 - `--non-interactive` — No stdin prompts; all params via flags *(for CI/skill use)*
 - `--output-format <text|json>` — Output format; `json` produces structured `OnboardResult`
 - `--dry-run` — Validate inputs without creating anything; returns what *would* happen
@@ -110,6 +112,12 @@ npx tsx scripts/setup.ts \
 OR {path}/{name}/                (if placement=directory)
   DOMAIN_CONTEXT.md
   .squad/
+    agents/{name}/charter.md     (for each cast agent)
+    agents/{name}/history.md
+    team.md                      (members table)
+    routing.md                   (routing rules)
+    decisions.md
+    decisions/inbox/
     signals/inbox/
     signals/outbox/
     learnings/
@@ -131,6 +139,8 @@ npx tsx scripts/onboard.ts \
   --name backend-api \
   --archetype squad-archetype-coding \
   --mission "Build REST API" \
+  --roles lead,developer,tester \
+  --universe usual-suspects \
   --non-interactive \
   --output-format json
 ```
@@ -153,7 +163,15 @@ npx tsx scripts/onboard.ts \
   "placement": "worktree",
   "location": "/path/to/.worktrees/backend-api",
   "branch": "squad/backend-api",
-  "dryRun": false
+  "dryRun": false,
+  "team": {
+    "members": [
+      { "name": "Keyser", "role": "lead", "displayName": "Keyser — Lead" },
+      { "name": "McManus", "role": "developer", "displayName": "McManus — Developer" },
+      { "name": "Fenster", "role": "tester", "displayName": "Fenster — Tester" }
+    ],
+    "universe": "usual-suspects"
+  }
 }
 ```
 

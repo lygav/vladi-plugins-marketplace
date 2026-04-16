@@ -12,6 +12,11 @@
     "skills": "team/skills/",
     "templates": "team/templates/"
   },
+  "defaultTeam": [
+    { "role": "lead", "title": "Research Lead" },
+    { "role": "developer", "title": "Analyst" },
+    { "role": "reviewer", "title": "Domain Reviewer" }
+  ],
   "states": {
     "lifecycle": [
       "onboarding",
