@@ -1,7 +1,7 @@
 ---
-updated_at: 2026-04-15T12:17:00Z
-focus_area: Script-drives-skill architecture decision pending execution
-version: "0.6.0"
+updated_at: 2026-04-16T14:00:00Z
+focus_area: v0.8.0 — teams-presence, federation persona
+version: "0.8.0"
 marketplace_version: "3.0.0"
 ---
 
@@ -9,72 +9,52 @@ marketplace_version: "3.0.0"
 
 ## What Just Shipped (this session)
 
-**v0.4.0** — Transport/placement separation
-- TeamPlacement + TeamCommunication replace TeamTransport
-- Adapter registry with registerCommunicationAdapter()
-- Modular lib/ structure (7 modules)
-- Dead code removed (worktree-utils, old transport refs)
+**v0.8.0** — Teams presence, federation persona, OTel fixes
 
-**v0.5.0** — Teams channel communication
-- TeamsChannelCommunication class (hashtag protocol)
-- #meta (human priority), #meta-status (team updates), #{teamId} (directives)
-- Federation-setup asks for channel details
+### Teams Presence (PR #206)
+- New teams-presence.ts: persistent Teams bridge via Graph API + Copilot ACP
+- Polls channel for @<federationName> messages, executes via ACP, replies in-thread
+- Replaces retired meta-heartbeat.ts entirely
+- Modular: lib/teams-presence/ (acp-session, graph-client, watermark, poll)
+- Auto-starts from setup.ts when Teams is configured
 
-**v0.6.0** — Runtime fixes + live communication
-- Cross-platform bootstrap.mjs (auto-installs deps)
-- OTelEmitter reads endpoint from federate.config.json
-- CLI flag aliases (--team/--mission)
-- Fresh repo handling, ESM import fix
-- ProgressReporter utility (dual OTel + signal)
-- Federation-setup + onboarding instrumented with OTel
-- Meta relay loop (curated summaries to console/Teams)
-- Archetype skills emit continuous progress
-- Astro docs site deployed (starlight-theme-next, GitHub Pages)
-- Full docs rewrite (conversational flow, no history)
+### Federation Persona (PR #205)
+- federationName in federate.config.json
+- Users address meta-squad by name: @artemis launch frontend
+- Setup skill generates name from mission, user confirms
+- Replaces #directive convention
 
-## Key Architecture Decision: Script-Drives-Skill (ADR-001)
+### OTel Fixes (PRs #202-#203)
+- Timestamps: epoch nanos via BigInt(Date.now()) * 1_000_000n
+- Resource: squad.federation attribute for identification
+- Registry: setup.ts writes version field (was missing)
+- Zod errors include field path
 
-APPROVED but NOT YET EXECUTED. See .squad/decisions/adr-001-script-drives-skill.md
+### Heartbeat Retired
+- meta-heartbeat.ts deleted (replaced by teams-presence)
+- heartbeat config removed from all code, docs, tests
+- Internal corporate references removed
 
-Rule: "Scripts are functions. Skills are wrappers. If logic can be in the script, it MUST be in the script."
-
-Current: skill orchestrates → calls script
-Proposed: script drives → skill provides input on demand
-
-Execution plan: #159 (onboarding) → #160 (setup) → #161 (audit)
-
-## Open Issues (9)
-
-**Script-drives-skill (approved, ready to execute):**
-- #159: Invert onboarding — script drives skill (Phase 1, also fixes #154, #155)
-- #160: Create setup.ts — script-driven federation setup (Phase 2)
-- #161: Audit all flows (Phase 3)
-
-**Bugs from testing:**
-- #154: Skill docs missing --domain-id (fixed by #159)
-- #155: Non-interactive mode (fixed by #159)
-- #156: Teams comms crashes without MCP — graceful degradation needed
-- #157: Launch.ts --communication-type override + headless fix
-
-**Infrastructure:**
-- #122: TypeScript compile check + e2e smoke tests
-
-**Future:**
+## Open Issues (1)
 - #6: Pipeline archetype
 
-## Key Directives (team must follow)
+## Open PR
+- #206: teams-presence (pending user review)
 
-1. NO migrations, NO backward compat (pre-1.0, zero users)
-2. Communication is federation-scoped, placement is per-team
-3. Docs update in same PR as code changes
-4. No history in docs — current state only, conversational skill flow
-5. Kaylee uses claude-sonnet-4.5 (not codex)
-6. Use opus for docs/content reviews
-7. Meta always provides curated summaries regardless of transport
-8. Version bump checklist: plugin.json, archetype.json, marketplace.json, ARCHITECTURE.md, README
+## Key Directives
+1. NO migrations, NO backward compat (pre-1.0)
+2. File-signal is the only inter-team transport
+3. Teams is meta-only channel via teams-presence
+4. SDLC: tests + docs + typecheck per PR
+5. ADR-001: scripts own logic, skills wrap
+6. Single federation agent routes to skills
+7. Meta-squad delegates, never does domain work
+8. No internal/corporate references in code or docs
+9. copilotCommand in config, not env vars
+10. Version bump: plugin.json, archetype.json, marketplace.json
 
-## Repo Locations
-
-- Marketplace: /Users/vladilyga/Devel/squadai/vladi-plugins-marketplace
-- Squad state: /Users/vladilyga/Devel/squadai/plugin_developer/.squad/
-- Docs site: https://lygav.github.io/vladi-plugins-marketplace/
+## Next Session Priorities
+1. Merge PR #206 + tag v0.8.0 + GitHub release
+2. Deploy docs
+3. End-to-end test with teams-presence live
+4. Pipeline archetype (#6)

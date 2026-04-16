@@ -2,89 +2,42 @@
 agent: wash
 role: Researcher, Federation & Signals
 model: claude-sonnet-4.5
-updated: 2025-04-15
+updated: 2025-07-14
 ---
 
-# wash's History
+# wash — History
 
-## Role & Responsibilities
-- Federation architecture research
-- Signal protocol design and documentation
-- Archetype pattern analysis
-- Knowledge management system design
+## Ground Truth Scanning
+- Systematic code scan → reference doc → feeds docs, team memory, Astro site.
+- Docs-audit workflow: scan code first → audit docs against ground truth → fix from both.
+- Parallelizable: different agents scan different sections.
 
-## Federation Architecture
+## Archetype.json Distinction
+- **Root archetype.json** — Plugin manifest for discovery (NOT marketplace catalog). Discovery marker with metadata.
+- **team/ archetype.json** — Runtime state machine copied to teams on initialization.
 
-### Structure
-- Teams organized by domain (unique domainId)
-- Teams coordinate via signals
-- **Placement** is per-team (can mix WorktreePlacement and DirectoryPlacement)
-- **Communication** is federation-wide (all teams use same transport)
+Two-archetype.json rule is the most common source of confusion for new agents.
 
-### Signal Protocol (v0.5.0)
-- **Types:** directive (action), question (need answer), report (status), alert (urgent)
-- **Direction:** inbox (received), outbox (sent)
-- **Storage:** JSON files in `.squad/inbox.json` and `.squad/outbox.json`
-- **Acknowledgment:** explicit `acknowledgeSignal()` call
-- **Teams hashtags:** #meta (federation), #meta-status (status), #{teamId} (team-specific)
+## ACP Protocol Discovery (v0.8.0)
+- Azure Communication Presence (ACP) is the underlying protocol for teams-presence.
+- Graph API `/communications/presences` — read/write presence for AAD users.
+- Presence states: Available, Busy, DoNotDisturb, Away, Offline, PresenceUnknown.
+- Activity values map to agent lifecycle: InACall → executing, Presenting → blocked, Available → idle.
+- Rate limits: 1 request/second per user for presence writes; batch reads up to 650 users.
 
-### Archetype System
-**Purpose:** Template for team initialization with lifecycle states, skills, behaviors
+## Graph API Teams Integration
+- App-only tokens (client_credentials) for daemon/service patterns.
+- Delegated tokens for user-context operations (presence writes require delegated).
+- Presence.ReadWrite.All scope needed; admin consent required in tenant.
+- Status message field (max 280 chars) used for agent context (domain, current task).
 
-**Key Files:**
-- `agent.yaml` — Agent definition
-- `monitor.ts` — Extends MonitorBase
-- `triage.ts` — Extends TriageBase  
-- `recovery.ts` — Extends RecoveryBase
-
-**Registry:** PlacementRegistry and CommunicationRegistry keyed by archetypeId
-
-### Knowledge Management
-**LearningEntry Types:** discovery, correction, pattern, technique, gotcha  
-**Confidence:** low, medium, high  
-**Domains:** Team-specific or 'generalizable'  
-**Graduation:** Mark `graduated: true`, link to skill/doc via `graduated_to`
-
-## Archetype Patterns
-- **MonitorBase** — Domain-specific health checks
-- **TriageBase** — Issue classification (type, severity, automatable)
-- **RecoveryBase** — Automated fix logic with fallback escalation
+## Federation Architecture (current)
+- Teams organized by domain (unique domainId).
+- Placement is per-team (DirectoryPlacement or WorktreePlacement).
+- Communication is federation-wide (one transport for all teams).
+- Signal types: directive, question, report, alert. Storage: `.squad/inbox.json` / `outbox.json`.
 
 ## SDLC Rules
-1. **Document protocols** — Signal flow needs end-to-end docs
-2. **Test signal routing** — Verify round-trip delivery
-3. **Ground truth from code** — When unsure, scan implementation
-
-## Session Learnings — 2026-04-15
-
-### Architecture Discoveries
-- **Two archetype.json files per archetype:** Root (plugin manifest for discovery, NOT marketplace catalog — it's a discovery marker with metadata) vs team/ (runtime state machine copied to teams)
-- **Ground truth scanning:** Systematic code scan produces reference doc feeding docs, team memory, and future Astro site content. Reusable pattern across federation.
-- **TeamRegistry refactor:** worktree-utils.ts was dead code — all team enumeration routes through TeamRegistry
-
-### Communication Protocol Refined
-- **Teams channel is REAL transport**, not notifications. Hashtag protocol: #meta (human priority), #meta-status (team updates), #{teamId} (directives)
-- **Federation-scoped communication:** Mixed transports within one federation = bad idea — meta needs one protocol
-- **Transport defaults:** File signals stay default; Teams channel for human-in-loop teams
-
-### Documentation Patterns
-- **Docs-audit pattern:** Scan code first (ground truth) → audit docs against it → fix from both inputs. Parallelizable workflow that ensures accuracy
-
-## Session Summary — 2026-04-15 (v0.6.0)
-
-**Teams Protocol Research:**
-- Teams channel communication is REAL transport, not just notifications
-- Hashtag protocol: #meta (federation-wide, human priority), #meta-status (periodic team updates), #{teamId} (team-specific directives)
-- Federation-scoped: all teams use same communication type (no mixing)
-
-**OTel Investigation:**
-- OTelEmitter reads `telemetry.endpoint` from federate.config.json
-- No environment variables needed — config file is ground truth
-- Graceful degradation when endpoint not configured (no-op)
-
-**Ground Truth Scanning Pattern:**
-- Systematic code scan → reference doc → feeds docs, team memory, Astro site
-- Docs-audit workflow: scan code first → audit docs against ground truth → fix from both
-- Parallelizable: different agents scan different sections
-- Reusable across federation for knowledge capture
-
+1. Document protocols — signal flow needs end-to-end docs.
+2. Test signal routing — verify round-trip delivery.
+3. Ground truth from code — when unsure, scan implementation.
