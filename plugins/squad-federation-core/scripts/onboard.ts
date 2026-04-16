@@ -243,7 +243,7 @@ function outputJson(result: OnboardResult): void {
   process.stdout.write(JSON.stringify(result, null, 2) + '\n');
 }
 
-export function buildProjectContext(args: ParsedArgs, archetype: { name: string; description?: string }): string {
+export function buildProjectContext(args: ParsedArgs, archetype: Record<string, any>): string {
   const archetypeName = archetype.name || args.archetype || 'unknown';
   const archetypeDesc = archetype.description || `${archetypeName} work pattern`;
   return [
