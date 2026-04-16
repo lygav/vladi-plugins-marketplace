@@ -39,17 +39,22 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Cross-platform stop script dropped into the user's project root
-const STOP_HEARTBEAT_SCRIPT = `#!/usr/bin/env node
-// stop-heartbeat.js — Cross-platform heartbeat killer
-// Usage: node stop-heartbeat.js
+const STOP_PRESENCE_SCRIPT = `#!/usr/bin/env node
+// stop-presence.js — Cross-platform presence/heartbeat killer
+// Usage: node stop-presence.js
 const fs = require('fs');
 const path = require('path');
-const pidFile = path.join(__dirname, '.squad', 'heartbeat.pid');
-if (!fs.existsSync(pidFile)) { console.log('No heartbeat running (no PID file).'); process.exit(0); }
-const pid = parseInt(fs.readFileSync(pidFile, 'utf-8').trim(), 10);
-if (isNaN(pid)) { console.log('Invalid PID file.'); fs.unlinkSync(pidFile); process.exit(1); }
-try { process.kill(pid, 0); } catch { console.log('Heartbeat not running (stale PID file). Cleaning up.'); fs.unlinkSync(pidFile); process.exit(0); }
-try { process.kill(pid); fs.unlinkSync(pidFile); console.log('Heartbeat stopped (pid ' + pid + ').'); } catch (e) { console.error('Failed to stop heartbeat:', e.message); process.exit(1); }
+const names = ['presence.pid', 'heartbeat.pid'];
+let found = false;
+for (const name of names) {
+  const pidFile = path.join(__dirname, '.squad', name);
+  if (!fs.existsSync(pidFile)) continue;
+  const pid = parseInt(fs.readFileSync(pidFile, 'utf-8').trim(), 10);
+  if (isNaN(pid)) { fs.unlinkSync(pidFile); continue; }
+  try { process.kill(pid, 0); } catch { console.log(name + ': not running (stale). Cleaned up.'); fs.unlinkSync(pidFile); continue; }
+  try { process.kill(pid); fs.unlinkSync(pidFile); console.log('Stopped ' + name.replace('.pid','') + ' (pid ' + pid + ').'); found = true; } catch (e) { console.error('Failed:', e.message); }
+}
+if (!found) console.log('No presence or heartbeat running.');
 `;
 
 // ==================== Types ====================
@@ -454,37 +459,46 @@ async function main(): Promise<void> {
       warnings.push(`${p.name}: ${p.message}`);
     }
 
-    // Step 6: Start heartbeat if enabled
+    // Step 6: Start presence/heartbeat if enabled
     let heartbeatPid: number | undefined;
     if (args.heartbeat) {
-      const heartbeatScript = path.join(__dirname, 'meta-heartbeat.ts');
-      if (fs.existsSync(heartbeatScript)) {
+      // If Teams is configured, start teams-presence (persistent bridge)
+      // Otherwise fall back to heartbeat (periodic copilot sessions)
+      const usePresence = args.teamsNotification && args.teamsTeamId && args.teamsChannelId;
+      const scriptName = usePresence ? 'teams-presence.ts' : 'meta-heartbeat.ts';
+      const script = path.join(__dirname, scriptName);
+
+      if (fs.existsSync(script)) {
         try {
           const intervalArgs = args.heartbeatInterval
             ? ['--interval', String(args.heartbeatInterval)]
             : [];
-          const child = spawn('npx', ['tsx', heartbeatScript, ...intervalArgs], {
+          const child = spawn('npx', ['tsx', script, ...intervalArgs], {
             cwd: REPO_ROOT,
             detached: true,
             stdio: 'ignore',
           });
           child.unref();
           heartbeatPid = child.pid;
-          log(args, `\n💓 Heartbeat started (pid ${heartbeatPid}, interval ${args.heartbeatInterval ?? 300}s)`);
-          await emitter.event('heartbeat.started', { pid: heartbeatPid ?? 0 });
+          if (usePresence) {
+            log(args, `\n🌐 Teams presence started (pid ${heartbeatPid}, interval ${args.heartbeatInterval ?? 30}s)`);
+          } else {
+            log(args, `\n💓 Heartbeat started (pid ${heartbeatPid}, interval ${args.heartbeatInterval ?? 300}s)`);
+          }
+          await emitter.event('presence.started', { pid: heartbeatPid ?? 0, mode: usePresence ? 'teams-presence' : 'heartbeat' });
         } catch (err: any) {
-          warnings.push(`Heartbeat failed to start: ${err.message}`);
-          log(args, `\n⚠️  Heartbeat failed to start: ${err.message}`);
+          warnings.push(`${usePresence ? 'Presence' : 'Heartbeat'} failed to start: ${err.message}`);
+          log(args, `\n⚠️  Failed to start: ${err.message}`);
         }
       } else {
-        warnings.push('Heartbeat script not found — start manually with: npx tsx scripts/meta-heartbeat.ts');
+        warnings.push(`${scriptName} not found`);
       }
 
       // Write cross-platform stop script to project root
-      const stopScriptPath = path.join(REPO_ROOT, 'stop-heartbeat.js');
+      const stopScriptPath = path.join(REPO_ROOT, 'stop-presence.js');
       if (!fs.existsSync(stopScriptPath)) {
-        fs.writeFileSync(stopScriptPath, STOP_HEARTBEAT_SCRIPT, 'utf-8');
-        log(args, `   Stop with: node stop-heartbeat.js`);
+        fs.writeFileSync(stopScriptPath, STOP_PRESENCE_SCRIPT, 'utf-8');
+        log(args, `   Stop with: node stop-presence.js`);
       }
     }
 
