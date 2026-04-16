@@ -9,6 +9,17 @@
  */
 
 import { spawn, type ChildProcess } from 'child_process';
+import { readFileSync, existsSync } from 'fs';
+import { resolve } from 'path';
+
+function readCopilotCommand(cwd: string): string {
+  try {
+    const configPath = resolve(cwd, 'federate.config.json');
+    if (!existsSync(configPath)) return 'copilot';
+    const config = JSON.parse(readFileSync(configPath, 'utf-8'));
+    return config.copilotCommand || 'copilot';
+  } catch { return 'copilot'; }
+}
 
 export class AcpSession {
   private child: ChildProcess;
@@ -24,9 +35,10 @@ export class AcpSession {
   private dead = false;
 
   constructor(private cwd: string, private log: (msg: string) => void, private timeoutMs = 120_000) {
-    const commandParts = (process.env.COPILOT_COMMAND || 'copilot').split(/\s+/);
-    const [cmd, ...baseArgs] = commandParts;
+    const command = readCopilotCommand(cwd);
+    const [cmd, ...baseArgs] = command.split(/\s+/);
     const acpArgs = [...baseArgs, '--acp', '--yolo', '--no-custom-instructions'];
+    log(`📋 Copilot command: ${cmd} ${acpArgs.join(' ')}`);
 
     this.child = spawn(cmd, acpArgs, {
       stdio: ['pipe', 'pipe', 'pipe'],

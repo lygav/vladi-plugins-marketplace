@@ -80,7 +80,11 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/dashboard.ts start
 
 **If yes:** Ask for Teams team ID and channel ID. Help them find these if needed.
 
-**Store as:** `--teams-notification --teams-team-id <id> --teams-channel-id <id>` flags.
+**Then ask:** "What command do you use to start Copilot CLI? The Teams bridge needs to run a persistent session in the background."
+- Offer choices: "copilot (default)", "agency copilot (Microsoft internal)", "Custom command"
+- If custom: accept the full command string
+
+**Store as:** `--teams-notification --teams-team-id <id> --teams-channel-id <id>` flags. If custom copilot command: `--copilot-command "<command>"`.
 
 ### Step 3½: Heartbeat (Optional)
 

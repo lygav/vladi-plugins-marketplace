@@ -12,6 +12,8 @@ export interface FederateConfig {
   description?: string;
   /** Meta-squad persona name — used for Teams @mentions and identification */
   federationName?: string;
+  /** Command to launch Copilot CLI (e.g., 'agency copilot' for Microsoft employees) */
+  copilotCommand?: string;
   /** Communication transport type — adapter registry key (default: 'file-signal') */
   communicationType: string;
   /** OTel observability */
@@ -100,6 +102,7 @@ export function validateConfig(raw: unknown): FederateConfig {
   const knownFields = new Set([
     'description',
     'federationName',
+    'copilotCommand',
     'communicationType',
     'telemetry',
     'teamsConfig',
@@ -138,6 +141,14 @@ export function validateConfig(raw: unknown): FederateConfig {
     result.federationName = validateString(config.federationName, 'federationName');
     if (result.federationName.trim() === '') {
       throw new ConfigValidationError('federationName cannot be empty string');
+    }
+  }
+
+  // Validate optional copilotCommand
+  if ('copilotCommand' in config) {
+    result.copilotCommand = validateString(config.copilotCommand, 'copilotCommand');
+    if (result.copilotCommand.trim() === '') {
+      throw new ConfigValidationError('copilotCommand cannot be empty string');
     }
   }
 

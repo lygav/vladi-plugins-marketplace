@@ -62,6 +62,7 @@ if (!found) console.log('No presence or heartbeat running.');
 export interface ParsedSetupArgs {
   description: string;
   federationName?: string;
+  copilotCommand?: string;
   telemetry: boolean;
   telemetryEndpoint?: string;
   teamsNotification: boolean;
@@ -119,6 +120,7 @@ export function parseSetupArgs(args: string[]): ParsedSetupArgs {
     switch (arg) {
       case '--description': parsed.description = value; i++; break;
       case '--federation-name': parsed.federationName = value; i++; break;
+      case '--copilot-command': parsed.copilotCommand = value; i++; break;
       case '--telemetry': parsed.telemetry = true; break;
       case '--no-telemetry': parsed.telemetry = false; break;
       case '--telemetry-endpoint': parsed.telemetryEndpoint = value; i++; break;
@@ -282,6 +284,7 @@ export function buildConfig(args: ParsedSetupArgs): Record<string, unknown> {
   const config: Record<string, unknown> = {
     description: args.description,
     ...(args.federationName ? { federationName: args.federationName } : {}),
+    ...(args.copilotCommand ? { copilotCommand: args.copilotCommand } : {}),
     telemetry: {
       enabled: args.telemetry,
       ...(args.telemetryEndpoint ? { endpoint: args.telemetryEndpoint } : {}),
