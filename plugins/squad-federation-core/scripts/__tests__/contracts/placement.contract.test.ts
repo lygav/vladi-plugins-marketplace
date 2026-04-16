@@ -239,13 +239,20 @@ describe('placement.contract.test.ts', () => {
 
       describe('async operation compliance', () => {
         it('should return Promises for all async operations', async () => {
-          // Verify that all operations return Promises
-          expect(placement.readFile(testTeamId, 'file') instanceof Promise).toBe(true);
-          expect(placement.writeFile(testTeamId, 'file', 'data') instanceof Promise).toBe(true);
-          expect(placement.exists(testTeamId, 'file') instanceof Promise).toBe(true);
-          expect(placement.workspaceExists(testTeamId) instanceof Promise).toBe(true);
-          expect(placement.getLocation(testTeamId) instanceof Promise).toBe(true);
-          expect(placement.listFiles(testTeamId) instanceof Promise).toBe(true);
+          // Verify that all operations return Promises and await them to prevent leaks
+          const promises = [
+            placement.readFile(testTeamId, 'file'),
+            placement.writeFile(testTeamId, 'file', 'data'),
+            placement.exists(testTeamId, 'file'),
+            placement.workspaceExists(testTeamId),
+            placement.getLocation(testTeamId),
+            placement.listFiles(testTeamId),
+          ];
+          for (const p of promises) {
+            expect(p instanceof Promise).toBe(true);
+          }
+          // Await all to prevent unhandled rejections during cleanup
+          await Promise.allSettled(promises);
           
           // Await bootstrap to ensure directory creation completes before cleanup
           const bootstrapPromise = placement.bootstrap(testTeamId, 'arch', {});
