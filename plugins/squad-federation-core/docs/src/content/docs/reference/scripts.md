@@ -490,6 +490,54 @@ npx tsx scripts/sync-skills.ts \
 
 ---
 
+### `teams-presence.ts`
+
+**What it does:** Persistent bridge between a Microsoft Teams channel and the federation. Polls the configured channel via Microsoft Graph API for messages addressing `@<federationName>`, pipes instructions to a persistent Copilot ACP session, and posts results back to the channel.
+
+**Called by:** User (manually or as a background process). Not called by a skill — it *is* the long-running presence daemon.
+
+**Parameters:**
+- `--interval <seconds>` — Poll interval in seconds *(default: 30, minimum: 5)*
+- `--once` — Run a single poll cycle then exit
+- `--stop` — Stop a running presence process (via PID file)
+- `--status` — Check if presence is currently running
+
+**Requires in `federate.config.json`:**
+- `federationName` — The `@` handle to listen for in Teams
+- `teamsConfig.teamId` + `teamsConfig.channelId` — Target Teams channel
+
+**Supporting modules (`scripts/lib/teams-presence/`):**
+- `acp-session.ts` — Manages a persistent Copilot ACP session; reads `copilotCommand` from config to resolve the binary
+- `graph-client.ts` — Acquires Microsoft Graph API tokens for channel access
+- `watermark.ts` — Tracks the last-seen message timestamp to avoid reprocessing
+- `poll.ts` — Executes a single poll cycle: fetch messages → filter for `@<federationName>` → relay to ACP → post reply
+
+**Runtime artifacts:**
+- `.squad/presence.pid` — PID file for the running process
+- `.squad/presence.log` — Append-only log of poll activity
+
+**Example:**
+```bash
+# Start with default 30s interval
+npx tsx scripts/teams-presence.ts
+
+# Custom 15s interval
+npx tsx scripts/teams-presence.ts --interval 15
+
+# Single poll then exit (useful for cron / CI)
+npx tsx scripts/teams-presence.ts --once
+
+# Check if running
+npx tsx scripts/teams-presence.ts --status
+
+# Stop running presence
+npx tsx scripts/teams-presence.ts --stop
+```
+
+See the **[Teams Presence guide](/vladi-plugins-marketplace/guides/teams-presence)** for architecture details and usage patterns.
+
+---
+
 ## Helper Scripts
 
 ### `init-federation.ts`

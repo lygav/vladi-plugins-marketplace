@@ -199,7 +199,7 @@ These metrics flow to the telemetry dashboard if enabled.
 
 ## Teams Notifications
 
-When `teamsConfig` is set in `federate.config.json`, the meta-squad posts status summaries to a Microsoft Teams channel automatically. This works through the **skill layer** — Copilot sessions have native access to the Teams MCP tools. Periodic presence checks are handled by the **teams-presence** feature.
+When `teamsConfig` is set in `federate.config.json`, the meta-squad posts status summaries to a Microsoft Teams channel automatically. This works through the **skill layer** — Copilot sessions have native access to the Teams MCP tools. The **[teams-presence](/vladi-plugins-marketplace/guides/teams-presence)** feature provides automated, persistent monitoring by running as a background bridge process that polls the channel and relays messages to a Copilot ACP session.
 
 ### What Gets Posted
 
@@ -231,6 +231,8 @@ Add `teamsConfig` to `federate.config.json`:
 ```
 
 The meta-squad uses the `PostChannelMessage` MCP tool to post and `ListChannelMessages` to poll. No additional setup is needed — these tools are available natively in Copilot sessions.
+
+For full details on the persistent bridge, see the **[Teams Presence guide](/vladi-plugins-marketplace/guides/teams-presence)**.
 
 ### When to Use
 

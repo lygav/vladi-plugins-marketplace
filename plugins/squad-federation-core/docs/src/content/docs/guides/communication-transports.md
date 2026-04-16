@@ -24,7 +24,7 @@ Squad Federation teams communicate via **signals** — structured messages for d
 
 ## Teams Notifications (Meta-Squad Channel)
 
-Teams integration is a **meta-squad notification channel** — not a transport between domain teams. The meta-squad skill layer posts curated summaries to a Teams channel and polls for user `@<federationName>` messages. File signals remain the sole communication transport between teams.
+Teams integration is a **meta-squad notification channel** — not a transport between domain teams. The **[teams-presence](/vladi-plugins-marketplace/guides/teams-presence)** feature runs as a persistent bridge process that polls a Teams channel via Microsoft Graph API, pipes `@<federationName>` messages to a Copilot ACP session, and posts results back. File signals remain the sole communication transport between teams.
 
 ### How It Works
 
@@ -82,6 +82,8 @@ ListChannelMessages(teamId, channelId, top: 10)
 ```
 
 Teams is one-way notification + directive input. All inter-team communication remains file-signal based.
+
+For full details on the persistent bridge process, see the **[Teams Presence guide](/vladi-plugins-marketplace/guides/teams-presence)**.
 
 ## How File Signals Work
 

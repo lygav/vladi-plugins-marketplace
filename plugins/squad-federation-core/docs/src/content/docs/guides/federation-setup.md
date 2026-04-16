@@ -81,7 +81,7 @@ Dashboard runs at `http://localhost:18888` showing traces, metrics, and logs fro
 
 ### 4. Teams Notifications (Optional)
 
-Optionally enable **Teams notifications** so the meta-squad posts summaries to a Microsoft Teams channel:
+Optionally enable **Teams notifications** so the meta-squad posts summaries to a Microsoft Teams channel. When enabled, this also activates the **[teams-presence](/vladi-plugins-marketplace/guides/teams-presence)** feature — a persistent bridge process that keeps your federation "online" in the channel, polling for `@<federationName>` messages and relaying them to Copilot.
 
 ```json
 {
