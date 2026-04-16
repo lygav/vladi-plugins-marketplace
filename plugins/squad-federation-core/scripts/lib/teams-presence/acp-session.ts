@@ -96,12 +96,13 @@ export class AcpSession {
     this.log('✅ ACP session initialized');
   }
 
-  async loadSession(): Promise<string> {
-    const result = await this.send('session/list', {});
+  async loadOrCreateSession(): Promise<string> {
+    // Try to find an existing session in our cwd
+    const result = await this.send('session/list', { cwd: this.cwd });
     const sessions = result?.sessions || [];
-    const existing = sessions.find((s: any) => s.cwd === this.cwd);
 
-    if (existing) {
+    if (sessions.length > 0) {
+      const existing = sessions[0];
       this.sessionId = existing.sessionId;
       this.log(`📎 Reusing existing session: ${this.sessionId}`);
       await this.send('session/load', {
@@ -112,10 +113,17 @@ export class AcpSession {
       return this.sessionId!;
     }
 
-    throw new Error(
-      'No existing Copilot session found for this project. ' +
-      'Start a Copilot session first (e.g., copilot -i "hello") then retry.'
-    );
+    // No existing session — create a new one
+    const newResult = await this.send('session/new', {
+      cwd: this.cwd,
+      mcpServers: [],
+    });
+    this.sessionId = newResult?.sessionId;
+    if (!this.sessionId) {
+      throw new Error('session/new did not return a sessionId');
+    }
+    this.log(`🆕 Created new session: ${this.sessionId}`);
+    return this.sessionId;
   }
 
   async prompt(text: string): Promise<string> {
@@ -124,18 +132,18 @@ export class AcpSession {
 
     this.notifications = [];
 
-    await this.send('session/prompt', {
+    // session/prompt returns when the turn is complete (with stopReason)
+    // While waiting, notifications stream agent_message_chunk and tool_call updates
+    const chunks: string[] = [];
+
+    // Start collecting notifications before sending prompt
+    const promptPromise = this.send('session/prompt', {
       sessionId: this.sessionId,
       prompt: [{ type: 'text', text }],
     });
 
-    const chunks: string[] = [];
-    const start = Date.now();
-
-    while (Date.now() - start < this.timeoutMs) {
-      if (this.dead) throw new Error('ACP process died during execution');
-      await new Promise(r => setTimeout(r, 500));
-
+    // Drain notifications while waiting for the prompt response
+    const drainInterval = setInterval(() => {
       while (this.notifications.length > 0) {
         const notif = this.notifications.shift()!;
         if (notif.method === 'session/update') {
@@ -143,14 +151,33 @@ export class AcpSession {
           if (update?.sessionUpdate === 'agent_message_chunk' && update?.content?.text) {
             chunks.push(update.content.text);
           }
-          if (update?.sessionUpdate === 'tool_call' && update?.title === 'task_complete') {
-            return chunks.join('');
+        }
+      }
+    }, 200);
+
+    try {
+      // Wait for the prompt to complete (agent returns stopReason)
+      await Promise.race([
+        promptPromise,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Prompt execution timed out')), this.timeoutMs)
+        ),
+      ]);
+    } finally {
+      clearInterval(drainInterval);
+      // Final drain
+      while (this.notifications.length > 0) {
+        const notif = this.notifications.shift()!;
+        if (notif.method === 'session/update') {
+          const update = notif.params?.update;
+          if (update?.sessionUpdate === 'agent_message_chunk' && update?.content?.text) {
+            chunks.push(update.content.text);
           }
         }
       }
     }
 
-    return chunks.join('') || '(timed out waiting for agent response)';
+    return chunks.join('') || '(no agent response)';
   }
 
   kill(): void {

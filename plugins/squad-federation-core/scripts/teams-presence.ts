@@ -130,7 +130,7 @@ async function run(interval: number, once: boolean): Promise<void> {
   log('🚀 Starting persistent Copilot ACP session...');
   const acp = new AcpSession(REPO_ROOT, log);
   await acp.initialize();
-  await acp.loadSession();
+  await acp.loadOrCreateSession();
 
   writePid();
   log(`📝 PID ${process.pid}`);
@@ -175,7 +175,7 @@ async function main(): Promise<void> {
   await run(interval, once);
 }
 
-const isDirectRun = process.argv[1]?.endsWith('teams-presence.ts') || process.argv[1]?.endsWith('teams-presence.js');
+const isDirectRun = /teams-presence\.[tj]s$/.test(process.argv[1] || '');
 if (isDirectRun) {
   main().catch((err) => { log(`💥 Fatal: ${(err as Error).message}`); removePid(); process.exit(1); });
 }
