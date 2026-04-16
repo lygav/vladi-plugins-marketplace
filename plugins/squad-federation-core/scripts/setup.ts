@@ -29,7 +29,7 @@
  *   npx tsx scripts/setup.ts --description "test" --dry-run --output-format json
  */
 
-import { execSync } from 'child_process';
+import { execSync, spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -37,6 +37,20 @@ import { OTelEmitter } from '../sdk/otel-emitter.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Cross-platform stop script dropped into the user's project root
+const STOP_HEARTBEAT_SCRIPT = `#!/usr/bin/env node
+// stop-heartbeat.js — Cross-platform heartbeat killer
+// Usage: node stop-heartbeat.js
+const fs = require('fs');
+const path = require('path');
+const pidFile = path.join(__dirname, '.squad', 'heartbeat.pid');
+if (!fs.existsSync(pidFile)) { console.log('No heartbeat running (no PID file).'); process.exit(0); }
+const pid = parseInt(fs.readFileSync(pidFile, 'utf-8').trim(), 10);
+if (isNaN(pid)) { console.log('Invalid PID file.'); fs.unlinkSync(pidFile); process.exit(1); }
+try { process.kill(pid, 0); } catch { console.log('Heartbeat not running (stale PID file). Cleaning up.'); fs.unlinkSync(pidFile); process.exit(0); }
+try { process.kill(pid); fs.unlinkSync(pidFile); console.log('Heartbeat stopped (pid ' + pid + ').'); } catch (e) { console.error('Failed to stop heartbeat:', e.message); process.exit(1); }
+`;
 
 // ==================== Types ====================
 
@@ -71,6 +85,7 @@ export interface SetupResult {
   dryRun: boolean;
   errors?: string[];
   warnings?: string[];
+  heartbeatPid?: number;
 }
 
 // ==================== Argument Parsing ====================
@@ -435,6 +450,40 @@ async function main(): Promise<void> {
       warnings.push(`${p.name}: ${p.message}`);
     }
 
+    // Step 6: Start heartbeat if enabled
+    let heartbeatPid: number | undefined;
+    if (args.heartbeat) {
+      const heartbeatScript = path.join(__dirname, 'meta-heartbeat.ts');
+      if (fs.existsSync(heartbeatScript)) {
+        try {
+          const intervalArgs = args.heartbeatInterval
+            ? ['--interval', String(args.heartbeatInterval)]
+            : [];
+          const child = spawn('npx', ['tsx', heartbeatScript, ...intervalArgs], {
+            cwd: REPO_ROOT,
+            detached: true,
+            stdio: 'ignore',
+          });
+          child.unref();
+          heartbeatPid = child.pid;
+          log(args, `\n💓 Heartbeat started (pid ${heartbeatPid}, interval ${args.heartbeatInterval ?? 300}s)`);
+          await emitter.event('heartbeat.started', { pid: heartbeatPid ?? 0 });
+        } catch (err: any) {
+          warnings.push(`Heartbeat failed to start: ${err.message}`);
+          log(args, `\n⚠️  Heartbeat failed to start: ${err.message}`);
+        }
+      } else {
+        warnings.push('Heartbeat script not found — start manually with: npx tsx scripts/meta-heartbeat.ts');
+      }
+
+      // Write cross-platform stop script to project root
+      const stopScriptPath = path.join(REPO_ROOT, 'stop-heartbeat.js');
+      if (!fs.existsSync(stopScriptPath)) {
+        fs.writeFileSync(stopScriptPath, STOP_HEARTBEAT_SCRIPT, 'utf-8');
+        log(args, `   Stop with: node stop-heartbeat.js`);
+      }
+    }
+
     await emitter.event('setup.complete');
     await emitter.log('info', 'Federation setup complete — ready to onboard teams');
 
@@ -448,6 +497,7 @@ async function main(): Promise<void> {
       prerequisites,
       dryRun: false,
       warnings: warnings.length > 0 ? warnings : undefined,
+      heartbeatPid,
     };
 
     if (args.outputFormat === 'json') {

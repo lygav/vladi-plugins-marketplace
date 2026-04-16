@@ -75,9 +75,15 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/dashboard.ts start
 
 **Default:** Yes.
 
-**If yes:** Optionally accept a custom interval (default: 300 seconds = 5 minutes).
+**If yes, ask:** "How often should the heartbeat check in? (default: every 5 minutes)"
+- Offer choices: "Every 1 minute", "Every 5 minutes (recommended)", "Every 15 minutes", "Custom interval"
+- If custom: ask for seconds (minimum 10)
+
+The heartbeat starts automatically when setup completes — the federation is immediately listening.
 
 **Store as:** `--heartbeat` flag. If custom interval: `--heartbeat-interval <seconds>`.
+
+**To stop later:** Run `node stop-heartbeat.js` from the project root.
 
 ### Step 4: Run setup.ts
 
