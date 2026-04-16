@@ -34,8 +34,8 @@ describe('Teams MCP integration contracts', () => {
       expect(skillContent).toContain('teamsConfig.channelId');
     });
 
-    it('includes #directive polling instructions', () => {
-      expect(skillContent).toContain('#directive');
+    it('includes @<federationName> polling instructions', () => {
+      expect(skillContent).toContain('@<federationName>');
     });
 
     it('explains conditional logic when teamsConfig is absent', () => {
@@ -66,8 +66,9 @@ describe('Teams MCP integration contracts', () => {
       expect(heartbeatContent).toContain('federate.config.json');
     });
 
-    it('heartbeat prompt includes #directive polling', () => {
-      expect(heartbeatContent).toContain('#directive');
+    it('heartbeat prompt includes @-mention polling via federationName', () => {
+      expect(heartbeatContent).toContain('federationName');
+      expect(heartbeatContent).toContain('addressing you');
     });
   });
 

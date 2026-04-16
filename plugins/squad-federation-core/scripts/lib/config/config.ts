@@ -10,6 +10,8 @@ import * as fs from 'fs';
 export interface FederateConfig {
   /** Brief description of this federation (optional) */
   description?: string;
+  /** Meta-squad persona name — used for Teams @mentions and identification */
+  federationName?: string;
   /** Communication transport type — adapter registry key (default: 'file-signal') */
   communicationType: string;
   /** OTel observability */
@@ -18,7 +20,7 @@ export interface FederateConfig {
     endpoint?: string;
     aspire?: boolean;
   };
-  /** Teams channel for meta-squad notifications — meta posts summaries and polls for #directive from user */
+  /** Teams channel for meta-squad notifications — meta posts summaries, user addresses @federationName */
   teamsConfig?: {
     teamId: string;
     channelId: string;
@@ -97,6 +99,7 @@ export function validateConfig(raw: unknown): FederateConfig {
   // Track known fields for unknown field warnings
   const knownFields = new Set([
     'description',
+    'federationName',
     'communicationType',
     'telemetry',
     'teamsConfig',
@@ -127,6 +130,14 @@ export function validateConfig(raw: unknown): FederateConfig {
     result.description = validateString(config.description, 'description');
     if (result.description.trim() === '') {
       throw new ConfigValidationError('description cannot be empty string');
+    }
+  }
+
+  // Validate optional federationName
+  if ('federationName' in config) {
+    result.federationName = validateString(config.federationName, 'federationName');
+    if (result.federationName.trim() === '') {
+      throw new ConfigValidationError('federationName cannot be empty string');
     }
   }
 

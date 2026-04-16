@@ -29,19 +29,30 @@ const LOG_FILE = path.join(SQUAD_DIR, 'heartbeat.log');
 const DEFAULT_INTERVAL_SECONDS = 300;
 const SESSION_TIMEOUT_SECONDS = 120;
 
-const HEARTBEAT_PROMPT = `You are the meta-squad heartbeat. This is an automated periodic check — be concise.
+function loadFederationName(): string {
+  try {
+    const configPath = path.join(REPO_ROOT, 'federate.config.json');
+    if (!fs.existsSync(configPath)) return 'meta';
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    return config.federationName || 'meta';
+  } catch { return 'meta'; }
+}
+
+function buildHeartbeatPrompt(name: string): string {
+  return `You are ${name}, the meta-squad leadership. This is an automated periodic check — be concise.
 
 1. Check all team signal outboxes for updates.
 2. Read team status files (.squad/signals/status.json in each worktree).
 3. Summarize what each team is doing in 1-2 lines each.
 4. If any team has alerts or errors, highlight them prominently.
-5. If teamsConfig is configured in federate.config.json, post your summary to the Teams channel using PostChannelMessage and check for #directive messages using ListChannelMessages.
+5. If teamsConfig is configured in federate.config.json, post your summary to the Teams channel using PostChannelMessage and check for messages addressing you (@${name}) using ListChannelMessages.
    - To post: use PostChannelMessage with teamId and channelId from teamsConfig, and your summary as content.
-   - To poll: use ListChannelMessages with teamId and channelId from teamsConfig (top: 10), then act on any messages containing #directive.
+   - To poll: use ListChannelMessages with teamId and channelId from teamsConfig (top: 10), then act on any messages containing @${name} as instructions from the user.
 6. If any teams have pending questions in their outbox, relay them.
 7. Check for stuck teams (no status update in >10 minutes while not complete/failed).
 
 Keep output brief — this runs every few minutes.`;
+}
 
 // ==================== Helpers ====================
 
@@ -182,12 +193,13 @@ function spawnHeartbeatSession(baseCommand: string[]): Promise<{
 }> {
   return new Promise((resolve) => {
     const [cmd, ...baseArgs] = baseCommand;
+    const federationName = loadFederationName();
 
     // Build args: base args + prompt flags
     const args = [
       ...baseArgs,
       '-p',
-      HEARTBEAT_PROMPT,
+      buildHeartbeatPrompt(federationName),
       '--yolo',
       '--no-ask-user',
       '--autopilot',

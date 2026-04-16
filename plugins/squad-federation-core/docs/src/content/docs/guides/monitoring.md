@@ -270,12 +270,12 @@ When `teamsConfig` is set in `federate.config.json`, the meta-squad posts status
 
 ### Posting Directives from Teams
 
-You can post messages tagged with `#directive` in the configured Teams channel. The meta-squad heartbeat polls for these and acts on them:
+You can post messages tagged with `@<federationName>` in the configured Teams channel. The meta-squad heartbeat polls for these and acts on them:
 
 ```
-#directive tell frontend to skip legacy utils
-#directive pause backend
-#directive restart infra
+@<federationName> tell frontend to skip legacy utils
+@<federationName> pause backend
+@<federationName> restart infra
 ```
 
 ### Configuration

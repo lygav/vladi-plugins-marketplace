@@ -24,13 +24,13 @@ Squad Federation teams communicate via **signals** — structured messages for d
 
 ## Teams Notifications (Meta-Squad Channel)
 
-Teams integration is a **meta-squad notification channel** — not a transport between domain teams. The meta-squad skill layer posts curated summaries to a Teams channel and polls for user `#directive` messages. File signals remain the sole communication transport between teams.
+Teams integration is a **meta-squad notification channel** — not a transport between domain teams. The meta-squad skill layer posts curated summaries to a Teams channel and polls for user `@<federationName>` messages. File signals remain the sole communication transport between teams.
 
 ### How It Works
 
 1. **Meta-squad posts summaries** — after status checks, heartbeat cycles, or directive relays, the skill calls the `PostChannelMessage` MCP tool
-2. **User posts `#directive` messages** — the meta-squad heartbeat polls with `ListChannelMessages` and filters for `#directive`-tagged messages
-3. **Directives flow through file signals** — when a `#directive` is found in Teams, the meta-squad writes it to the target team's inbox as a standard file signal
+2. **User posts `@<federationName>` messages** — the meta-squad heartbeat polls with `ListChannelMessages` and filters for `@<federationName>`-tagged messages
+3. **Directives flow through file signals** — when a `@<federationName>` is found in Teams, the meta-squad writes it to the target team's inbox as a standard file signal
 
 ### Configuration
 
@@ -59,7 +59,7 @@ PostChannelMessage(teamId, channelId, content)
 **Poll for directives:**
 ```
 ListChannelMessages(teamId, channelId, top: 10)
-→ filter for messages containing "#directive"
+→ filter for messages containing "@<federationName>"
 ```
 
 ### Architecture
@@ -69,7 +69,7 @@ ListChannelMessages(teamId, channelId, top: 10)
 │  Teams Channel   │◄────────│   Meta-Squad     │
 │  (notification)  │────────►│  (skill layer)   │
 └─────────────────┘         └────────┬─────────┘
-  #directive msgs              PostChannelMessage
+  @<federationName> msgs              PostChannelMessage
   from user                    ListChannelMessages
                                       │
                                file signals

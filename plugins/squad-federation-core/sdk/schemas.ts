@@ -199,6 +199,7 @@ export const TeamEntrySchema = z.object({
  */
 export const FederateConfigSchema = z.object({
   description: z.string().optional(),
+  federationName: z.string().optional().describe('Meta-squad persona name — used for Teams @mentions and identification'),
   communicationType: z.string().optional().default('file-signal').describe('Communication adapter type (default: file-signal)'),
   telemetry: z
     .object({
@@ -210,7 +211,7 @@ export const FederateConfigSchema = z.object({
   teamsConfig: z.object({
     teamId: z.string().describe('Teams workspace ID (GUID)'),
     channelId: z.string().describe('Teams channel ID')
-  }).optional().describe('Meta-squad notification channel — posts summaries, polls for #directive'),
+  }).optional().describe('Meta-squad notification channel — posts summaries, user addresses @federationName'),
   playbookSkill: z.string().optional().default('domain-playbook'),
   deliverable: z.string().optional(),
   deliverableSchema: z.string().optional(),
