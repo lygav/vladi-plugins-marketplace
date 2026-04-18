@@ -6,3 +6,4 @@ node_modules/
 .worktrees
 plugins/squad-federation-core/docs/dist/
 plugins/squad-federation-core/docs/node_modules/
+.worktrees/
