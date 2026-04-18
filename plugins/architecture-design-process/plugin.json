@@ -1,0 +1,6 @@
+{
+  "name": "architecture-design-process",
+  "version": "0.1.0",
+  "description": "A structured process for designing software systems — from brainstorming through use cases to layered design docs.",
+  "is_agent_requested": false
+}
