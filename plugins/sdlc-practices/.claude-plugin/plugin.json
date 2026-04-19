@@ -1,0 +1,8 @@
+{
+  "name": "sdlc-practices",
+  "version": "0.1.0",
+  "description": "Battle-tested SDLC practices for AI agent team coordination — branch isolation, task decomposition, review gates, and dispatch patterns.",
+  "author": {
+    "name": "Vladi Lyga"
+  }
+}
