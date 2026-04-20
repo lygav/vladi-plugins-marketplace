@@ -88,6 +88,22 @@ Two agents may run in parallel ONLY when their file scopes don't overlap. Before
 - Shared configuration files (DI registration, app config, build scripts) are assigned to exactly one agent
 - If overlap exists, make the work packages sequential
 
+### 8. Refactors Are High-Risk — Require Use Case Coverage
+
+Refactoring (extracting classes, renaming, restructuring) is the most common source of regressions. Code that "just moves" often drops behavior along the way — error recovery paths, retry logic, fallback flows.
+
+**Before any refactor:**
+- Identify all use cases the existing code handles (happy path, error paths, edge cases)
+- Ensure each use case has a test BEFORE refactoring
+- Run tests before and after — same count, same pass rate
+
+**After refactoring:**
+- Verify all error handling was carried over (catch blocks, retries, fallbacks)
+- Verify all state transitions survived (status changes, cleanup paths)
+- Run integration/E2E tests, not just unit tests — unit tests can pass while the wiring is broken
+
+**Anti-pattern:** Refactoring a God Object into 3 clean classes and losing the retry-on-failure path because it lived in a catch block that wasn't migrated.
+
 ## Work Package Planning
 
 When a code review or task produces many findings, group them into work packages:
