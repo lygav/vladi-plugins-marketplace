@@ -1,7 +1,7 @@
 ---
 name: sdlc-practices
 description: This skill should be used when the user asks to "plan work", "dispatch agents", "create a feature branch", "launch parallel tasks", "review code", "merge branches", "break down a task", "run code review", or when coordinating multi-agent development workflows. Provides battle-tested SDLC rules for AI agent team coordination including branch isolation, task decomposition, review gates, and dispatch patterns.
-version: 0.1.0
+version: 0.2.0
 ---
 
 # SDLC Practices for AI Agent Teams
@@ -118,33 +118,89 @@ Refactoring (extracting classes, renaming, restructuring) is the most common sou
 
 **Anti-pattern:** Refactoring a God Object into 3 clean classes and losing the retry-on-failure path because it lived in a catch block that wasn't migrated.
 
-### 9. Use Case Level System Tests
+### 9. Testing Strategy — Trophy Model
 
-Unit tests verify individual classes. System/E2E tests verify that **use cases actually work end-to-end**. Without system tests, a project can have 200+ passing unit tests while core user flows are broken.
-
-**Structure:** Each system test exercises a real user scenario that may span multiple use cases:
+The classic test pyramid (many unit, fewer integration, few E2E) over-indexes on unit tests that often just "test mocks." For API-heavy and service-oriented projects, the **Testing Trophy** gives better ROI:
 
 ```
-tests/e2e/
-├── test-team-lifecycle.js     (create → prompt → pause → resume)
-├── test-peer-messaging.js     (two teams communicate)
-├── test-session-recovery.js   (prompt → restart → prompt again)
-├── test-setup-guard.js        (operations before setup → error)
+         Acceptance  (few — real stack, UC-driven)
+     ┌──────────────────┐
+     │   Integration     │  ← Most tests here (real behavior, in-memory infra)
+     ├──────────────────┤
+     │   Domain logic    │  (pure functions, value objects, entity rules)
+     └──────────────────┘
 ```
 
-**Rules:**
-- System tests use real infrastructure (actual server, real DB, real processes) — not mocks
-- Each test is a focused scenario, not a monolith that tests everything
-- Tests tag which use cases they cover via comments or metadata
-- A use case without system test coverage is **not verified as implemented**
-- Unit tests alone are insufficient — they test classes, not flows. The wiring between components is where regressions hide.
+#### Three tiers
 
-**When to add system tests:**
-- After implementing a new use case — prove it works end-to-end
-- Before refactoring — establish behavioral baseline
-- After fixing a bug — prevent regression
+**Tier 1 — Domain tests (fast, pure logic):**
+- Test value objects, entity behavior, invariants, state machines
+- No mocks, no DI, no DB — just `new Thing()` and assert
+- Only worth writing for non-trivial domain logic. Don't test getters/setters.
 
-**Anti-pattern:** "247 unit tests passing" while the actual user flow returns empty responses because a notification handler was silently dropping messages.
+**Tier 2 — Integration tests (bulk of tests, in-memory):**
+- Test real behavior through the API/tool surface with real DB (in-memory) and mocked external environment
+- Use `WebApplicationFactory` or equivalent — real HTTP, real DI, real DB, mocked processes
+- Organize by surface area (API endpoints, MCP tools, persistence queries), not by source code structure
+- These catch the wiring bugs that unit tests miss: wrong DI registration, missing middleware, broken serialization, FK constraint violations
+
+**Tier 3 — Acceptance tests (few, real stack, UC-driven):**
+- Test complete use cases against the real system — real server, real processes, real infrastructure
+- Each test maps to one or more use cases by name (e.g., `UC-02: Onboard Team`)
+- Use Aspire `DistributedApplicationTestingBuilder`, Testcontainers, or scripted scenarios against a running server
+- A use case without acceptance test coverage is **not verified as implemented**
+- Run in CI as a separate stage (slower, may need Docker or real services)
+
+**UI tests (optional tier, browser-based):**
+- Playwright or similar — tests the portal/frontend through a real browser
+- Separate project with its own dependencies
+- Run nightly or pre-release, not on every commit
+
+#### Project structure (separate projects per tier)
+
+```
+tests/
+├── {Project}.Tests/                ← Tier 1 + 2 (fast, in-memory)
+│   ├── Domain/                     pure entity/value object logic
+│   ├── Api/                        HTTP endpoint integration
+│   ├── Mcp/                        MCP tool integration
+│   ├── Persistence/                DB query/config integration
+│   └── Helpers/                    shared factories, builders
+├── {Project}.AcceptanceTests/      ← Tier 3 (real stack, UC-driven)
+└── {Project}.Portal.UITests/       ← Playwright (future)
+```
+
+`dotnet test` at solution level runs everything. Individual projects can be targeted for speed:
+```bash
+dotnet test                                    # all tiers
+dotnet test tests/{Project}.Tests/             # fast tests only
+dotnet test tests/{Project}.AcceptanceTests/   # UC scenarios only
+```
+
+#### Rules
+
+- **Integration tests are the default.** When adding a new test, write an integration test unless the behavior is pure domain logic with no dependencies.
+- **Don't test mocks.** If a test mocks 3 dependencies and asserts the mock was called, it's testing the mock setup, not behavior. Write an integration test instead.
+- **Organize tests by what they test, not by source structure.** Don't mirror `src/Adapters/Api/` in your test tree. Group by surface: Api/, Mcp/, Persistence/.
+- **Each acceptance test names the UCs it covers** via comments, traits, or test class name.
+- **A use case is not done until it has acceptance test coverage.** Unit + integration tests prove the code works in isolation. Acceptance tests prove the feature works.
+
+#### When to write which
+
+| Event | Write |
+|---|---|
+| New domain entity/value object with invariants | Domain test |
+| New API endpoint or MCP tool | Integration test |
+| New use case implemented | Integration test + acceptance test |
+| Bug fix | Integration test reproducing the bug |
+| Refactoring | Verify existing tests pass before AND after |
+| UI feature | UI test (Playwright) |
+
+#### Anti-patterns
+
+- **"277 unit tests passing"** while the actual user flow returns empty responses because a notification handler was silently dropping messages. Integration tests catch this.
+- **Testing mocks instead of behavior:** `verify(mock.Save(any()))` tells you nothing about whether Save actually works. Test through the API.
+- **Monolith acceptance tests:** One 500-line test that sets up everything, tests everything, and is impossible to debug when it fails. Keep scenarios focused.
 
 ## Work Package Planning
 
