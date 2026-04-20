@@ -115,6 +115,34 @@ Refactoring (extracting classes, renaming, restructuring) is the most common sou
 
 **Anti-pattern:** Refactoring a God Object into 3 clean classes and losing the retry-on-failure path because it lived in a catch block that wasn't migrated.
 
+### 9. Use Case Level System Tests
+
+Unit tests verify individual classes. System/E2E tests verify that **use cases actually work end-to-end**. Without system tests, a project can have 200+ passing unit tests while core user flows are broken.
+
+**Structure:** Each system test exercises a real user scenario that may span multiple use cases:
+
+```
+tests/e2e/
+├── test-team-lifecycle.js     (create → prompt → pause → resume)
+├── test-peer-messaging.js     (two teams communicate)
+├── test-session-recovery.js   (prompt → restart → prompt again)
+├── test-setup-guard.js        (operations before setup → error)
+```
+
+**Rules:**
+- System tests use real infrastructure (actual server, real DB, real processes) — not mocks
+- Each test is a focused scenario, not a monolith that tests everything
+- Tests tag which use cases they cover via comments or metadata
+- A use case without system test coverage is **not verified as implemented**
+- Unit tests alone are insufficient — they test classes, not flows. The wiring between components is where regressions hide.
+
+**When to add system tests:**
+- After implementing a new use case — prove it works end-to-end
+- Before refactoring — establish behavioral baseline
+- After fixing a bug — prevent regression
+
+**Anti-pattern:** "247 unit tests passing" while the actual user flow returns empty responses because a notification handler was silently dropping messages.
+
 ## Work Package Planning
 
 When a code review or task produces many findings, group them into work packages:
