@@ -16,12 +16,23 @@ Provide procedural knowledge for coordinating AI agent teams following strict so
 
 Every work package MUST use a dedicated feature branch created from the current mainline. Never allow two agents to share a branch. Never allow an agent to work directly on main.
 
-**Pre-launch checklist:**
-- Confirm the branch name is unique and descriptive (`feature/{topic}`)
-- Confirm the agent's prompt includes `git checkout main && git pull && git checkout -b feature/{name}`
-- Confirm no other agent is targeting the same branch
+**Use git worktrees for parallel agents.** Each agent gets its own worktree directory — no shared working tree, no checkout conflicts, no accidental cross-branch commits:
 
-**Why this matters:** When agents share branches, commits from one task contaminate the other. Reverting becomes impossible without cherry-pick surgery. Review scope becomes unclear.
+```bash
+# Coordinator creates worktree before dispatching
+git worktree add .worktrees/{branch-name} -b feature/{branch-name}
+
+# Agent works in .worktrees/{branch-name}/ — NOT the main checkout
+# Main working tree stays on main, untouched
+```
+
+**Pre-launch checklist:**
+- Create the worktree: `git worktree add .worktrees/{name} -b feature/{name}`
+- Agent prompt specifies `cd {repo}/.worktrees/{name}` as its working directory
+- Confirm no other agent is targeting the same worktree
+- After merge: `git worktree remove .worktrees/{name}`
+
+**Why worktrees over checkout:** When multiple agents share one working tree and run `git checkout`, they clobber each other's state. Worktrees give each agent an isolated filesystem view of its branch. This eliminates the entire class of "committed to wrong branch" bugs.
 
 ### 2. Scope Boundaries in Every Dispatch
 
