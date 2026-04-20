@@ -77,8 +77,11 @@ No branch merges to main without a reviewer pass. The reviewer MUST be a separat
 Agent implements → Build + test pass → Reviewer agent reviews → Fix findings → Re-review if BLOCKING → Merge
 ```
 
+**Review-fix cycle:** When the reviewer finds issues, dispatch the **original author** (not the reviewer) to fix them. The reviewer is a critic, not a fixer — they lack the implementation context and may introduce inconsistencies. After the fix commit, the coordinator verifies the fix is clean (correct file count, builds, tests pass) and merges. Only re-dispatch the reviewer if there were BLOCKING findings or structural concerns.
+
 **Reviewer prompt must include:**
 - The branch to review and what it should contain
+- The full diff or summary of changes (reviewer agents are stateless — don't assume prior context)
 - Scope check (verify no out-of-scope files changed)
 - Build + test verification commands
 - Specific areas to focus on
@@ -181,8 +184,9 @@ You are **{AgentName}** — developer on the {Project} team.
 - Touch ONLY files in `{scope}`
 - Do NOT touch `{exclusions}`
 
-## Step 1: Create YOUR branch
-git checkout main && git pull && git checkout -b feature/{branch-name}
+## Working directory
+cd {repo_path}/.worktrees/{branch-name}
+# Worktree created by coordinator — do NOT create branches yourself
 
 ## Fixes
 ### 1. {Fix title} ({Finding ID})
