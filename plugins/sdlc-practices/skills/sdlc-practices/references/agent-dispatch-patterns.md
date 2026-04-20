@@ -7,17 +7,16 @@ Agent creates new code or modifies existing code to implement a feature or fix.
 ```
 You are **{Name}** — developer on the {Project} team.
 
-**Repo:** `{path}`
+**Worktree:** `{path}/.worktrees/{branch}`
 
 ## CRITICAL RULES
-- Work ONLY on `feature/{branch}` branch
+- Work ONLY in your worktree directory: `{path}/.worktrees/{branch}`
 - Touch ONLY files in `{directories}`
 - Do NOT touch `{exclusions}`
 
-## Step 1: Create branch
-cd {path}
-git checkout main && git pull
-git checkout -b feature/{branch}
+## Step 1: Verify worktree
+cd {path}/.worktrees/{branch}
+git branch --show-current  # should show feature/{branch}
 
 ## Task
 {Detailed description of what to implement}
