@@ -202,6 +202,90 @@ dotnet test tests/{Project}.AcceptanceTests/   # UC scenarios only
 - **Testing mocks instead of behavior:** `verify(mock.Save(any()))` tells you nothing about whether Save actually works. Test through the API.
 - **Monolith acceptance tests:** One 500-line test that sets up everything, tests everything, and is impossible to debug when it fails. Keep scenarios focused.
 
+#### Alternative testing approaches
+
+The Trophy model is one of several valid approaches. Choose based on your project's characteristics.
+
+**Test Pyramid (Martin Fowler / Google)**
+```
+        E2E       (few)
+     ┌────────┐
+     │ Integ. │   (some)
+   ┌─┴────────┴─┐
+   │    Unit     │ (many)
+   └─────────────┘
+```
+- Most tests are unit tests, fewest are E2E
+- Best for: **library code, complex algorithms, domain-heavy systems** where business logic is deep and dependencies are thin
+- Weakness: over-mocking in service layers creates tests that pass while the real wiring is broken
+
+**Testing Trophy (Kent C. Dodds)**
+```
+        E2E (few)
+    ┌─────────────┐
+    │ Integration  │  ← Most tests here
+    ├─────────────┤
+    │   Static    │  (types, linting)
+    └─────────────┘
+```
+- Integration tests dominate; unit tests only for complex pure logic
+- Best for: **API services, web apps, tool-driven systems** where value is in the wiring between components
+- Weakness: slower test suite than pyramid; harder to pinpoint failures to a single unit
+
+**Testing Honeycomb (Spotify)**
+```
+    ┌── E2E ──┐   (few)
+    │ Integr. │   ← Bulk
+    └─ Unit ──┘   (few)
+```
+- Similar to Trophy but explicitly de-emphasizes unit tests
+- Best for: **microservices** where each service is small and the contract between services matters more than internal logic
+- Weakness: requires good contract/integration test infrastructure
+
+**Testing Diamond (growing middle)**
+```
+      E2E (few)
+   ┌──────────┐
+   │ Integr.  │  ← Wide
+   └──────────┘
+    Unit (few)
+```
+- Emerged from teams adopting Testcontainers and WebApplicationFactory — the integration tier naturally grows
+- Best for: **modern web APIs with good test infrastructure** (WebAppFactory, Docker, Aspire)
+- This is what most .NET Aspire projects naturally evolve toward
+
+**Fast/Slow split (pragmatic)**
+```
+tests/
+├── Fast/    ← Everything in-memory (unit + integration)
+└── Slow/    ← Everything needing real infra (acceptance, UI, Docker)
+```
+- Ignores the unit/integration distinction entirely — groups by execution speed
+- Best for: **CI optimization** — run Fast/ on every commit, Slow/ nightly
+- Weakness: loses the semantic meaning of test tiers; harder to reason about coverage gaps
+
+#### Choosing a testing approach
+
+Use these heuristics to pick the right model for a project:
+
+| If your project has... | Then use... | Because... |
+|---|---|---|
+| Rich domain logic, few external deps | **Pyramid** | Unit tests give high ROI for pure logic |
+| Thin domain, many API/tool surfaces | **Trophy/Diamond** | Integration tests catch wiring bugs that unit tests miss |
+| Many microservices, service-to-service contracts | **Honeycomb** | Contract boundaries matter more than internals |
+| Mixed — some complex domain, some API glue | **Trophy + domain unit tests** | Integration-first, but carve out domain tests for complex invariants |
+| Tight CI budget, slow test infra | **Fast/Slow split** | Optimize for developer feedback speed |
+| Frontend-heavy (SPA, portal) | **Trophy + Playwright tier** | Integration for API, Playwright for UI flows |
+
+**Decision flowchart:**
+1. Where do bugs actually happen? → Write that tier of test
+2. Is the domain complex enough to justify isolated unit tests? → Yes: add Domain tier. No: skip it.
+3. Can you run real infra in tests (Docker, in-memory DB)? → Yes: integration-first. No: more unit tests + contract tests.
+4. Do you have a UI? → Add Playwright/Cypress as a separate slow tier.
+5. Is CI speed critical? → Split fast/slow regardless of test type.
+
+**The right answer can evolve.** Start with what matches your project today. As the codebase grows, the testing strategy should be revisited — a project that starts as Trophy may grow enough domain complexity to justify Pyramid-style unit testing for specific modules.
+
 ## Work Package Planning
 
 When a code review or task produces many findings, group them into work packages:
