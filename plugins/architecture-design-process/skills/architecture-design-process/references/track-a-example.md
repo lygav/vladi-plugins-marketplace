@@ -54,14 +54,28 @@ to design a federation server for orchestrating AI squads.
   aggregates, ports & adapters, clean architecture.
 
 ### Key Decisions Made
-1. .NET Aspire for service hosting (OTel dashboard included)
-2. C# as language (no C# ACP SDK — must build thin JSON-RPC client)
+1. Single self-contained .NET binary (no Aspire — simpler for local daemon)
+2. C# as language (no C# ACP SDK — must build thin JSON-RPC client via StreamJsonRpc)
 3. SQLite for local state (WAL mode)
-4. Docker for distribution (self-contained CLI binary + container images)
+4. No Docker for core — host-native binary. Docker only for optional OTel dashboard.
 5. Federation creation is a server-level operation (not through existing federation)
 6. OTel always on — never a question
-7. Global config (copilot command) asked once, per-federation config (mission,
-   name, Teams) asked per federation
+7. Global config (copilot command) asked once, per-federation config per federation
+8. Five communication mechanisms: ACP prompt (down), MCP tools (up — reliable via
+   constrained decoding), session/update (observe), request_permission (policy), filesystem (data)
+9. MCP tools for control plane communication (not text conventions) — model's native
+   tool_calls channel provides near-perfect reliability via grammar-constrained decoding
+
+### Key Insight: Communication Model
+The hardest design problem was session→coordinator communication. Explored:
+- Custom ACP extension methods (`_federation/*`) — blocked: can't add methods to Copilot's ACP runtime
+- Text conventions (`:::tag` blocks in output stream) — fragile: relies on LLM text compliance
+- MCP tools — winner: uses model's native tool_calls with constrained decoding (>99% reliability)
+
+The key realization: MCP tools ARE the right mechanism because they piggyback on the model API's
+structured tool-calling channel, which uses grammar-constrained token sampling. The LLM doesn't
+"write JSON" — the decoding engine constrains output tokens to match the schema. This makes
+MCP tool calls structurally reliable, not just "usually correct."
 
 ### What Led to Track B
 During design, questioned whether the hierarchical model (leadership team
@@ -72,4 +86,4 @@ During design, questioned whether the hierarchical model (leadership team
 - Leadership's value (triage, review) could be reproduced with simpler
   patterns (server-side serialization, peer review)
 - Proposed flat model: peer teams, logical project grouping, direct
-  user↔team communication, 8 MCP tools instead of 12 message types
+  user↔team communication, 6 MCP tools instead of 12 message types
