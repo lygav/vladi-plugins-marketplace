@@ -145,17 +145,26 @@ derived from behavior, not the other way around.
 Consistent across documents. Every use case traceable to design
 components. No implementation details.
 
-### Phase 5: Review Cycles
+### Phase 5: Final Review Gate
 
-After each phase, critical review checking for:
-- **Consistency** — do documents agree on terminology, patterns, contracts?
-- **Completeness** — are all use cases covered? any gaps?
-- **Feasibility** — can this actually be built? any blocking risks?
-- **Implementation leaks** — did design details creep into use cases, or
-  implementation details creep into design?
+Three specialized reviews run in parallel after all design phases
+complete. This is the last gate before implementation.
 
-Use Opus-level reviews for critical passes. Fix before moving to the
-next phase.
+**Review 1 — Cross-layer consistency:** Do design docs agree across
+layers? L1→L2→L3→L4 contract compliance, domain events, terminology.
+
+**Review 2 — Use case traceability:** Does the design cover every use
+case step, alternative path, and state change? Coverage matrix.
+
+**Review 3 — Technical feasibility:** Can this actually be built?
+Protocol support verified against real docs, SDK/library gaps
+identified, scalability bottlenecks assessed, top 5 risks ranked.
+
+Run all three in parallel with the highest-quality model. Collect
+findings, classify severity, decide go/no-go. Fix BLOCKING findings
+and run spikes (verification experiments) before starting implementation.
+
+See `references/06-final-review.md` for full procedure.
 
 ### Phase 6: Iterate
 
@@ -254,6 +263,12 @@ and common mistakes. Consult these during execution:
   the design covers all behavior. Six tests: walk-through, alternative
   paths, cross-component consistency, invariant verification,
   completeness matrix, state transition completeness.
+
+### Final Review and Feasibility Gate
+- **`references/06-final-review.md`** — The last quality gate before
+  implementation. Three parallel specialized reviews: cross-layer
+  consistency, use case traceability, technical feasibility. Go/no-go
+  decision criteria, spike identification, and post-gate process.
 
 ### Real-World Example
 - **`references/track-a-example.md`** — Full walkthrough of this process
