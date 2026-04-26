@@ -56,7 +56,7 @@ Report as BLOCKING/HIGH/MINOR or "APPROVED — no blockers found."
 - Performance regressions (N+1 queries, unbounded loops)
 - Incorrect abstractions that will spread
 
-### MINOR — Nice to have, can merge without
+### MINOR — Nice to have, can merge without but prefer fixing in most cases
 - Naming improvements
 - Extra blank lines or formatting
 - Redundant comments
