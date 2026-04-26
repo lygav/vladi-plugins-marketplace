@@ -82,6 +82,7 @@ Agent implements → Build + test pass → Reviewer agent reviews → Fix findin
 **Reviewer prompt must include:**
 - The branch to review and what it should contain
 - The full diff or summary of changes (reviewer agents are stateless — don't assume prior context)
+- **Explicit worktree path** as the working directory (agents default to CWD, which may be a different repo entirely — e.g., plugin_developer vs squad-federation-server)
 - Scope check (verify no out-of-scope files changed)
 - Build + test verification commands
 - Specific areas to focus on
