@@ -173,6 +173,47 @@ Learnings from later phases feed back into earlier ones:
 - Brainstorming new ideas may invalidate existing designs
 - Competing approaches can be explored on separate branches
 
+## UC Lifecycle Management
+
+Use cases are living artifacts. As the system evolves, use cases must be retired, added, and refined to remain the source of truth for system behavior.
+
+### Retiring Use Cases
+
+When a feature is sunset or replaced:
+1. Mark the UC as **Retired** (status field in frontmatter or section heading)
+2. Keep it in the repository (historical record, auditable)
+3. Link to the UC that replaced it (if applicable)
+4. Remove from test coverage — acceptance tests for retired UCs should be removed or skipped
+
+**Example:**
+```markdown
+## UC-07: Legacy Single Sign-On (RETIRED → replaced by UC-12: OAuth 2.0 Flow)
+
+**Status:** Retired (2025-01-15)
+**Why:** Moved to OAuth 2.0 for better token management and third-party integrations.
+**Replaced by:** UC-12
+
+[Original UC content preserved for audit trail]
+```
+
+### Adding Use Cases
+
+New UCs follow the same structure and discipline as initial UCs:
+1. Describe pure behavior (no implementation assumptions)
+2. Include happy path, error paths, and edge cases
+3. Map to domain concepts using DDD language (ubiquitous language)
+4. Require acceptance test coverage before implementation
+5. Link to design layer that implements it (if design phase applies)
+
+### DDD Language Discipline in UCs
+
+UCs bridge business requirements and implementation. Use the **ubiquitous language** consistently:
+- **Don't drift:** If the domain calls it "Team," never call it "Group" or "Squad" in UCs
+- **Don't leak implementation:** UCs describe behavior, not databases, caches, or message queues
+- **Don't invent:** Reuse existing domain terms. If a term is new, add it to the glossary and use it consistently
+
+**Anti-pattern:** UC mentions "store in Redis" or "call the API" — these are implementation details. UCs describe "the system retains X" or "the system retrieves Y."
+
 ## Anti-Patterns
 
 - **Designing before understanding behavior** — write use cases first
