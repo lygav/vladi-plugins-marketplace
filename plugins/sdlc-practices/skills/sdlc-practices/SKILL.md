@@ -1,7 +1,7 @@
 ---
 name: sdlc-practices
 description: This skill should be used when the user asks to "plan work", "dispatch agents", "create a feature branch", "launch parallel tasks", "review code", "merge branches", "break down a task", "run code review", "design to implementation", "implementation checkpoint", "verify before implementing", "scout codebase", "DDD language", "ubiquitous language", or when coordinating multi-agent development workflows. Provides battle-tested SDLC rules for AI agent team coordination including branch isolation, task decomposition, review gates, and dispatch patterns.
-version: 0.3.0
+version: 0.4.0
 ---
 
 # SDLC Practices for AI Agent Teams
@@ -286,6 +286,44 @@ Use these heuristics to pick the right model for a project:
 5. Is CI speed critical? → Split fast/slow regardless of test type.
 
 **The right answer can evolve.** Start with what matches your project today. As the codebase grows, the testing strategy should be revisited — a project that starts as Trophy may grow enough domain complexity to justify Pyramid-style unit testing for specific modules.
+
+### 10. Use Constants for Domain Identifiers
+
+Hard-coded string identifiers for domain concepts (status enums, message types, workflow state names, role names) scatter magic strings across the codebase and make refactoring dangerous. Any typo breaks silently at runtime. Domain identifiers MUST be constants defined in a single, well-known location.
+
+**Pattern:**
+
+```csharp
+// Domain Constants
+public static class TeamStatus
+{
+    public const string Active = "active";
+    public const string Paused = "paused";
+    public const string Retired = "retired";
+}
+
+public static class WorkflowStates
+{
+    public const string Initialized = "initialized";
+    public const string InProgress = "in_progress";
+    public const string Completed = "completed";
+}
+
+// Usage — always via constant, never string literals
+if (team.Status == TeamStatus.Active)
+{
+    // ...
+}
+```
+
+**Benefits:**
+- **IDE support** — IntelliSense shows available identifiers
+- **Refactor safety** — rename one constant, compile error catches all usages
+- **Consistency** — no spelling variations ("active" vs "Active" vs "ACTIVE")
+- **Testability** — tests can use `TeamStatus.Active` instead of magic strings
+- **Documentation** — the constant location serves as a single source of truth
+
+**Anti-pattern:** Comparing against string literals scattered in business logic, tests, and data access layers. This makes it impossible to know which variants exist or if a string is valid.
 
 ## Design-to-Implementation Bridge
 
