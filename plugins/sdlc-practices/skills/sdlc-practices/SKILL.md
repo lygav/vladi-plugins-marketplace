@@ -1,7 +1,7 @@
 ---
 name: sdlc-practices
 description: This skill should be used when the user asks to "plan work", "dispatch agents", "create a feature branch", "launch parallel tasks", "review code", "merge branches", "break down a task", "run code review", "design to implementation", "implementation checkpoint", "verify before implementing", "scout codebase", "DDD language", "ubiquitous language", or when coordinating multi-agent development workflows. Provides battle-tested SDLC rules for AI agent team coordination including branch isolation, task decomposition, review gates, and dispatch patterns.
-version: 0.4.0
+version: 0.5.0
 ---
 
 # SDLC Practices for AI Agent Teams
@@ -324,6 +324,50 @@ if (team.Status == TeamStatus.Active)
 - **Documentation** — the constant location serves as a single source of truth
 
 **Anti-pattern:** Comparing against string literals scattered in business logic, tests, and data access layers. This makes it impossible to know which variants exist or if a string is valid.
+
+### 11. Thin Adapters — Parse, Delegate, Format
+
+Adapters (REST endpoints, MCP tools) must NEVER contain business logic, DB access, or multi-step orchestration. Each handler: parse transport input → make ONE application service call → format response.
+
+**Why:** When the same operation exists in multiple adapters (REST + MCP), business logic diverges silently. Real example: REST Pause/Retire didn't destroy sessions, MCP did — creating zombie sessions.
+
+**Pattern:**
+```csharp
+// GOOD: thin adapter — one service call
+private static async Task<IResult> PauseTeam(Guid teamId, TeamService teams, CancellationToken ct)
+{
+    var result = await teams.PauseAsync(teamId, ct);
+    return result.Success ? Results.Ok(result.Value) : result.ToHttpResult();
+}
+
+// BAD: fat adapter — DB access, orchestration, business rules
+private static async Task<IResult> PauseTeam(Guid teamId, AppDbContext db, ISessionPort sessionPort)
+{
+    var team = await db.Teams.FindAsync(teamId);
+    if (team.Status != Ready) return Results.BadRequest(...);
+    team.Pause();
+    await db.SaveChangesAsync();  // Missing session destroy!
+    return Results.Ok(new { ... });
+}
+```
+
+**Verification:** `grep -n "AppDbContext" Adapters/` should return 0 hits. Every adapter method should have exactly one `await service.*Async()` call.
+
+### 12. Test-First for Regressions
+
+When a review finds a bug or regression, ALWAYS write a failing test first, then fix the code. Don't fix and hope — prove the regression exists, then prove it's fixed.
+
+**Why:** Prevents the same class of bug from recurring. Real example: service extraction introduced 4 regressions (B1-B4) — tests caught them permanently.
+
+### 13. Don't Mask Failures with Skip Guards
+
+When tests fail, diagnose the root cause. Don't add skip guards that silence the failure. Real example: acceptance tests failed after migration squash — a skip guard hid the real bug (stale SQLite DB). Removing the guard and fixing the DB was the correct approach.
+
+### 14. Move Initialization to Write-Time
+
+Expensive initialization (process start, session creation, model selection) should happen at creation/setup time, not at first-use time. Users tolerate slow setup but not slow first interaction.
+
+**Pattern:** Pre-warm sessions at team onboarding (latency-tolerant) so prompts always hit the fast path. Failure to warm up is non-fatal — first prompt falls back to the slow path.
 
 ## Design-to-Implementation Bridge
 
